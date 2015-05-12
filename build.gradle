@@ -1,0 +1,44 @@
+apply plugin: 'wrapper'
+
+// Needed for shadow.
+buildscript {
+  repositories {
+    jcenter()
+  }
+  dependencies {
+    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.0'
+  }
+}
+
+allprojects {
+  apply plugin: 'java'
+  apply plugin: 'idea'
+  apply plugin: 'com.github.johnrengelman.shadow'
+
+  repositories {
+    jcenter()
+    maven { url "http://repo.typesafe.com/typesafe/releases/" }
+    maven { url 'http://projectlombok.org/mavenrepo' }
+  }
+
+  configurations {
+    provided
+  }
+
+  sourceSets {
+      main {
+          compileClasspath += configurations.provided
+      }
+      test {
+          compileClasspath += configurations.provided
+          runtimeClasspath += configurations.provided
+      }
+  }
+
+  compileJava {
+    sourceCompatibility = '1.7'
+    targetCompatibility = '1.7'
+    options.setDeprecation true
+    options.encoding = 'UTF-8'
+  }
+}
