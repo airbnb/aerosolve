@@ -1,0 +1,53 @@
+apply plugin: "java"
+
+dependencies {
+  compile 'org.apache.thrift:libthrift:0.9.1'
+}
+
+def genJavaDir = new File("${->buildDir}/gen-java")
+
+task genThrift << {
+  if (genJavaDir.isDirectory()) {
+    genJavaDir.deleteDir()
+  }
+  mkdir(genJavaDir)
+
+  def thriftFiles = fileTree(dir: "$projectDir/src/main/thrift/").matching { include '*.thrift' }
+
+  thriftFiles.each() { File file ->
+    exec {
+      executable = 'thrift'
+      args = ['--gen', 'java', '-o', "${->buildDir}/", file]
+    }
+  }
+}
+
+genThrift.doFirst {
+  def thrift_installed = "which thrift".execute().waitFor() == 0
+  if (thrift_installed) {
+    logger.debug "thrift command found"
+  } else {
+    throw new GradleException('The thrift command cannot be found. Check $PATH or install thrift.\n' +
+                              'Try `brew install thrift`, or see http://thrift.apache.org/docs/install/')
+  }
+}
+
+sourceSets {
+  main {
+    java {
+      srcDir genJavaDir
+    }
+  }
+}
+
+compileJava.dependsOn genThrift
+
+idea.module {
+  def build = file("${->buildDir}")
+  excludeDirs -= build
+  build.listFiles().each { f ->
+    if (f.name != "gen-java") {
+      excludeDirs += f
+    }
+  }
+}

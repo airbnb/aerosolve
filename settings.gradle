@@ -1,0 +1,29 @@
+// This searches for `build.gradle` files in all reasonable subdirectories,
+// and, when one is found, adds the path as a project path.
+
+import static groovy.io.FileVisitResult.*
+import static groovy.io.FileType.*
+
+def skipDirs = ~/^(build|\..*|src|out|buildSrc)/
+def preDir = {
+  if (skipDirs.matcher(it.name).matches()) {
+    return SKIP_SUBTREE
+  }
+}
+
+def getProjectName(String dir) {
+  return dir.minus(rootDir.toString()).substring(1).replaceAll("/", ":").replaceAll("\\\\", ":")
+}
+
+def disabledProjects = ["projects:pricing"] as Set
+
+rootDir.traverse(type: DIRECTORIES, preDir: preDir) { dir ->
+  def dstr = dir.toString()
+  if ((!skipDirs.matcher(dir.name)) &&
+      new File(dstr + "/build.gradle").exists()) {
+    def projectName = getProjectName(dstr)
+    if (!disabledProjects.contains(projectName)) {
+      include projectName
+    }
+  }
+}
