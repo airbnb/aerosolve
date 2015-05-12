@@ -1,6 +1,38 @@
 apply plugin: "java"
 apply plugin: "scala"
 
+ext.publish = false
+bintray {
+  user = bintray_user
+  key = bintray_key
+  configurations = ['published', 'archives']
+  //publications = ['published']
+  //filesSpec {
+  //  from 'files'
+  //  into 'standalone_files/level1'
+  // rename '(.+)\\.(.+)', '$1-suffix.$2'
+  //}
+  dryRun = bintray_dryrun
+  publish = project.publish
+  pkg {
+    repo = 'aerosolve'
+    userOrg = 'airbnb'
+    name = 'aerosolve-training'
+    desc = 'Aerosolve machine learning library training module'
+    websiteUrl = 'https://github.com/airbnb/aerosolve'
+    issueTrackerUrl = 'https://github.com/airbnb/aerosolve/issues'
+    vcsUrl = 'https://github.com/aerosolve/aerosolve.git'
+    licenses = ['Apache-2.0']
+    labels = ['machine learning', 'spark', 'scala']
+    attributes= ['plat': ['linux', 'osx']]
+    publicDownloadNumbers = true
+    version {
+      name = currentVersion
+      desc = 'Aerosolve training library'
+    }
+  }
+}
+
 dependencies {
   compile project(':core')
   compile 'com.fasterxml.jackson.module:jackson-module-scala_2.10:2.4.2'
