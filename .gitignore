@@ -1,12 +1,40 @@
-*.class
+build/
+**/build/
+classes
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Gradle
+gradlew
+gradlew.bat
+.gradle/
+**/.gradle/
+**/gradlew
+**/gradlew.bat
+**/.gradletasknamecache
 
-# Package Files #
-*.jar
-*.war
-*.ear
+# VIM
+*.swp
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
+# Eclipse
+workbench.xmi
+
+.idea/
+*.iml
+*.ipr
+*.iws
+**/*.iml
+out/
+.classpath
+**/.classpath
+.project
+**/.project
+.settings/
+**/.settings/
+# Ignore OS X Desktop Services store
+.DS_Store
+**/.DS_Store
+.tddium*
+**/*~
+
+# NetBeans
+.nb-gradle/
+.solano*
