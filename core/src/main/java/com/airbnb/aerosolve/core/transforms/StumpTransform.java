@@ -12,7 +12,8 @@ import java.util.Map.Entry;
  * Applies boosted stump transform to float features and places them in string feature output.
  * The format for a stump feature family, feature name, threshold, descriptive name
  * You can obtain the stumps from a BoostedStump model in spark shell using
- * val model = sc.textFile(name).map(Util.decodeModel).take(10).map(x => "%s,%s,%f".format(x.featureFamily,x.featureName,x.threshold)).foreach(println)
+ * val model = sc.textFile(name).map(Util.decodeModel).take(10).map(x =&gt;
+ *  "%s,%s,%f".format(x.featureFamily,x.featureName,x.threshold)).foreach(println)
  */
 public class StumpTransform extends Transform {
   private String outputName;
