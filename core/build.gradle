@@ -2,7 +2,6 @@ apply from: "$rootDir/thrift-cli.gradle"
 apply plugin: "java"
 apply plugin: 'com.jfrog.bintray'
 
-ext.publish = false
 bintray {
   user = bintray_user
   key = bintray_key
@@ -13,7 +12,6 @@ bintray {
   //  into 'standalone_files/level1'
   // rename '(.+)\\.(.+)', '$1-suffix.$2'
   //}
-  dryRun = bintray_dryrun
   publish = project.publish
   pkg {
     repo = 'aerosolve'
