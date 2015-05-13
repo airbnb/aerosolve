@@ -20,7 +20,7 @@ bintray {
     desc = 'Aerosolve machine learning library training module'
     websiteUrl = 'https://github.com/airbnb/aerosolve'
     issueTrackerUrl = 'https://github.com/airbnb/aerosolve/issues'
-    vcsUrl = 'https://github.com/aerosolve/aerosolve.git'
+    vcsUrl = 'https://github.com/airbnb/aerosolve.git'
     licenses = ['Apache-2.0']
     labels = ['machine learning', 'spark', 'scala']
     attributes= ['plat': ['linux', 'osx']]
