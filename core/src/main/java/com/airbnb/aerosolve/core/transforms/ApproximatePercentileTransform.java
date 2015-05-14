@@ -10,27 +10,27 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Given a fieldName1, low, middle, upper key
- * Remaps fieldName2's key2 value such that low = 0, mid =0.5, upper = 1.0 thus approximating
- * the percentile using piecewise linear interpolation.
+ * Given a fieldName1, low, upper key
+ * Remaps fieldName2's key2 value such that low = 0, upper = 1.0 thus approximating
+ * the percentile using linear interpolation.
  */
 public class ApproximatePercentileTransform extends Transform {
   private String fieldName1;
   private String fieldName2;
   private String lowKey;
-  private String midKey;
   private String upperKey;
   private String key2;
   private String outputName;
   private String outputKey;
+  private double minDiff;
 
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     fieldName2 = config.getString(key + ".field2");
     lowKey = config.getString(key + ".low");
-    midKey = config.getString(key + ".mid");
     upperKey = config.getString(key + ".upper");
+    minDiff = config.getDouble(key + ".minDiff");
     key2 =  config.getString(key + ".key2");
     outputName = config.getString(key + ".output");
     outputKey = config.getString(key + ".outputKey");
@@ -60,15 +60,15 @@ public class ApproximatePercentileTransform extends Transform {
     }
 
     Double low = feature1.get(lowKey);
-    Double mid = feature1.get(midKey);
     Double upper = feature1.get(upperKey);
     
-    if (low == null || mid == null || upper == null) {
+    if (low == null || upper == null) {
       return;
     }
 
-    // Abstain if the percentiles are co-linear
-    if (low >= mid || low >= upper || mid >= upper) {
+    // Abstain if the percentiles are too close.
+    double denom = upper - low;
+    if (denom < minDiff) {
       return;
     }
 
@@ -80,18 +80,12 @@ public class ApproximatePercentileTransform extends Transform {
     }
 
     Double outVal = 0.0;
-    if (val < low) {
+    if (val <= low) {
       outVal = 0.0;
-    } else if (val < mid) {
-      // Interpolate to a value between 0.0 and 0.5
-      double denom = mid - low;
-      outVal = 0.5 * (val - low) / denom;
-    } else if (val < upper) {
-      // Interpolate to a value between 0.5 and 1.0
-      double denom = upper - mid;
-      outVal = 0.5 + 0.5 * (val - mid) / denom;
-    } else {
+    } else if (val >= upper) {
       outVal = 1.0;
+    } else {
+      outVal = (val - low) / denom;
     }
 
     output.put(outputKey, outVal);
