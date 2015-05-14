@@ -37,6 +37,19 @@ public class LinearModelTest {
     return featureVector;
   }
 
+  public LinearModel makeLinearModel() {
+    LinearModel model = new LinearModel();
+    Map<String, Map<String, Float>> weights = new HashMap<>();
+    Map<String, Float> inner = new HashMap<>();
+    weights.put("string_feature", inner);
+    inner.put("aaa", 0.5f);
+    inner.put("bbb", 0.25f);
+    model.setWeights(weights);
+    model.setOffset(0.5f);
+    model.setSlope(1.5f);
+    return model;
+  }
+
   @Test
   public void testScoreEmptyFeature() {
     FeatureVector featureVector = new FeatureVector();
@@ -94,6 +107,19 @@ public class LinearModelTest {
       assertTrue(score < 0.91f);
     } catch (IOException e) {
       assertTrue("Could not read", false);
+    }
+  }
+
+  @Test
+  public void testSave() {
+    StringWriter strWriter = new StringWriter();
+    BufferedWriter writer = new BufferedWriter(strWriter);
+    LinearModel model = makeLinearModel();
+    try {
+      model.save(writer);
+      writer.close();
+    } catch (IOException e) {
+      assertTrue("Could not save", false);
     }
   }
 }
