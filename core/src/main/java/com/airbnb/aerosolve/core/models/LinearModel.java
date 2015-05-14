@@ -158,6 +158,25 @@ public class LinearModel extends AbstractModel {
 
   // save model
   public void save(BufferedWriter writer) throws IOException {
-    // TODO (Peng): implement save for linear model
+    ModelHeader header = new ModelHeader();
+    header.setModelType("linear");
+    header.setSlope(slope);
+    header.setOffset(offset);
+    header.setNumRecords(weights.size());
+    ModelRecord headerRec = new ModelRecord();
+    headerRec.setModelHeader(header);
+    writer.write(Util.encode(headerRec));
+    writer.newLine();
+    for (Map.Entry<String, Map<String, Float>> familyMap : weights.entrySet()) {
+      for (Map.Entry<String, Float> feature : familyMap.getValue().entrySet()) {
+        ModelRecord record = new ModelRecord();
+        record.setFeatureFamily(familyMap.getKey());
+        record.setFeatureName(feature.getKey());
+        record.setFeatureWeight(feature.getValue());
+        writer.write(Util.encode(record));
+        writer.newLine();
+      }
+    }
+    writer.flush();
   }
 }
