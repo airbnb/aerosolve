@@ -72,3 +72,5 @@ the model to borrow statistical strength from other color channels as well as pa
 We can then proceed to train the model using
 
 `sh job_runner.sh TrainModel`
+
+This step should take around 10 minutes and you can watch the progress using http://localhost:4040/stages/
