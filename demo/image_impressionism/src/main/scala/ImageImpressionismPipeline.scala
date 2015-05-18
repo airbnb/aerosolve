@@ -57,7 +57,7 @@ object ImageImpressionismPipeline {
     val modelKey = trainConfig.getString("modelKey")
     log.info("Training on %s".format(trainingDataName))
 
-    val input = sc.textFile(trainingDataName).map(Util.decodeExample)
+    val input = sc.textFile(trainingDataName).map(Util.decodeExample).filter(isTraining)
     TrainingUtils.trainAndSaveToFile(sc, input, config, modelKey)
   }
 
@@ -103,5 +103,10 @@ object ImageImpressionismPipeline {
     result.example.add(blue)
 
     return result
+  }
+
+  def isTraining(examples : Example) : Boolean = {
+    // Take the hash code mod 255 and keep the first 16 as holdout.
+    (examples.toString.hashCode % 0xFF) > 16
   }
 }
