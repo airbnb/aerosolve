@@ -84,6 +84,7 @@ object ImageImpressionismPipeline {
     val blueIntensity = Util.getOrCreateFloatFeature("$target", blue.floatFeatures)
     blueIntensity.put("", pix.b)
 
+    result.example = new util.ArrayList[FeatureVector]()
     result.example.add(red)
     result.example.add(green)
     result.example.add(blue)
