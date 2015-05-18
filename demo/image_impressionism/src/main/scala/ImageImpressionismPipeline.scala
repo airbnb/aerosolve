@@ -17,6 +17,7 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
+import org.apache.hadoop.io.compress.GzipCodec
 
 object ImageImpressionismPipeline {
   val log: Logger = LoggerFactory.getLogger("ImageImpressionismPipeline")
@@ -47,13 +48,13 @@ object ImageImpressionismPipeline {
     sc.parallelize(pixels)
       .map(pixelToExample)
       .map(Util.encode)
-      .saveAsTextFile(output)
+      .saveAsTextFile(output, classOf[GzipCodec])
   }
 
   def trainModel(sc : SparkContext, config : Config) = {
     val trainConfig = config.getConfig("train_model")
     val trainingDataName = trainConfig.getString("input")
-    val modelKey = trainConfig.get("modelKey")
+    val modelKey = trainConfig.getString("modelKey")
     log.info("Training on %s".format(trainingDataName))
 
     val input = sc.textFile(trainingDataName).map(Util.decodeExample)
@@ -82,7 +83,7 @@ object ImageImpressionismPipeline {
     val green = Util.createNewFeatureVector()
     // What channel is this example for
     val greenChannel = Util.getOrCreateStringFeature("C", green.stringFeatures)
-    greenChannel.add("Red")
+    greenChannel.add("Green")
     // Regression target for this channel
     val greenIntensity = Util.getOrCreateFloatFeature("$target", green.floatFeatures)
     greenIntensity.put("", pix.g)
@@ -90,12 +91,13 @@ object ImageImpressionismPipeline {
     val blue = Util.createNewFeatureVector()
     // What channel is this example for
     val blueChannel = Util.getOrCreateStringFeature("C", blue.stringFeatures)
-    blueChannel.add("Red")
+    blueChannel.add("Blue")
     // Regression target for this channel
     val blueIntensity = Util.getOrCreateFloatFeature("$target", blue.floatFeatures)
     blueIntensity.put("", pix.b)
 
     result.example = new util.ArrayList[FeatureVector]()
+    result.context = context
     result.example.add(red)
     result.example.add(green)
     result.example.add(blue)
