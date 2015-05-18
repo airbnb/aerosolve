@@ -7,6 +7,7 @@ import javax.imageio.ImageIO
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.training.TrainingUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
@@ -47,6 +48,16 @@ object ImageImpressionismPipeline {
       .map(pixelToExample)
       .map(Util.encode)
       .saveAsTextFile(output)
+  }
+
+  def trainModel(sc : SparkContext, config : Config) = {
+    val trainConfig = config.getConfig("train_model")
+    val trainingDataName = trainConfig.getString("input")
+    val modelKey = trainConfig.get("modelKey")
+    log.info("Training on %s".format(trainingDataName))
+
+    val input = sc.textFile(trainingDataName).map(Util.decodeExample)
+    TrainingUtils.trainAndSaveToFile(sc, input, config, modelKey)
   }
 
   // Emits three examples, one for each color channel.
