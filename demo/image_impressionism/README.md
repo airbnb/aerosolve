@@ -104,3 +104,14 @@ ModelRecord(featureFamily:C_x_QLOC, featureName:Blue^[3.0]=(900.0,1299.0), featu
 
 This tells us that the greenest pixel is at (585, 414) and the least blue pixel is at (903, 1299)
 
+We are now ready to score the model! Type in
+
+```
+sh job_runner.sh MakeImpression
+open output\impression.jpg
+```
+
+You should then see the image below which is an approximation of the image with the smallest block being 3x3 block.
+We also extrapolate the lower part of the image a bit so you can see what extrapolation does.
+
+~[impression](impression.jpg)

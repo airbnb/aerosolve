@@ -44,7 +44,7 @@ object ImageImpressionismPipeline {
       }
     }
     sc.parallelize(pixels)
-      .map(pixelToExample)
+      .map(x => pixelToExample(x, true))
       .map(Util.encode)
       .saveAsTextFile(output, classOf[GzipCodec])
   }
@@ -62,21 +62,46 @@ object ImageImpressionismPipeline {
   def makeImpression(sc : SparkContext, config : Config) = {
     val impConfig = config.getConfig("make_impression")
     val modelKey = impConfig.getString("modelKey")
+    val output = impConfig.getString("output")
+
+    val width : Int = impConfig.getInt("width")
+    val height : Int = impConfig.getInt("height")
 
     val modelName = config.getConfig(modelKey).getString("model_output")
     // Load the model
-    val model = TrainingUtils.loadScoreModel(modelName)
-    if (model == None) {
+    val modelOpt = TrainingUtils.loadScoreModel(modelName)
+    if (modelOpt == None) {
       log.error("Could not open %s".format(modelName))
       System.exit(-1)
     }
 
+    val model = modelOpt.get
+
     // Make the transformer
     val transformer = new Transformer(config, modelKey)
+
+    val outImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    log.info("Scoring model")
+    for (x <- 0 until width) {
+      for (y <- 0 until height) {
+        val pixel = Pixel(x, y, 0, 0, 0)
+        val examples = pixelToExample(pixel, false)
+        transformer.combineContextAndItems(examples)
+        val redScore = math.max(0.0, math.min(1.0, model.scoreItem(examples.example(0))))
+        val greenScore = math.max(0.0, math.min(1.0, model.scoreItem(examples.example(1))))
+        val blueScore = math.max(0.0, math.min(1.0, model.scoreItem(examples.example(2))))
+        val r : Int = (redScore * 255.0).toInt
+        val g : Int = (greenScore * 255.0).toInt
+        val b : Int = (blueScore * 255.0).toInt
+        outImage.setRGB(x, y, (r << 16) | (g << 8) | b)
+      }
+    }
+    log.info("Saving to %s".format(output))
+    ImageIO.write(outImage, "jpg", new java.io.File(output))
   }
 
   // Emits three examples, one for each color channel.
-  def pixelToExample(pix : Pixel) : Example = {
+  def pixelToExample(pix : Pixel, withLabel : Boolean) : Example = {
     val result = new Example()
 
     // This is shared data for all three channels so we put it in "context"
@@ -90,25 +115,25 @@ object ImageImpressionismPipeline {
     // What channel is this example for
     val redChannel = Util.getOrCreateStringFeature("C", red.stringFeatures)
     redChannel.add("Red")
-    // Regression target for this channel
-    val redIntensity = Util.getOrCreateFloatFeature("$target", red.floatFeatures)
-    redIntensity.put("", pix.r)
 
     val green = Util.createNewFeatureVector()
     // What channel is this example for
     val greenChannel = Util.getOrCreateStringFeature("C", green.stringFeatures)
     greenChannel.add("Green")
-    // Regression target for this channel
-    val greenIntensity = Util.getOrCreateFloatFeature("$target", green.floatFeatures)
-    greenIntensity.put("", pix.g)
 
     val blue = Util.createNewFeatureVector()
     // What channel is this example for
     val blueChannel = Util.getOrCreateStringFeature("C", blue.stringFeatures)
     blueChannel.add("Blue")
-    // Regression target for this channel
-    val blueIntensity = Util.getOrCreateFloatFeature("$target", blue.floatFeatures)
-    blueIntensity.put("", pix.b)
+
+    if (withLabel) {
+      val redIntensity = Util.getOrCreateFloatFeature("$target", red.floatFeatures)
+      redIntensity.put("", pix.r)
+      val greenIntensity = Util.getOrCreateFloatFeature("$target", green.floatFeatures)
+      greenIntensity.put("", pix.g)
+      val blueIntensity = Util.getOrCreateFloatFeature("$target", blue.floatFeatures)
+      blueIntensity.put("", pix.b)
+    }
 
     result.example = new util.ArrayList[FeatureVector]()
     result.context = context
