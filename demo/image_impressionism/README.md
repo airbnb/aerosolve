@@ -114,4 +114,4 @@ open output\impression.jpg
 You should then see the image below which is an approximation of the image with the smallest block being 3x3 block.
 We also extrapolate the lower part of the image a bit so you can see what extrapolation does.
 
-~[impression](impression.jpg)
+![impression](impression.jpg)
