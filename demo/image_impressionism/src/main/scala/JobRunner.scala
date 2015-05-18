@@ -39,6 +39,8 @@ object JobRunner {
             .makeTrainingRun(sc, config.getConfig("make_training"))
           case "TrainModel" => ImageImpressionismPipeline
             .trainModel(sc, config)
+          case "MakeImpression" => ImageImpressionismPipeline
+            .makeImpression(sc, config)
           case _ => log.error("Unknown job " + job)
         }
       } catch {

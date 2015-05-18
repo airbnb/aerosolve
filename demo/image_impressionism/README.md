@@ -74,3 +74,33 @@ We can then proceed to train the model using
 `sh job_runner.sh TrainModel`
 
 This step should take around 10 minutes and you can watch the progress using http://localhost:4040/stages/
+
+The log should look something like this at the end
+
+```
+15/05/18 14:14:42 INFO LinearRankerTrainer: Top 50 weights
+15/05/18 14:14:42 INFO LinearRankerTrainer: QLOC : [3.0]=(525.0,858.0) = 0.403138
+15/05/18 14:14:42 INFO LinearRankerTrainer: QLOC : [3.0]=(690.0,1005.0) = 0.394892
+15/05/18 14:14:42 INFO LinearRankerTrainer: QLOC : [3.0]=(69.0,1302.0) = 0.389529
+```
+
+Basically the model has memorized that the brightest spot in the image is around (525, 858)
+You can inspect the model using
+
+```
+spark-shell --master local[1] --jars build/libs/image_impressionism-0.1.2-all.jar 
+
+scala> import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.util.Util
+
+scala> val model = sc.textFile("output/model/linear.model").map(Util.decodeModel)
+
+scala> model.filter(x => x.featureName != null && x.featureFamily.contains("_x_")).take(10).foreach(println)
+ModelRecord(featureFamily:C_x_QLOC, featureName:Green^[3.0]=(585.0,414.0), featureWeight:0.3104608137334434)
+ModelRecord(featureFamily:C_x_QLOC, featureName:Blue^[3.0]=(903.0,1299.0), featureWeight:-0.2862670994597852)
+ModelRecord(featureFamily:C_x_QLOC, featureName:Blue^[7.0]=(525.0,1302.0), featureWeight:-0.27945106948968673)
+ModelRecord(featureFamily:C_x_QLOC, featureName:Blue^[3.0]=(900.0,1299.0), featureWeight:-0.277188942233763)
+```
+
+This tells us that the greenest pixel is at (585, 414) and the least blue pixel is at (903, 1299)
+

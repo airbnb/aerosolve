@@ -7,6 +7,7 @@ import javax.imageio.ImageIO
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.training.TrainingUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
@@ -30,10 +31,7 @@ object ImageImpressionismPipeline {
     log.info("Reading image %s".format(imageName))
     log.info("Writing training data to %s".format(output))
 
-    val path = new Path(imageName)
-    val fileSystem = FileSystem.get(new java.net.URI(imageName), new Configuration())
-    val instream = fileSystem.open(path)
-    val image : BufferedImage = ImageIO.read(instream)
+    val image = readImage(imageName)
     val pixels = ArrayBuffer[Pixel]()
     for (x <- 0 until image.getWidth) {
       for (y <- 0 until image.getHeight) {
@@ -59,6 +57,22 @@ object ImageImpressionismPipeline {
 
     val input = sc.textFile(trainingDataName).map(Util.decodeExample).filter(isTraining)
     TrainingUtils.trainAndSaveToFile(sc, input, config, modelKey)
+  }
+
+  def makeImpression(sc : SparkContext, config : Config) = {
+    val impConfig = config.getConfig("make_impression")
+    val modelKey = impConfig.getString("modelKey")
+
+    val modelName = config.getConfig(modelKey).getString("model_output")
+    // Load the model
+    val model = TrainingUtils.loadScoreModel(modelName)
+    if (model == None) {
+      log.error("Could not open %s".format(modelName))
+      System.exit(-1)
+    }
+
+    // Make the transformer
+    val transformer = new Transformer(config, modelKey)
   }
 
   // Emits three examples, one for each color channel.
@@ -105,8 +119,15 @@ object ImageImpressionismPipeline {
     return result
   }
 
+  def readImage(imageName : String) : BufferedImage = {
+    val path = new Path(imageName)
+    val fileSystem = FileSystem.get(new java.net.URI(imageName), new Configuration())
+    val instream = fileSystem.open(path)
+    ImageIO.read(instream)
+  }
+
   def isTraining(examples : Example) : Boolean = {
     // Take the hash code mod 255 and keep the first 16 as holdout.
-    (examples.toString.hashCode % 0xFF) > 16
+    (examples.toString.hashCode & 0xFF) > 16
   }
 }
