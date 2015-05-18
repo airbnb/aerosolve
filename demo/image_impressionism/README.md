@@ -30,3 +30,11 @@ See https://github.com/typesafehub/config on the syntax of these HOCON files
 After you edit the config file, you can build the demo using
 
 `gradle shadowjar --info`
+
+The first step is making the training data from the image. You can do this by running
+
+`sh job_runner.sh MakeTraining`
+
+This should create several part files in output/training_data. The training data tells
+the model what intensity it should predict given x,y pixel location and the color channel.
+
