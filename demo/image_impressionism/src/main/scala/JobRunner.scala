@@ -22,7 +22,7 @@ import scala.collection.JavaConversions._
 object JobRunner {
   def main(args: Array[String]): Unit = {
     val log: Logger = LoggerFactory.getLogger("Job.Runner")
-    if (args.length < 1) {
+    if (args.length < 2) {
       log.error("Usage: Job.Runner config_name job1,job2...")
       System.exit(-1)
     }

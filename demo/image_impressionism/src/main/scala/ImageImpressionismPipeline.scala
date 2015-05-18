@@ -10,6 +10,9 @@ object ImageImpressionismPipeline {
   val log: Logger = LoggerFactory.getLogger("ImageImpressionismPipeline")
 
   def makeTrainingRun(sc : SparkContext, config : Config) = {
-
+    val imageName : String = config.getString("input")
+    val output : String = config.getString("output")
+    log.info("Reading image %s".format(imageName))
+    log.info("Writing training data to %s".format(output))
   }
 }
