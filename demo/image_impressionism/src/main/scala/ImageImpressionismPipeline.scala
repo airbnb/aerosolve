@@ -5,7 +5,10 @@ import java.util
 import javax.imageio.ImageIO
 
 import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.core.FeatureVector
+import com.airbnb.aerosolve.core.models.AbstractModel
+import com.airbnb.aerosolve.core.models.LinearModel
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.training.TrainingUtils
@@ -80,6 +83,65 @@ object ImageImpressionismPipeline {
     // Make the transformer
     val transformer = new Transformer(config, modelKey)
 
+    val outImage = scoreImage(width, height, model, transformer)
+    log.info("Saving to %s".format(output))
+    ImageIO.write(outImage, "jpg", new java.io.File(output))
+  }
+
+  def makeMovie(sc : SparkContext, config : Config) = {
+    val impConfig = config.getConfig("make_movie")
+    val modelKey = impConfig.getString("modelKey")
+    val output = impConfig.getString("output")
+
+    val width : Int = impConfig.getInt("width")
+    val height : Int = impConfig.getInt("height")
+    val numFrames : Int = impConfig.getInt("numFrames")
+
+    val modelName = config.getConfig(modelKey).getString("model_output")
+    // Load the model, this time using low level access in order to order by stumps.
+    val weights = sc
+      .textFile(modelName)
+      .map(Util.decodeModel)
+      .filter(x => x.featureName != null)
+      .collect
+      .toArray
+
+    log.info("Total weights = %d".format(weights.length))
+
+    // Make the transformer
+    val transformer = new Transformer(config, modelKey)
+
+    for (i <- 0 until numFrames) {
+      val model = new LinearModel()
+      val frac = i.toDouble / (numFrames.toDouble - 1.0)
+      addRecords(weights, model, frac)
+      val name = output.format(i)
+      log.info("Saving to %s".format(name))
+      val outImage = scoreImage(width, height, model, transformer)
+      ImageIO.write(outImage, "jpg", new java.io.File(name))
+    }
+  }
+
+  def addRecords(weights : Array[ModelRecord],
+                 linear : LinearModel,
+                 frac : Double): Unit = {
+    val count = math.max(1, (frac * weights.length).toInt)
+    val candidates = weights.take(count)
+    val wt : util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Float]] =
+      new util.HashMap()
+    linear.setWeights(wt)
+    for (rec <- candidates) {
+      var family : util.Map[java.lang.String, java.lang.Float] = wt.get(rec.featureFamily)
+      if (family == null) {
+        family = new util.HashMap()
+        wt.put(rec.featureFamily, family)
+      }
+      family.put(rec.featureName, rec.featureWeight.toFloat)
+    }
+  }
+
+
+  def scoreImage(width : Int, height : Int, model : AbstractModel, transformer : Transformer) = {
     val outImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
     log.info("Scoring model")
     for (x <- 0 until width) {
@@ -96,8 +158,7 @@ object ImageImpressionismPipeline {
         outImage.setRGB(x, y, (r << 16) | (g << 8) | b)
       }
     }
-    log.info("Saving to %s".format(output))
-    ImageIO.write(outImage, "jpg", new java.io.File(output))
+    outImage
   }
 
   // Emits three examples, one for each color channel.

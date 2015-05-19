@@ -115,3 +115,7 @@ You should then see the image below which is an approximation of the image with 
 We also extrapolate the lower part of the image a bit so you can see what extrapolation does.
 
 ![impression](impression.jpg)
+
+Here is a movie of how the model adds stumps from 3% to 100% capacity
+
+![movie](movie.gif)
