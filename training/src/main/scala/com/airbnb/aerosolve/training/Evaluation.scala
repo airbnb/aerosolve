@@ -132,9 +132,23 @@ object Evaluation {
   }
 
   private def getClassificationAUCTrainHold(records : RDD[EvaluationRecord]) : (Double, Double) = {
+    // find minimal and maximal scores
+    var minScore = records.take(1).apply(0).score
+    var maxScore = minScore
+    records.foreach(record => {
+      val score = record.score
+      minScore = Math.min(minScore, score)
+      maxScore = Math.max(maxScore, score)
+    })
+
+    if(minScore >= maxScore) {
+      log.error("max score smaller than or equal to min score, exit with -1.")
+      sys.exit(-1)
+    }
+
     // for AUC evaluation
     val buckets = records
-      .map(x => evaluateRecordForAUC(x))
+      .map(x => evaluateRecordForAUC(x, minScore, maxScore))
       .reduceByKey((a,b) => (a + b))
       .sortBy(x => x._1)
       .collect
@@ -178,12 +192,16 @@ object Evaluation {
     sum
   }
 
-  private def evaluateRecordForAUC(record : EvaluationRecord) : (Long, (Long, Long, Long, Long)) = {
+  private def evaluateRecordForAUC(record : EvaluationRecord,
+                                   minScore : Double,
+                                   maxScore : Double) : (Long, (Long, Long, Long, Long)) = {
     var offset = if (record.is_training) 0 else 2
     if (record.label <= 0) {
       offset += 1
     }
-    val score : Long = (record.score * 100).toLong
+
+    val score : Long = ((record.score - minScore) / (maxScore - minScore) * 100).toLong
+
     offset match {
       case 0 => (score, (1, 0, 0, 0))
       case 1 => (score, (0, 1, 0, 0))
