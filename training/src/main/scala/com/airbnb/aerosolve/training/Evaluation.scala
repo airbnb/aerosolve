@@ -142,8 +142,8 @@ object Evaluation {
     })
 
     if(minScore >= maxScore) {
-      log.error("max score smaller than or equal to min score, exit with -1.")
-      sys.exit(-1)
+      log.warn("max score smaller than or equal to min score (%f, %f).".format(minScore, maxScore))
+      maxScore = minScore + 1.0
     }
 
     // for AUC evaluation
