@@ -38,7 +38,6 @@ dependencies {
   provided 'org.apache.spark:spark-core_2.10:1.2.1'
   provided 'org.apache.spark:spark-hive_2.10:1.2.1'
   compile 'joda-time:joda-time:2.5'
-
   testCompile 'org.slf4j:slf4j-simple:1.7.7'
   testCompile 'org.apache.spark:spark-core_2.10:1.2.1'
   testCompile 'org.apache.spark:spark-hive_2.10:1.2.1'
