@@ -36,6 +36,7 @@ object SplineTrainer {
     val dropout : Double = config.getDouble(key + ".dropout")
     val minCount : Int = config.getInt(key + ".min_count")
     val subsample : Double = config.getDouble(key + ".subsample")
+    val linfinityCap : Double = config.getDouble(key + ".linfinity_cap")
 
     val pointwise : RDD[Example] =
       LinearRankerUtils
@@ -43,6 +44,7 @@ object SplineTrainer {
 
     var model = new SplineModel()
     model.initForTraining(numBins)
+    model.setSplineNormCap(linfinityCap.toFloat)
     initModel(minCount, subsample, rankKey, pointwise, model)
     setPrior(config, key, model)
     log.info("Computing min/max values for all features")

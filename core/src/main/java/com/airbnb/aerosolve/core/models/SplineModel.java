@@ -31,6 +31,10 @@ public class SplineModel extends AbstractModel {
   @Getter @Setter
   private Map<String, Map<String, WeightSpline>> weightSpline;
 
+  @Getter @Setter
+  // Cap on the L_infinity norm of the spline. Defaults to 0 which is no cap.
+  private float splineNormCap;
+
   public static class WeightSpline implements Serializable {
     private static final long serialVersionUID = -2884260218927875694L;
 
@@ -59,6 +63,16 @@ public class SplineModel extends AbstractModel {
         best = Math.max(best, Math.abs(splineWeights[i]));
       }
       return best;
+    }
+    public void LInfinityCap(float cap) {
+      if (cap <= 0.0f) return;
+      float currentNorm = this.LInfinityNorm();
+      if (currentNorm > cap) {
+        float scale = cap / currentNorm;
+        for (int i = 0; i < splineWeights.length; i++) {
+          splineWeights[i] *= scale;
+        }
+      }
     }
   }
 
@@ -181,6 +195,7 @@ public class SplineModel extends AbstractModel {
                                   float learningRate,
                                   WeightSpline ws) {
     ws.spline.update(val, -grad * learningRate);
+    ws.LInfinityCap(splineNormCap);
   }
 
   public float scoreFlatFeatures(Map<String, Map<String, Double>> flatFeatures) {
