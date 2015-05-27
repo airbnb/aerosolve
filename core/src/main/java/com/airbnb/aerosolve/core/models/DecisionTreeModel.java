@@ -35,18 +35,31 @@ public class DecisionTreeModel extends AbstractModel {
   @Override
   public float scoreItem(FeatureVector combinedItem) {
     Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-    if (stumps.isEmpty()) return 0.0f;
 
-    ModelRecord stump = stumps.get(0);
-    while (!stump.isSetFeatureWeight()) {
+    int leaf = getLeafIndex(floatFeatures);
+    if (leaf < 0) return 0.0f;
+
+    ModelRecord stump = stumps.get(leaf);
+    return (float) stump.featureWeight;
+  }
+
+  public int getLeafIndex(Map<String, Map<String, Double>> floatFeatures) {
+    if (stumps.isEmpty()) return -1;
+
+    int index = 0;
+    while (true) {
+      ModelRecord stump = stumps.get(index);
+      if (!stump.isSetLeftChild() || !stump.isSetRightChild()) {
+        break;
+      }
       boolean response = BoostedStumpsModel.getStumpResponse(stump, floatFeatures);
       if (response) {
-        stump = stumps.get(stump.rightChild);
+        index = stump.rightChild;
       } else {
-        stump = stumps.get(stump.leftChild);
+        index = stump.leftChild;
       }
     }
-    return (float) stump.featureWeight;
+    return index;
   }
 
   @Override
