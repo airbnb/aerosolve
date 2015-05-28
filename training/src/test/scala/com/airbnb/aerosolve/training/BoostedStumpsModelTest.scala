@@ -114,15 +114,6 @@ class BoostedStumpsModelTest {
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
       assertTrue(fracCorrect > 0.6)
 
-      val inside = makeExample(0, 0.0, 0.0)
-      val builder = new java.lang.StringBuilder();
-      val insideScore = model.debugScoreItem(inside.example.get(0), builder)
-
-      val outside = makeExample(10.0, 10.0, 0.0)
-      val builder2 = new java.lang.StringBuilder();
-      val outsideScore = model.debugScoreItem(outside.example.get(0), builder2)
-      assert(insideScore > outsideScore)
-
       val swriter = new StringWriter();
       val writer = new BufferedWriter(swriter);
       model.save(writer);
