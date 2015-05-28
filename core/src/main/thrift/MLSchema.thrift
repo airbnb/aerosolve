@@ -67,6 +67,8 @@ struct ModelRecord {
   8: optional double minVal;
   9: optional double maxVal;
   10: optional double threshold;
+  11: optional i32 leftChild;
+  12: optional i32 rightChild;
 }
 
 struct EvaluationRecord {

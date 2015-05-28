@@ -18,6 +18,7 @@ def globalVersion = new Version(currentVersion)
 allprojects {
   apply plugin: 'java'
   apply plugin: 'idea'
+  apply plugin: 'eclipse'
   apply plugin: 'com.github.johnrengelman.shadow'
   apply plugin: 'com.jfrog.bintray'
 

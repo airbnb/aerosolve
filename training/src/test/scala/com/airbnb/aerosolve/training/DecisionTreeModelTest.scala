@@ -14,8 +14,8 @@ import scala.collection.JavaConverters._
 
 import scala.collection.mutable.ArrayBuffer
 
-class BoostedStumpsModelTest {
-  val log = LoggerFactory.getLogger("BoostedStumpsModelTest")
+class DecisionTreeModelTest {
+  val log = LoggerFactory.getLogger("DecisionTreeModelTest")
 
   def makeExample(x : Double,
                   y : Double,
@@ -34,42 +34,28 @@ class BoostedStumpsModelTest {
     return example
   }
 
-  def makeConfig(loss : String) : String = {
+  def makeConfig() : String = {
     """
       |identity_transform {
       |  transform : list
       |  transforms: []
       |}
       |model_config {
-      |  loss : "%s"
-      |  num_bags : 1
       |  rank_key : "$rank"
       |  num_candidates : 100
       |  rank_threshold : 0.0
-      |  dropout : 0.0
-      |  learning_rate : 0.1
-      |  lambda : 0.1
-      |  lambda2 : 0.1
-      |  subsample : 0.1
-      |  iterations : 10
+      |  max_depth : 10
+      |  min_leaf_items : 1
+      |  num_tries : 10
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
-    """.stripMargin.format(loss)
+    """.stripMargin
   }
 
   @Test
-  def testBoostedStumpTrainerLogistic : Unit = {
-    testBoostedStumpTrainer("logistic")
-  }
-
-  @Test
-  def testBoostedStumpTrainerHinge : Unit = {
-    testBoostedStumpTrainer("hinge")
-  }
-
-  def testBoostedStumpTrainer(loss : String) = {
+  def testDecisionTreeTrainer() = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -88,13 +74,13 @@ class BoostedStumpsModelTest {
       examples += makeExample(x, y, rank)
     }
 
-    var sc = new SparkContext("local", "BoostedStumpsTEst")
+    var sc = new SparkContext("local", "DecisionTreeModelTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss))
+      val config = ConfigFactory.parseString(makeConfig())
 
       val input = sc.parallelize(examples)
-      val model = BoostedStumpsTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
@@ -112,7 +98,7 @@ class BoostedStumpsModelTest {
       val fracCorrect : Double = numCorrect * 1.0 / examples.length
       log.info("Num correct = %d, frac correct = %f, num pos = %d, num neg = %d"
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
-      assertTrue(fracCorrect > 0.6)
+      assertTrue(fracCorrect > 0.9)
 
       val swriter = new StringWriter();
       val writer = new BufferedWriter(swriter);
