@@ -25,17 +25,21 @@ div {
   min-width: 370px;
   margin: 60px 10px;
   margin-bottom: 40px;
-  border: 1px solid #d6d9dc;
-  border-radius: 2px;
-  box-shadow: 0 4px 15px 0px #D6D9DC;
-  max-height: 480px;
-  overflow: hidden;
 }
 
 .demo img {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.demo-image-container {
+  max-height: 480px;
+  overflow: hidden;
+  border: 1px solid #d6d9dc;
+  border-radius: 2px;
+  box-shadow: 0 4px 15px 0px #D6D9DC;
+  margin-bottom: 15px;
 }
 
 nav {
