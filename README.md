@@ -24,8 +24,8 @@ The are a few reasons to focus on interpretability:
 
   * Your corpus is new and not fully defined and you want more insight into your corpus
   * Having interpretable models lets you iterate quickly. Figure out where the model disagrees most and have insight into what kind of new features are needed.
-  * Debugging noisy features. By plotting the feature weights you can discover buggy features and 
-  * You can discover relationships between different variables and your target prediction. e.g. Plotting [graphs of reviews and 3-star reviews](airbnb.github.io/aerosolve/) is more interpretable than many nested if then else rules.
+  * Debugging noisy features. By plotting the feature weights you can discover buggy features or fit them to splines and discover features that are unexpectedly complex (which usually indicates overfitting).
+  * You can discover relationships between different variables and your target prediction. e.g. Plotting [graphs of reviews and 3-star reviews](http://airbnb.github.io/aerosolve/) is more interpretable than many nested if then else rules.
 
 How to get started?
 -------------------
