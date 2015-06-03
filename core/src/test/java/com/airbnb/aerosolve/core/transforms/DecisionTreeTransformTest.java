@@ -43,13 +43,18 @@ public class DecisionTreeTransformTest {
   public String makeConfig() {
     return "test_tree {\n" +
            " transform : decision_tree\n" +
-           " stumps : [\n" +
-           " \"loc,lat,30.0,lat>=30.0\"\n"+
-           " \"loc,lng,50.0,lng>=50.0\"\n"+
-           " \"fake,fake,50.0,fake>50.0\"\n"+
-           " \"F,foo,0.0,foo>=0.0\"\n"+
+    	   " output_leaves : \"LEAF\" \n" +
+           " output_score_family : \"SCORE\" \n" +
+    	   " output_score_name : \"TREE0\" \n" +
+           " nodes : [\n" +
+           "   \"P,0,loc,x,2.000000,1,2\" \n" +
+           "   \"P,1,loc,y,0.000000,3,4\" \n" +
+           "   \"P,2,loc,y,1.000000,5,6\" \n" +
+           "   \"L,3,0.250000,BOTTOM_LEFT\" \n" +
+           "   \"L,4,-0.500000,TOP_LEFT\" \n" +
+           "   \"L,5,-0.750000,BOTTOM_RIGHT\" \n" +
+           "   \"L,6,1.000000,TOP_RIGHT\" \n" +
            " ]\n" +
-           " output : bar\n" +
            "}";
   }
   
@@ -132,31 +137,41 @@ public class DecisionTreeTransformTest {
     assertTrue(tokens[4].contains("L,3,0.250000,LEAF_3"));
   }
   
-  /*
   @Test
   public void testEmptyFeatureVector() {
     Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "decision_tree");
+    Transform transform = TransformFactory.createTransform(config, "test_tree");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
     assertTrue(featureVector.getStringFeatures() == null);
   }
 
-  @Test
-  public void testTransform() {
+  public void testTransformAt(double x, double y, String expectedLeaf, double expectedOutput) {
     Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "decision_tree");
-    FeatureVector featureVector = makeFeatureVector();
+    Transform transform = TransformFactory.createTransform(config, "test_tree");
+    
+    FeatureVector featureVector;
+    featureVector = makeFeatureVector(x, y);
     transform.doTransform(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
+    assertEquals(2, stringFeatures.size());
 
-    Set<String> out = featureVector.stringFeatures.get("bar");
+    Set<String> out = featureVector.stringFeatures.get("LEAF");
     for (String entry : out) {
       log.info(entry);
     }
-    assertTrue(out.contains("lat>=30.0"));
-    assertTrue(out.contains("foo>=0.0"));
+    assertTrue(out.contains(expectedLeaf));
+    
+    Map<String, Double> treeOutput = featureVector.floatFeatures.get("SCORE");
+    assertTrue(treeOutput.containsKey("TREE0"));
+    assertEquals(expectedOutput, treeOutput.get("TREE0"), 0.1);
   }
-  */
+
+  @Test
+  public void testTransform() {
+	testTransformAt(10.0, 10.0, "TOP_RIGHT", 1.0);
+	testTransformAt(10.0, -10.0, "BOTTOM_RIGHT", -0.75);
+	testTransformAt(-10.0, 10.0, "TOP_LEFT", -0.5);
+	testTransformAt(-10.0, -10.0, "BOTTOM_LEFT", 0.25);
+  }
 }

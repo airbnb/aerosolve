@@ -182,7 +182,8 @@ public class DecisionTreeModel extends AbstractModel {
 		 rec.setLeftChild(Integer.parseInt(token[5]));
 		 rec.setRightChild(Integer.parseInt(token[6]));
 	   } else {
-	   
+    	 rec.setFeatureName(token[3]);
+	     rec.setFeatureWeight(Double.parseDouble(token[2]));
 	   }
 	 }
 	 return tree;
