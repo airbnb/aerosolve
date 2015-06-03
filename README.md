@@ -111,9 +111,9 @@ At the end of each iteration we attempt to project the linear piecewise spline i
 If the RMSE of the projection is above threshold, we leave the spline alone in the high resolution piecewise linear mode.
 This allows us to debug the spline model for features that are buggy or unexpectly complex (e.g. jumping up and down when we expect some kind of smoothness)
 
-Boosted stumps model - small compact model. Not very interpretable but at small sizes useful for feature selection.
-Decision tree model - in memory only. Mostly used to generate transforms for the linear or spline model.
-Maxout neural network model. Experimental and mostly used as a comparison baseline.
+   * Boosted stumps model - small compact model. Not very interpretable but at small sizes useful for feature selection.
+   * Decision tree model - in memory only. Mostly used to generate transforms for the linear or spline model.
+   * Maxout neural network model. Experimental and mostly used as a comparison baseline.
 
 Support
 -------
