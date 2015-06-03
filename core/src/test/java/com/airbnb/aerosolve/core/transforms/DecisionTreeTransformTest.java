@@ -126,6 +126,10 @@ public class DecisionTreeTransformTest {
 	DecisionTreeModel tree = makeTree();
 	String result = tree.toHumanReadableTransform();
 	log.info(result);
+	String tokens[] = result.split("\n");
+	assertEquals(9, tokens.length);
+	assertEquals("    \"P,2,loc,y,1.000000,5,6\"", tokens[3]);
+	assertEquals("    \"L,3,0.250000,LEAF_3\"", tokens[4]);
   }
   
   /*
