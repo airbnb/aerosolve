@@ -103,4 +103,46 @@ public class DecisionTreeModel extends AbstractModel {
       stumps.add(record);
     }
   }
+  
+  /*
+   * Returns a debuggable single tree in graphviz DOT format
+   */
+  public String toDot() {
+	StringBuilder sb = new StringBuilder();
+	sb.append("digraph g {\n");
+    sb.append("graph [ rankdir = \"LR\" ]\n");
+    for (int i = 0; i < stumps.size(); i++) {
+      ModelRecord stump = stumps.get(i);
+	  if (stump.isSetLeftChild()) {
+	     sb.append(String.format("\"node%d\" [\n", i));
+	     double thresh = stump.threshold;
+	     sb.append(String.format(
+	    		 "label = \"<f0> %s:%s | <f1> less or equal %f | <f2> greater than %f\";\n",
+	    		 stump.featureFamily,
+	    		 stump.featureName,
+	    		 thresh,
+	    		 thresh));
+	     sb.append("shape = \"record\";\n");
+	     sb.append("];\n");
+	  } else {
+	     sb.append(String.format("\"node%d\" [\n", i));
+	     sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
+	     sb.append("shape = \"record\";\n");
+	     sb.append("];\n");
+	  }
+    }
+	int count = 0;
+	for (int i = 0; i < stumps.size(); i++) {
+      ModelRecord stump = stumps.get(i);
+	  if (stump.isSetLeftChild()) {
+	    sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
+	    count = count  + 1;
+	    sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
+	    count = count + 1;
+	  }
+	 }
+	 sb.append("}\n");
+	 return sb.toString();
+   }
+
 }
