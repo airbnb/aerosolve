@@ -17,7 +17,7 @@ It is different from other machine learning libraries in the following ways:
   * Simple [image content analysis code](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/images) suitable for ordering or ranking images
 
 This library is meant to be used with sparse, interpretable features such as those that commonly occur in search
-(search keywords, filters), pricing (listing type, location, price). It is not as interpretable with problems with very dense
+(search keywords, filters) or pricing (number of rooms, location, price). It is not as interpretable with problems with very dense
 non-human interpretable features such as raw pixels or audio samples.
 
 The are a few reasons to focus on interpretability:
@@ -25,7 +25,7 @@ The are a few reasons to focus on interpretability:
   * Your corpus is new and not fully defined and you want more insight into your corpus
   * Having interpretable models lets you iterate quickly. Figure out where the model disagrees most and have insight into what kind of new features are needed.
   * Debugging noisy features. By plotting the feature weights you can discover buggy features or fit them to splines and discover features that are unexpectedly complex (which usually indicates overfitting).
-  * You can discover relationships between different variables and your target prediction. e.g. Plotting [graphs of reviews and 3-star reviews](http://airbnb.github.io/aerosolve/) is more interpretable than many nested if then else rules.
+  * You can discover relationships between different variables and your target prediction. e.g. For the Airbnb demand model, plotting [graphs of reviews and 3-star reviews](http://airbnb.github.io/aerosolve/) is more interpretable than many nested if then else rules.
 
 How to get started?
 -------------------
@@ -34,17 +34,17 @@ The artifacts for aerosolve are [hosted on bintray](https://bintray.com/airbnb/a
 as a repository and automatically fetch the artifacts.
 
 Check out the image impression demo where you can learn how to teach
-the algorithm to paint in the pointilism style of painting
-[Image Impressionism Demo](https://github.com/airbnb/aerosolve/tree/master/demo/image_impressionism)
+the algorithm to paint in the pointilism style of painting.
+[Image Impressionism Demo.](https://github.com/airbnb/aerosolve/tree/master/demo/image_impressionism)
 
 There is also an income prediction demo based on a popular
-machine learning benchmark
-[Income Prediction Demo](https://github.com/airbnb/aerosolve/tree/master/demo/income_prediction)
+machine learning benchmark.
+[Income Prediction Demo.](https://github.com/airbnb/aerosolve/tree/master/demo/income_prediction)
 
 Feature Representation
 ----------------------
 
-This section dives into the [thrift based feature representation](https://github.com/airbnb/aerosolve/tree/master/core/src/main/thrift)
+This section dives into the [thrift based feature representation.](https://github.com/airbnb/aerosolve/tree/master/core/src/main/thrift)
 
 Features are grouped into logical groups called families of features. The reason for this is so we can express transformations on an entire feature family
 at once or interact two different families of features together to create a new feature family.
@@ -62,7 +62,7 @@ Examples are the basic unit of creating training data and scoring.
 A single example is composed of:
 
   * context - this is a FeatureVector that occurs once in the example. It could be the features representing a search session for example. e.g. "Keyword" -> "Free parking"
-  * example - this is a repeated list of FeatureVectors that represent the items being scored. These can correspond to documents in a search session. e.g. "LISTING CITY" -> "San Francisco"
+  * example(0..N) - this is a repeated list of FeatureVectors that represent the items being scored. These can correspond to documents in a search session. e.g. "LISTING CITY" -> "San Francisco"
 
 The reasons for having this structure are:
 
@@ -93,18 +93,16 @@ Models
 
 This section covers [debuggable models](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/models)
 
-Although there are several models in the model directory only two are the main debuggable models. The rest are experimental or sub-models that
-create transforms for the interpretable models.
+Although there are several models in the model directory only two are the main debuggable models. The rest are experimental or sub-models that create transforms for the interpretable models.
 
-[Linear model](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/LinearModel.java)
+[Linear model.](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/LinearModel.java)
 Supports hinge, logistic, epsilon insensitive regression, ranking loss functions.
 Only operates on stringFeatures.
 The label for the task is stored in a special feature family and specified by rank_key in the config.
 See the [linear model unit tests](https://github.com/airbnb/aerosolve/blob/master/training/src/test/scala/com/airbnb/aerosolve/training/LinearClassificationTrainerTest.scala) on how to set up the models.
-Note that in conjuction with quantization and crosses you can get incredible amounts of complexity from the "linear" model, so it is not actually your
-regular linear model but something more complex and can be thought of as a bushy, very wide decision tree with millions of branches.
+Note that in conjuction with quantization and crosses you can get incredible amounts of complexity from the "linear" model, so it is not actually your regular linear model but something more complex and can be thought of as a bushy, very wide decision tree with millions of branches.
 
-[Spline model](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/SplineModel.java)
+[Spline model.](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/SplineModel.java)
 A general additive linear piecewise spline model.
 The training is done at a higher resolution specified by num_buckets between the min and max of a feature's range.
 At the end of each iteration we attempt to project the linear piecewise spline into a lower dimensional function such as a polynomial spline with Dirac delta endpoints.
