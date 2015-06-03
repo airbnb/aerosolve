@@ -96,7 +96,7 @@ This section covers [debuggable models](https://github.com/airbnb/aerosolve/tree
 Although there are several models in the model directory only two are the main debuggable models. The rest are experimental or sub-models that
 create transforms for the interpretable models.
 
-Linear model (https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/LinearModel.java)
+[Linear model](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/LinearModel.java)
 Supports hinge, logistic, epsilon insensitive regression, ranking loss functions.
 Only operates on stringFeatures.
 The label for the task is stored in a special feature family and specified by rank_key in the config.
@@ -104,7 +104,7 @@ See the [linear model unit tests](https://github.com/airbnb/aerosolve/blob/maste
 Note that in conjuction with quantization and crosses you can get incredible amounts of complexity from the "linear" model, so it is not actually your
 regular linear model but something more complex and can be thought of as a bushy, very wide decision tree with millions of branches.
 
-Spline model (https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/SplineModel.java)
+[Spline model](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/SplineModel.java)
 A general additive linear piecewise spline model.
 The training is done at a higher resolution specified by num_buckets between the min and max of a feature's range.
 At the end of each iteration we attempt to project the linear piecewise spline into a lower dimensional function such as a polynomial spline with Dirac delta endpoints.
