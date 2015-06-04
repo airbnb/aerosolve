@@ -120,6 +120,10 @@ public class TransformFactory {
         result = new StumpTransform();
         break;
       }
+      case "decision_tree" : {
+        result = new DecisionTreeTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
