@@ -42,20 +42,20 @@ public class DecisionTreeTransformTest {
 
   public String makeConfig() {
     return "test_tree {\n" +
-           " transform : decision_tree\n" +
-    	   " output_leaves : \"LEAF\" \n" +
-           " output_score_family : \"SCORE\" \n" +
-    	   " output_score_name : \"TREE0\" \n" +
-           " nodes : [\n" +
-           "   \"P,0,loc,x,2.000000,1,2\" \n" +
-           "   \"P,1,loc,y,0.000000,3,4\" \n" +
-           "   \"P,2,loc,y,1.000000,5,6\" \n" +
-           "   \"L,3,0.250000,BOTTOM_LEFT\" \n" +
-           "   \"L,4,-0.500000,TOP_LEFT\" \n" +
-           "   \"L,5,-0.750000,BOTTOM_RIGHT\" \n" +
-           "   \"L,6,1.000000,TOP_RIGHT\" \n" +
-           " ]\n" +
-           "}";
+     " transform : decision_tree\n" +
+   	 " output_leaves : \"LEAF\" \n" +
+     " output_score_family : \"SCORE\" \n" +
+	   " output_score_name : \"TREE0\" \n" +
+     " nodes : [\n" +
+     "   \"P,0,loc,x,2.000000,1,2\" \n" +
+     "   \"P,1,loc,y,0.000000,3,4\" \n" +
+     "   \"P,2,loc,y,1.000000,5,6\" \n" +
+     "   \"L,3,0.250000,BOTTOM_LEFT\" \n" +
+     "   \"L,4,-0.500000,TOP_LEFT\" \n" +
+     "   \"L,5,-0.750000,BOTTOM_RIGHT\" \n" +
+     "   \"L,6,1.000000,TOP_RIGHT\" \n" +
+     " ]\n" +
+     "}";
   }
   
   /*
@@ -169,9 +169,9 @@ public class DecisionTreeTransformTest {
 
   @Test
   public void testTransform() {
-	testTransformAt(10.0, 10.0, "TOP_RIGHT", 1.0);
-	testTransformAt(10.0, -10.0, "BOTTOM_RIGHT", -0.75);
-	testTransformAt(-10.0, 10.0, "TOP_LEFT", -0.5);
-	testTransformAt(-10.0, -10.0, "BOTTOM_LEFT", 0.25);
+    testTransformAt(10.0, 10.0, "TOP_RIGHT", 1.0);
+    testTransformAt(10.0, -10.0, "BOTTOM_RIGHT", -0.75);
+    testTransformAt(-10.0, 10.0, "TOP_LEFT", -0.5);
+    testTransformAt(-10.0, -10.0, "BOTTOM_LEFT", 0.25);
   }
 }
