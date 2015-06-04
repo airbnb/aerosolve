@@ -152,19 +152,19 @@ public class DecisionTreeModel extends AbstractModel {
      for (int i = 0; i < stumps.size(); i++) {
        ModelRecord stump = stumps.get(i);
        sb.append("    \"");
-	   if (stump.isSetLeftChild()) {
-		 // Parent node, node id, family, name, threshold, left, right  
-		 sb.append(
-		     String.format("P,%d,%s,%s,%f,%d,%d", i,
-		         stump.featureFamily,
-		         stump.featureName,
-		         stump.threshold,
-		         stump.leftChild, stump.rightChild));
-	   } else {
-		 // Leaf node, node id, feature weight, human readable leaf name.  
+       if (stump.isSetLeftChild()) {
+         // Parent node, node id, family, name, threshold, left, right  
+    		 sb.append(
+    		     String.format("P,%d,%s,%s,%f,%d,%d", i,
+    		         stump.featureFamily,
+    		         stump.featureName,
+    		         stump.threshold,
+    		         stump.leftChild, stump.rightChild));
+  	   } else {
+  	     // Leaf node, node id, feature weight, human readable leaf name.  
          sb.append(String.format("L,%d,%f,LEAF_%d", i, stump.featureWeight, i));  
-	   }
-	   sb.append("\"\n");
+  	   }
+	     sb.append("\"\n");
      }
      sb.append("  ]\n");
      return sb.toString();
