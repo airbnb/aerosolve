@@ -108,53 +108,58 @@ public class DecisionTreeModel extends AbstractModel {
    * Returns a debuggable single tree in graphviz DOT format
    */
   public String toDot() {
-	StringBuilder sb = new StringBuilder();
-	sb.append("digraph g {\n");
+    StringBuilder sb = new StringBuilder();
+    sb.append("digraph g {\n");
     sb.append("graph [ rankdir = \"LR\" ]\n");
     for (int i = 0; i < stumps.size(); i++) {
       ModelRecord stump = stumps.get(i);
-	  if (stump.isSetLeftChild()) {
-	     sb.append(String.format("\"node%d\" [\n", i));
-	     double thresh = stump.threshold;
-	     sb.append(String.format(
-	    		 "label = \"<f0> %s:%s | <f1> less or equal %f | <f2> greater than %f\";\n",
-	    		 stump.featureFamily,
-	    		 stump.featureName,
-	    		 thresh,
-	    		 thresh));
-	     sb.append("shape = \"record\";\n");
-	     sb.append("];\n");
-	  } else {
-	     sb.append(String.format("\"node%d\" [\n", i));
-	     sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
-	     sb.append("shape = \"record\";\n");
-	     sb.append("];\n");
-	  }
+  	  if (stump.isSetLeftChild()) {
+  	     sb.append(String.format("\"node%d\" [\n", i));
+  	     double thresh = stump.threshold;
+  	     sb.append(String.format(
+  	    		 "label = \"<f0> %s:%s | <f1> less or equal %f | <f2> greater than %f\";\n",
+  	    		 stump.featureFamily,
+  	    		 stump.featureName,
+  	    		 thresh,
+  	    		 thresh));
+  	     sb.append("shape = \"record\";\n");
+  	     sb.append("];\n");
+  	  } else {
+  	     sb.append(String.format("\"node%d\" [\n", i));
+  	     sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
+  	     sb.append("shape = \"record\";\n");
+  	     sb.append("];\n");
+  	  }
     }
-	int count = 0;
-	for (int i = 0; i < stumps.size(); i++) {
-      ModelRecord stump = stumps.get(i);
-	  if (stump.isSetLeftChild()) {
-	    sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
-	    count = count  + 1;
-	    sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
-	    count = count + 1;
-	  }
-	 }
-	 sb.append("}\n");
-	 return sb.toString();
+  	int count = 0;
+  	for (int i = 0; i < stumps.size(); i++) {
+        ModelRecord stump = stumps.get(i);
+        if (stump.isSetLeftChild()) {
+          sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
+          count = count  + 1;
+          sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
+          count = count + 1;
+        }
+  	 }
+  	 sb.append("}\n");
+  	 return sb.toString();
    }
   
-  // Returns the transform config in human readable form.
+   // Returns the transform config in human readable form.
    public String toHumanReadableTransform() {
-	 StringBuilder sb = new StringBuilder();
-	 sb.append("  nodes: [\n");
+  	 StringBuilder sb = new StringBuilder();
+  	 sb.append("  nodes: [\n");
      for (int i = 0; i < stumps.size(); i++) {
        ModelRecord stump = stumps.get(i);
        sb.append("    \"");
 	   if (stump.isSetLeftChild()) {
 		 // Parent node, node id, family, name, threshold, left, right  
-		 sb.append(String.format("P,%d,%s,%s,%f,%d,%d", i, stump.featureFamily, stump.featureName, stump.threshold, stump.leftChild, stump.rightChild));
+		 sb.append(
+		     String.format("P,%d,%s,%s,%f,%d,%d", i,
+		         stump.featureFamily,
+		         stump.featureName,
+		         stump.threshold,
+		         stump.leftChild, stump.rightChild));
 	   } else {
 		 // Leaf node, node id, feature weight, human readable leaf name.  
          sb.append(String.format("L,%d,%f,LEAF_%d", i, stump.featureWeight, i));  
@@ -162,31 +167,30 @@ public class DecisionTreeModel extends AbstractModel {
 	   sb.append("\"\n");
      }
      sb.append("  ]\n");
-	 return sb.toString();
+     return sb.toString();
    }
    
    // Constructs a tree from human readable transform list.
    public static DecisionTreeModel fromHumanReadableTransform(List<String> rows) {
-	 DecisionTreeModel tree = new DecisionTreeModel();  
-	 ArrayList<ModelRecord> records = new ArrayList<>();
-	 tree.setStumps(records);
-	 for (String row : rows) {
-	   ModelRecord rec = new ModelRecord();
-	   records.add(rec);
-	   String token[] = row.split(",");
-	   if (token[0].contains("P")) {
-		 // Parent node
-		 rec.setFeatureFamily(token[2]);
-		 rec.setFeatureName(token[3]);
-		 rec.setThreshold(Double.parseDouble(token[4]));
-		 rec.setLeftChild(Integer.parseInt(token[5]));
-		 rec.setRightChild(Integer.parseInt(token[6]));
-	   } else {
-    	 rec.setFeatureName(token[3]);
-	     rec.setFeatureWeight(Double.parseDouble(token[2]));
-	   }
-	 }
-	 return tree;
+  	 DecisionTreeModel tree = new DecisionTreeModel();  
+  	 ArrayList<ModelRecord> records = new ArrayList<>();
+  	 tree.setStumps(records);
+  	 for (String row : rows) {
+  	   ModelRecord rec = new ModelRecord();
+  	   records.add(rec);
+  	   String token[] = row.split(",");
+  	   if (token[0].contains("P")) {
+  		 // Parent node
+  		 rec.setFeatureFamily(token[2]);
+  		 rec.setFeatureName(token[3]);
+  		 rec.setThreshold(Double.parseDouble(token[4]));
+  		 rec.setLeftChild(Integer.parseInt(token[5]));
+  		 rec.setRightChild(Integer.parseInt(token[6]));
+  	   } else {
+      	 rec.setFeatureName(token[3]);
+  	     rec.setFeatureWeight(Double.parseDouble(token[2]));
+  	   }
+  	 }
+  	 return tree;
    }
-
 }
