@@ -27,7 +27,7 @@ The are a few reasons to focus on interpretability:
   * Debugging noisy features. By plotting the feature weights you can discover buggy features or fit them to splines and discover features that are unexpectedly complex (which usually indicates overfitting).
   * You can discover relationships between different variables and your target prediction. e.g. For the Airbnb demand model, plotting graphs of reviews and 3-star reviews is more interpretable than many nested if then else rules.
 
-!(Graph of reviews and 3-star reviews and feature weight)[reviews.png]
+![Graph of reviews and 3-star reviews and feature weight](reviews.png)
 
 How to get started?
 -------------------
