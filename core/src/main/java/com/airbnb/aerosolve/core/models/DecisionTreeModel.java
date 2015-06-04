@@ -113,22 +113,22 @@ public class DecisionTreeModel extends AbstractModel {
     sb.append("graph [ rankdir = \"LR\" ]\n");
     for (int i = 0; i < stumps.size(); i++) {
       ModelRecord stump = stumps.get(i);
-  	  if (stump.isSetLeftChild()) {
-  	     sb.append(String.format("\"node%d\" [\n", i));
-  	     double thresh = stump.threshold;
-  	     sb.append(String.format(
-  	    		 "label = \"<f0> %s:%s | <f1> less or equal %f | <f2> greater than %f\";\n",
-  	    		 stump.featureFamily,
-  	    		 stump.featureName,
-  	    		 thresh,
-  	    		 thresh));
-  	     sb.append("shape = \"record\";\n");
-  	     sb.append("];\n");
+      if (stump.isSetLeftChild()) {
+	      sb.append(String.format("\"node%d\" [\n", i));
+	      double thresh = stump.threshold;
+	      sb.append(String.format(
+	    		 "label = \"<f0> %s:%s | <f1> less or equal %f | <f2> greater than %f\";\n",
+	    		 stump.featureFamily,
+	    		 stump.featureName,
+	    		 thresh,
+	    		 thresh));
+	      sb.append("shape = \"record\";\n");
+	      sb.append("];\n");
   	  } else {
-  	     sb.append(String.format("\"node%d\" [\n", i));
-  	     sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
-  	     sb.append("shape = \"record\";\n");
-  	     sb.append("];\n");
+  	    sb.append(String.format("\"node%d\" [\n", i));
+  	    sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
+  	    sb.append("shape = \"record\";\n");
+  	    sb.append("];\n");
   	  }
     }
   	int count = 0;
