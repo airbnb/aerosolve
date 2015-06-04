@@ -172,25 +172,25 @@ public class DecisionTreeModel extends AbstractModel {
    
    // Constructs a tree from human readable transform list.
    public static DecisionTreeModel fromHumanReadableTransform(List<String> rows) {
-  	 DecisionTreeModel tree = new DecisionTreeModel();  
-  	 ArrayList<ModelRecord> records = new ArrayList<>();
-  	 tree.setStumps(records);
-  	 for (String row : rows) {
-  	   ModelRecord rec = new ModelRecord();
-  	   records.add(rec);
-  	   String token[] = row.split(",");
-  	   if (token[0].contains("P")) {
-  		 // Parent node
-  		 rec.setFeatureFamily(token[2]);
-  		 rec.setFeatureName(token[3]);
-  		 rec.setThreshold(Double.parseDouble(token[4]));
-  		 rec.setLeftChild(Integer.parseInt(token[5]));
-  		 rec.setRightChild(Integer.parseInt(token[6]));
-  	   } else {
+     DecisionTreeModel tree = new DecisionTreeModel();  
+     ArrayList<ModelRecord> records = new ArrayList<>();
+     tree.setStumps(records);
+     for (String row : rows) {
+       ModelRecord rec = new ModelRecord();
+       records.add(rec);
+       String token[] = row.split(",");
+       if (token[0].contains("P")) {
+    	 // Parent node
+    		 rec.setFeatureFamily(token[2]);
+    		 rec.setFeatureName(token[3]);
+    		 rec.setThreshold(Double.parseDouble(token[4]));
+    		 rec.setLeftChild(Integer.parseInt(token[5]));
+    		 rec.setRightChild(Integer.parseInt(token[6]));
+       } else {
       	 rec.setFeatureName(token[3]);
-  	     rec.setFeatureWeight(Double.parseDouble(token[2]));
-  	   }
-  	 }
-  	 return tree;
+         rec.setFeatureWeight(Double.parseDouble(token[2]));
+       }
+     }
+     return tree;
    }
 }
