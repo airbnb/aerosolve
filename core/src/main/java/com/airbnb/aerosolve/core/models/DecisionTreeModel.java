@@ -133,13 +133,13 @@ public class DecisionTreeModel extends AbstractModel {
     }
   	int count = 0;
   	for (int i = 0; i < stumps.size(); i++) {
-        ModelRecord stump = stumps.get(i);
-        if (stump.isSetLeftChild()) {
-          sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
-          count = count  + 1;
-          sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
-          count = count + 1;
-        }
+      ModelRecord stump = stumps.get(i);
+      if (stump.isSetLeftChild()) {
+        sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
+        count = count  + 1;
+        sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
+        count = count + 1;
+       }
   	 }
   	 sb.append("}\n");
   	 return sb.toString();
