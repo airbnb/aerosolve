@@ -42,22 +42,22 @@ public class DecisionTreeTransformTest {
 
   public String makeConfig() {
     return "test_tree {\n" +
-     " transform : decision_tree\n" +
-   	 " output_leaves : \"LEAF\" \n" +
-     " output_score_family : \"SCORE\" \n" +
-	   " output_score_name : \"TREE0\" \n" +
-     " nodes : [\n" +
-     "   \"P,0,loc,x,2.000000,1,2\" \n" +
-     "   \"P,1,loc,y,0.000000,3,4\" \n" +
-     "   \"P,2,loc,y,1.000000,5,6\" \n" +
-     "   \"L,3,0.250000,BOTTOM_LEFT\" \n" +
-     "   \"L,4,-0.500000,TOP_LEFT\" \n" +
-     "   \"L,5,-0.750000,BOTTOM_RIGHT\" \n" +
-     "   \"L,6,1.000000,TOP_RIGHT\" \n" +
-     " ]\n" +
-     "}";
+        " transform : decision_tree\n" +
+        " output_leaves : \"LEAF\" \n" +
+        " output_score_family : \"SCORE\" \n" +
+        " output_score_name : \"TREE0\" \n" +
+        " nodes : [\n" +
+        "   \"P,0,loc,x,2.000000,1,2\" \n" +
+        "   \"P,1,loc,y,0.000000,3,4\" \n" +
+        "   \"P,2,loc,y,1.000000,5,6\" \n" +
+        "   \"L,3,0.250000,BOTTOM_LEFT\" \n" +
+        "   \"L,4,-0.500000,TOP_LEFT\" \n" +
+        "   \"L,5,-0.750000,BOTTOM_RIGHT\" \n" +
+        "   \"L,6,1.000000,TOP_RIGHT\" \n" +
+        " ]\n" +
+        "}";
   }
-  
+
   /*
    * XOR like decision regions
    * 
@@ -70,73 +70,73 @@ public class DecisionTreeTransformTest {
    *     0.25 |   -0.75
    *          |
    */
-  
+
   public DecisionTreeModel makeTree() {
-	ArrayList<ModelRecord> records = new ArrayList<>();
-	DecisionTreeModel tree = new DecisionTreeModel();
-	tree.setStumps(records);
-	
-	// 0 - an x split at 2
-	ModelRecord record = new ModelRecord();
-	record.setFeatureFamily("loc");
-	record.setFeatureName("x");
-	record.setThreshold(2.0);
-	record.setLeftChild(1);
-	record.setRightChild(2);
-	records.add(record);
-	
-	// 1 - a y split at 0
-	record = new ModelRecord();
-	record.setFeatureFamily("loc");
-	record.setFeatureName("y");
-	record.setThreshold(0.0);
-	record.setLeftChild(3);
-	record.setRightChild(4);
-	records.add(record);
-	
-	// 2 - a y split at 1
-	record = new ModelRecord();
-	record.setFeatureFamily("loc");
-	record.setFeatureName("y");
-	record.setThreshold(1.0);
-	record.setLeftChild(5);
-	record.setRightChild(6);
-	records.add(record);
+    ArrayList<ModelRecord> records = new ArrayList<>();
+    DecisionTreeModel tree = new DecisionTreeModel();
+    tree.setStumps(records);
 
-	// 3  a leaf
-	record = new ModelRecord();
-	record.setFeatureWeight(0.25);
-	records.add(record);
+    // 0 - an x split at 2
+    ModelRecord record = new ModelRecord();
+    record.setFeatureFamily("loc");
+    record.setFeatureName("x");
+    record.setThreshold(2.0);
+    record.setLeftChild(1);
+    record.setRightChild(2);
+    records.add(record);
 
-	// 4  a leaf
-	record = new ModelRecord();
-	record.setFeatureWeight(-0.5);
-	records.add(record);
+    // 1 - a y split at 0
+    record = new ModelRecord();
+    record.setFeatureFamily("loc");
+    record.setFeatureName("y");
+    record.setThreshold(0.0);
+    record.setLeftChild(3);
+    record.setRightChild(4);
+    records.add(record);
 
-	// 5  a leaf
-	record = new ModelRecord();
-	record.setFeatureWeight(-0.75);
-	records.add(record);
+    // 2 - a y split at 1
+    record = new ModelRecord();
+    record.setFeatureFamily("loc");
+    record.setFeatureName("y");
+    record.setThreshold(1.0);
+    record.setLeftChild(5);
+    record.setRightChild(6);
+    records.add(record);
 
-	// 6  a leaf
-	record = new ModelRecord();
-	record.setFeatureWeight(1.0);
-	records.add(record);
-	
-	return tree;
+    // 3  a leaf
+    record = new ModelRecord();
+    record.setFeatureWeight(0.25);
+    records.add(record);
+
+    // 4  a leaf
+    record = new ModelRecord();
+    record.setFeatureWeight(-0.5);
+    records.add(record);
+
+    // 5  a leaf
+    record = new ModelRecord();
+    record.setFeatureWeight(-0.75);
+    records.add(record);
+
+    // 6  a leaf
+    record = new ModelRecord();
+    record.setFeatureWeight(1.0);
+    records.add(record);
+
+    return tree;
   }
-  
+
   @Test
   public void testToHumanReadableConfig() {
-  	DecisionTreeModel tree = makeTree();
-  	String result = tree.toHumanReadableTransform();
-  	log.info(result);
-  	String tokens[] = result.split("\n");
-  	assertEquals(9, tokens.length);
-  	assertTrue(tokens[3].contains("P,2,loc,y,1.000000,5,6"));
+    DecisionTreeModel tree = makeTree();
+    String result = tree.toHumanReadableTransform();
+    log.info(result);
+    String tokens[] = result.split("\n");
+    assertEquals(9, tokens.length);
+    assertTrue(tokens[3].contains("P,2,loc,y,1.000000,5,6"));
     assertTrue(tokens[4].contains("L,3,0.250000,LEAF_3"));
   }
-  
+
   @Test
   public void testEmptyFeatureVector() {
     Config config = ConfigFactory.parseString(makeConfig());
@@ -149,7 +149,7 @@ public class DecisionTreeTransformTest {
   public void testTransformAt(double x, double y, String expectedLeaf, double expectedOutput) {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(config, "test_tree");
-    
+
     FeatureVector featureVector;
     featureVector = makeFeatureVector(x, y);
     transform.doTransform(featureVector);
@@ -161,7 +161,7 @@ public class DecisionTreeTransformTest {
       log.info(entry);
     }
     assertTrue(out.contains(expectedLeaf));
-    
+
     Map<String, Double> treeOutput = featureVector.floatFeatures.get("SCORE");
     assertTrue(treeOutput.containsKey("TREE0"));
     assertEquals(expectedOutput, treeOutput.get("TREE0"), 0.1);
