@@ -128,12 +128,12 @@ public class DecisionTreeTransformTest {
   
   @Test
   public void testToHumanReadableConfig() {
-	DecisionTreeModel tree = makeTree();
-	String result = tree.toHumanReadableTransform();
-	log.info(result);
-	String tokens[] = result.split("\n");
-	assertEquals(9, tokens.length);
-	assertTrue(tokens[3].contains("P,2,loc,y,1.000000,5,6"));
+  	DecisionTreeModel tree = makeTree();
+  	String result = tree.toHumanReadableTransform();
+  	log.info(result);
+  	String tokens[] = result.split("\n");
+  	assertEquals(9, tokens.length);
+  	assertTrue(tokens[3].contains("P,2,loc,y,1.000000,5,6"));
     assertTrue(tokens[4].contains("L,3,0.250000,LEAF_3"));
   }
   
