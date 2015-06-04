@@ -36,7 +36,7 @@ The artifacts for aerosolve are [hosted on bintray](https://bintray.com/airbnb/a
 as a repository and automatically fetch the artifacts.
 
 Check out the image impression demo where you can learn how to teach
-the algorithm to paint in the pointilism style of painting.
+the algorithm to paint in the pointillism style of painting.
 [Image Impressionism Demo.](https://github.com/airbnb/aerosolve/tree/master/demo/image_impressionism)
 
 There is also an income prediction demo based on a popular
@@ -85,7 +85,7 @@ quickly and in a controlled way.
 Here are some examples of feature transforms that are commonly used:
 
   * [List transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/ListTransform.java). A meta transform that specifies other transforms to be applied 
-  * [Cross transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/CrossTransform.java). Operates only on stringFeatures. Allows interactions between two different string feature familys. e.g. "Keyword" cross "LISTING CITY" creates the new feature family "Keyword_x_city" -> "Free parking^San Francisco"
+  * [Cross transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/CrossTransform.java). Operates only on stringFeatures. Allows interactions between two different string feature families. e.g. "Keyword" cross "LISTING CITY" creates the new feature family "Keyword_x_city" -> "Free parking^San Francisco"
   * [Multiscale grid transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/MultiscaleGridQuantizeTransform.java) Constructs multiple nested grids for 2D coordinates. Useful for modelling geography.
 
 Please see the [corresponding unit tests](https://github.com/airbnb/aerosolve/tree/master/core/src/test/java/com/airbnb/aerosolve/core/transforms) as to what these transforms do, what kind of features they operate on and what kind of config they expect.
@@ -102,14 +102,14 @@ Supports hinge, logistic, epsilon insensitive regression, ranking loss functions
 Only operates on stringFeatures.
 The label for the task is stored in a special feature family and specified by rank_key in the config.
 See the [linear model unit tests](https://github.com/airbnb/aerosolve/blob/master/training/src/test/scala/com/airbnb/aerosolve/training/LinearClassificationTrainerTest.scala) on how to set up the models.
-Note that in conjuction with quantization and crosses you can get incredible amounts of complexity from the "linear" model, so it is not actually your regular linear model but something more complex and can be thought of as a bushy, very wide decision tree with millions of branches.
+Note that in conjunction with quantization and crosses you can get incredible amounts of complexity from the "linear" model, so it is not actually your regular linear model but something more complex and can be thought of as a bushy, very wide decision tree with millions of branches.
 
 [Spline model.](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/models/SplineModel.java)
 A general additive linear piecewise spline model.
 The training is done at a higher resolution specified by num_buckets between the min and max of a feature's range.
 At the end of each iteration we attempt to project the linear piecewise spline into a lower dimensional function such as a polynomial spline with Dirac delta endpoints.
 If the RMSE of the projection is above threshold, we leave the spline alone in the high resolution piecewise linear mode.
-This allows us to debug the spline model for features that are buggy or unexpectly complex (e.g. jumping up and down when we expect some kind of smoothness)
+This allows us to debug the spline model for features that are buggy or unexpectedly complex (e.g. jumping up and down when we expect some kind of smoothness)
 
    * Boosted stumps model - small compact model. Not very interpretable but at small sizes useful for feature selection.
    * Decision tree model - in memory only. Mostly used to generate transforms for the linear or spline model.
