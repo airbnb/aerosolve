@@ -35,7 +35,7 @@ The first step is making examples for the training data and testing data. You ca
 You can view what is in the examples using spark-shell:
 
 ```
-spark-shell --master local[1] --jars build/libs/income_prediction-0.1.3-all.jar 
+spark-shell --master local[1] --jars build/libs/income_prediction-0.1.6-all.jar
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
 scala> val examples = sc.textFile("output/training_data").map(Util.decodeExample).take(10).foreach(println)
@@ -58,7 +58,7 @@ Then you can train the model on the training data by running
 You can inspect the model using
 
 ```
-spark-shell --master local[1] --jars build/libs/income_prediction-0.1.3-all.jar 
+spark-shell --master local[1] --jars build/libs/income_prediction-0.1.6-all.jar
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
 scala> val model = sc.textFile("output/model/spline.model").map(Util.decodeModel)
