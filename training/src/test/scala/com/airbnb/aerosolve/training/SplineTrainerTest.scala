@@ -34,7 +34,7 @@ class SplineTrainerTest {
     return example
   }
 
-  def makeConfig(loss : String) : String = {
+  def makeConfig(loss : String, extraArgs : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -43,6 +43,7 @@ class SplineTrainerTest {
       |model_config {
       |  num_bags : 3
       |  loss : "%s"
+      |  %s
       |  rank_key : "$rank"
       |  rank_threshold : 0.0
       |  learning_rate : 0.5
@@ -60,20 +61,25 @@ class SplineTrainerTest {
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
-    """.stripMargin.format(loss)
+    """.stripMargin.format(loss, extraArgs)
   }
 
   @Test
   def testSplineTrainerLogistic : Unit = {
-    testSplineTrainer("logistic")
+    testSplineTrainer("logistic", "")
   }
 
   @Test
   def testSplineTrainerHinge : Unit = {
-    testSplineTrainer("hinge")
+    testSplineTrainer("hinge", "")
+  }
+  
+   @Test
+  def testSplineTrainerHingeWithMargin : Unit = {
+    testSplineTrainer("hinge", "margin : 0.5")
   }
 
-  def testSplineTrainer(loss : String) = {
+  def testSplineTrainer(loss : String, extraArgs : String) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -95,7 +101,7 @@ class SplineTrainerTest {
     var sc = new SparkContext("local", "SplineTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss))
+      val config = ConfigFactory.parseString(makeConfig(loss, extraArgs))
 
       val input = sc.parallelize(examples)
       val model = SplineTrainer.train(sc, input, config, "model_config")
