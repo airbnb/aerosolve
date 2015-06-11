@@ -42,7 +42,7 @@ the model what intensity it should predict given x,y pixel location and the colo
 You can view what is in the examples using spark-shell:
 
 ```
-spark-shell --master local --jars build/libs/image_impressionism-0.1.6-all.jar
+spark-shell --master local --jars build/libs/image_impressionism-0.1.7-all.jar
 
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
@@ -88,7 +88,7 @@ Basically the model has memorized that the brightest spot in the image is around
 You can inspect the model using
 
 ```
-spark-shell --master local --jars build/libs/image_impressionism-0.1.6-all.jar
+spark-shell --master local --jars build/libs/image_impressionism-0.1.7-all.jar
 
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
