@@ -118,4 +118,5 @@ This allows us to debug the spline model for features that are buggy or unexpect
 Support
 -------
 
+Dev group :  https://groups.google.com/forum/#!forum/aerosolve-dev
 User group : https://groups.google.com/forum/#!forum/aerosolve-users
