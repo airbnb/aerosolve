@@ -18,7 +18,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-
+import scala.util.Try
 
 object SplineTrainer {
   private final val log: Logger = LoggerFactory.getLogger("SplineTrainer")
@@ -37,6 +37,7 @@ object SplineTrainer {
     val minCount : Int = config.getInt(key + ".min_count")
     val subsample : Double = config.getDouble(key + ".subsample")
     val linfinityCap : Double = config.getDouble(key + ".linfinity_cap")
+    val margin : Double = Try(config.getDouble(key + ".margin")).getOrElse(1.0)
 
     val pointwise : RDD[Example] =
       LinearRankerUtils
@@ -63,6 +64,7 @@ object SplineTrainer {
                dropout,
                subsample,
                i,
+               margin,
                model)
     }
     model
@@ -221,6 +223,7 @@ object SplineTrainer {
                dropout : Double,
                subsample : Double,
                iteration : Int,
+               margin : Double,
                model : SplineModel) : SplineModel = {
     log.info("Iteration %d".format(iteration))
 
@@ -254,7 +257,7 @@ object SplineTrainer {
         }
         loss match {
           case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
-          case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate,dropout)
+          case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
           case _ => {
             log.error("Unknown loss function %s".format(loss))
             System.exit(-1)
@@ -346,10 +349,11 @@ object SplineTrainer {
                   fv : FeatureVector,
                   label : Double,
                   learningRate : Double,
-                  dropout : Double) : Double = {
+                  dropout : Double,
+                  margin : Double) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
     val prediction = model.scoreFlatFeatures(flatFeatures)
-    val loss = scala.math.max(0.0, 1.0 - label * prediction)
+    val loss = scala.math.max(0.0, margin - label * prediction)
     if (loss > 0.0) {
       val grad = -label
       model.update(grad.toFloat,
