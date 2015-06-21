@@ -18,6 +18,13 @@ This demo assumes
 ## Running the demo
 
 Downloading the dataset from https://archive.ics.uci.edu/ml/machine-learning-databases/adult/
+```
+wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+mv adult.data src/main/resources
+mv adult.test src/main/resources
+```
+
 Descriptions of the dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names
 Save the dataset in src/main/resources
 And make sure the path is consistent with the config file in src/main/resources/income_prediction.conf
@@ -35,7 +42,7 @@ The first step is making examples for the training data and testing data. You ca
 You can view what is in the examples using spark-shell:
 
 ```
-spark-shell --master local[1] --jars build/libs/income_prediction-0.1.7-all.jar 
+spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar 
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
 scala> val examples = sc.textFile("output/training_data").map(Util.decodeExample).take(10).foreach(println)
@@ -58,7 +65,7 @@ Then you can train the model on the training data by running
 You can inspect the model using
 
 ```
-spark-shell --master local[1] --jars build/libs/income_prediction-0.1.7-all.jar 
+spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar 
 scala> import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.util.Util
 scala> val model = sc.textFile("output/model/spline.model").map(Util.decodeModel)

@@ -1,6 +1,8 @@
 apply plugin: "java"
 apply plugin: "scala"
 
+version = '1.0.0'
+
 repositories {
     jcenter()
     maven { url 'http://dl.bintray.com/airbnb/aerosolve' }
