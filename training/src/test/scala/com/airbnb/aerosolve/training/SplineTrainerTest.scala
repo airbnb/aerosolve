@@ -34,7 +34,7 @@ class SplineTrainerTest {
     return example
   }
 
-  def makeConfig(loss : String, extraArgs : String) : String = {
+  def makeConfig(loss : String, dropout : Double, extraArgs : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -54,32 +54,42 @@ class SplineTrainerTest {
       |  linfinity_cap : 1.0
       |  lambda : 0.01
       |  lambda2 : 0.01
-      |  dropout : 0.0
+      |  dropout : %f
       |  min_count : 0
       |  subsample : 1.0
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
-    """.stripMargin.format(loss, extraArgs)
+    """.stripMargin.format(loss, extraArgs, dropout)
   }
 
   @Test
   def testSplineTrainerLogistic : Unit = {
-    testSplineTrainer("logistic", "")
+    testSplineTrainer("logistic", 0.0, "")
   }
 
   @Test
   def testSplineTrainerHinge : Unit = {
-    testSplineTrainer("hinge", "")
+    testSplineTrainer("hinge", 0.0, "")
   }
   
-   @Test
-  def testSplineTrainerHingeWithMargin : Unit = {
-    testSplineTrainer("hinge", "margin : 0.5")
+  @Test
+  def testSplineTrainerLogisticWithDropout : Unit = {
+    testSplineTrainer("logistic", 0.2, "")
   }
 
-  def testSplineTrainer(loss : String, extraArgs : String) = {
+  @Test
+  def testSplineTrainerHingeWithDropout : Unit = {
+    testSplineTrainer("hinge", 0.2, "")
+  }
+  
+  @Test
+  def testSplineTrainerHingeWithMargin : Unit = {
+    testSplineTrainer("hinge", 0.0, "margin : 0.5")
+  }
+
+  def testSplineTrainer(loss : String, dropout : Double, extraArgs : String) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -101,7 +111,7 @@ class SplineTrainerTest {
     var sc = new SparkContext("local", "SplineTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss, extraArgs))
+      val config = ConfigFactory.parseString(makeConfig(loss, dropout, extraArgs))
 
       val input = sc.parallelize(examples)
       val model = SplineTrainer.train(sc, input, config, "model_config")

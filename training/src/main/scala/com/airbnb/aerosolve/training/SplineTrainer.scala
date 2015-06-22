@@ -326,14 +326,14 @@ object SplineTrainer {
     TrainingUtils.saveModel(model, config, key + ".model_output")
     return model
   }
-
+  
   def updateLogistic(model : SplineModel,
                      fv : FeatureVector,
                      label : Double,
                      learningRate : Double,
                      dropout : Double) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
     // To prevent blowup.
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
@@ -352,7 +352,7 @@ object SplineTrainer {
                   dropout : Double,
                   margin : Double) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
     val loss = scala.math.max(0.0, margin - label * prediction)
     if (loss > 0.0) {
       val grad = -label
