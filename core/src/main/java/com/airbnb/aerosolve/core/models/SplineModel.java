@@ -40,16 +40,18 @@ public class SplineModel extends AbstractModel {
 
     public WeightSpline() {
     }
-    public WeightSpline(float minVal, float maxVal, int numBins, boolean forTraining) {
+    public WeightSpline(float minVal, float maxVal, int numBins) {
       splineWeights = new float[numBins];
-      if (forTraining) {
-        ssg = new float[numBins];
-      }
       spline = new Spline(minVal, maxVal, splineWeights);
+    }
+    
+    public void resample(int newBins) {
+      Spline newSpline = new Spline(spline, newBins);
+      spline = newSpline;
+      splineWeights = newSpline.getWeights(); 
     }
     public Spline spline;
     public float[] splineWeights;
-    public float[] ssg;
     public float L1Norm() {
       float sum = 0.0f;
       for (int i = 0; i < splineWeights.length; i++) {
@@ -186,7 +188,7 @@ public class SplineModel extends AbstractModel {
     if (maxVal <= minVal) {
       maxVal = minVal + 1.0f;
     }
-    WeightSpline ws = new WeightSpline(minVal, maxVal, numBins, true);
+    WeightSpline ws = new WeightSpline(minVal, maxVal, numBins);
     featFamily.put(feature, ws);
   }
 
@@ -272,7 +274,7 @@ public class SplineModel extends AbstractModel {
       }
       float minVal = (float) record.getMinVal();
       float maxVal = (float) record.getMaxVal();
-      WeightSpline vec = new WeightSpline(minVal, maxVal, numBins, false);
+      WeightSpline vec = new WeightSpline(minVal, maxVal, numBins);
       for (int j = 0; j < numBins; j++) {
         vec.splineWeights[j] = record.getWeightVector().get(j).floatValue();
       }

@@ -24,6 +24,29 @@ public class Spline implements Serializable {
   private float binScale;
 
   public Spline(float minVal, float maxVal, float [] weights) {
+    setupSpline(minVal, maxVal, weights);
+  }
+  
+  // A resampling constructor
+  public Spline(Spline other, int newBins) {
+    float[] newWeights = new float[newBins];
+    if (newBins == other.numBins) {
+      for (int i = 0; i < newBins; i++) {
+        newWeights[i] = other.weights[i];
+      }
+    } else {
+      float scale = 1.0f / (newBins - 1.0f);
+      float diff = other.maxVal - other.minVal;
+      for (int i = 0; i < newBins; i++) {
+        float t = i * scale;
+        float x = diff * t + other.minVal;
+        newWeights[i] = other.evaluate(x);
+      }
+    }
+    setupSpline(other.minVal, other.maxVal, newWeights);
+  }
+  
+  private void setupSpline(float minVal, float maxVal, float [] weights) {
     this.weights = weights;
     this.numBins = weights.length;
     this.minVal = minVal;
@@ -33,7 +56,7 @@ public class Spline implements Serializable {
     this.binSize = diff / (numBins - 1.0f);
     this.binScale = 1.0f / binSize;
   }
-
+  
   public float evaluate(float x) {
     int bin = getBin(x);
     if (bin == numBins - 1) {

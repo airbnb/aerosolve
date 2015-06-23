@@ -21,18 +21,44 @@ public class SplineTest {
   public void testSplineEvaluate() {
     float[] weights = {5.0f, 10.0f, -20.0f};
     Spline spline = new Spline(1.0f, 3.0f, weights);
+    testSpline(spline, 0.1f);
+  }
+  
+  @Test
+  public void testSplineResample() {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    Spline spline = new Spline(1.0f, 3.0f, weights);
+
+    // Same size
+    Spline spline2 = new Spline(spline, 3);
+    testSpline(spline2, 0.1f);
+    
+    // Smaller
+    Spline spline3 = new Spline(spline, 2);
+    assertEquals(5.0f, spline3.evaluate(-1.0f), 0.1f);
+    assertEquals(5.0f, spline3.evaluate(1.0f), 0.1f);
+    assertEquals((5.0f - 20.0f) * 0.5f, spline3.evaluate(2.0f), 0.1f);
+    assertEquals(-20.0f, spline3.evaluate(3.0f), 0.1f);
+    assertEquals(-20.0f, spline3.evaluate(4.0f), 0.1f);
+    
+    // Larger
+    Spline spline4 = new Spline(spline, 100);
+    testSpline(spline4, 0.2f);
+  }
+  
+  void testSpline(Spline spline, float tol) {
     float a = spline.evaluate(1.5f);
     log.info("spline 1.5 is " + a);
-    assertEquals(5.0f, spline.evaluate(-1.0f), 0.1f);
-    assertEquals(5.0f, spline.evaluate(1.0f), 0.1f);
-    assertEquals(7.5f, spline.evaluate(1.5f), 0.1f);
-    assertEquals(10.0f, spline.evaluate(1.99f), 0.1f);
-    assertEquals(10.0f, spline.evaluate(2.0f), 0.1f);
-    assertEquals(0.0f, spline.evaluate(2.3333f), 0.1f);
-    assertEquals(-10.0f, spline.evaluate(2.667f), 0.1f);
-    assertEquals(-20.0f, spline.evaluate(2.99999f), 0.1f);
-    assertEquals(-20.0f, spline.evaluate(3.0f), 0.1f);
-    assertEquals(-20.0f, spline.evaluate(4.0f), 0.1f);
+    assertEquals(5.0f, spline.evaluate(-1.0f), tol);
+    assertEquals(5.0f, spline.evaluate(1.0f), tol);
+    assertEquals(7.5f, spline.evaluate(1.5f), tol);
+    assertEquals(10.0f, spline.evaluate(1.99f), tol);
+    assertEquals(10.0f, spline.evaluate(2.0f), tol);
+    assertEquals(0.0f, spline.evaluate(2.3333f), tol);
+    assertEquals(-10.0f, spline.evaluate(2.667f), tol);
+    assertEquals(-20.0f, spline.evaluate(2.99999f), tol);
+    assertEquals(-20.0f, spline.evaluate(3.0f), tol);
+    assertEquals(-20.0f, spline.evaluate(4.0f), tol);
   }
 
   float func(float x) {
