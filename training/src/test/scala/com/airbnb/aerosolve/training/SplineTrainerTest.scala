@@ -52,8 +52,6 @@ class SplineTrainerTest {
       |  smoothing_tolerance : 0.1
       |  linfinity_threshold : 0.01
       |  linfinity_cap : 1.0
-      |  lambda : 0.01
-      |  lambda2 : 0.01
       |  dropout : %f
       |  min_count : 0
       |  subsample : 1.0

@@ -11,6 +11,7 @@ import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.Config
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
@@ -243,42 +244,10 @@ object SplineTrainer {
     input
       .sample(false, subsample)
       .coalesce(numBags, true)
-      .mapPartitions(partition => {
-      val workingModel = modelBC.value
-      @volatile var lossSum : Double = 0.0
-      @volatile var lossCount : Int = 0
-      partition.foreach(example => {
-        val fv = example.example.get(0)
-        val rank = fv.floatFeatures.get(rankKey).asScala.head._2
-        val label = if (rank <= threshold) {
-          -1.0
-        } else {
-          1.0
-        }
-        loss match {
-          case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
-          case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
-          case _ => {
-            log.error("Unknown loss function %s".format(loss))
-            System.exit(-1)
-          }
-        }
-        lossCount = lossCount + 1
-        if (lossCount % lossMod == 0) {
-          log.info("Loss = %f, samples = %d".format(lossSum / lossMod.toDouble, lossCount))
-          lossSum = 0.0
-        }
-      })
-      val output = scala.collection.mutable.HashMap[(String, String), SplineModel.WeightSpline]()
-      workingModel
-        .getWeightSpline
-        .foreach(family => {
-          family._2.foreach(feature => {
-            output.put((family._1, feature._1), feature._2)
-          })
-      })
-      output.iterator
-    })
+      .mapPartitions(partition =>
+        sgdPartition(partition,
+          modelBC, loss, lossMod, threshold, learningRate, dropout, margin,
+          rankKey))
     .groupByKey
     // Average the spline weights
     .map(x => {
@@ -304,6 +273,14 @@ object SplineTrainer {
       }
     })
 
+    deleteSmallSplines(model, linfinityThreshold)
+
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+    return model
+  }
+  
+  def deleteSmallSplines(model : SplineModel,
+                         linfinityThreshold : Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
 
     model.getWeightSpline.asScala.foreach(family => {
@@ -322,9 +299,51 @@ object SplineTrainer {
         family.remove(entry._2)
       }
     })
-
-    TrainingUtils.saveModel(model, config, key + ".model_output")
-    return model
+  }
+  
+  def sgdPartition(partition : Iterator[Example],
+                   modelBC : Broadcast[SplineModel],
+                   loss : String,
+                   lossMod : Int,
+                   threshold : Double,
+                   learningRate : Double,
+                   dropout : Double,
+                   margin : Double,
+                   rankKey : String) = {
+    val workingModel = modelBC.value
+    @volatile var lossSum : Double = 0.0
+    @volatile var lossCount : Int = 0
+    partition.foreach(example => {
+      val fv = example.example.get(0)
+      val rank = fv.floatFeatures.get(rankKey).asScala.head._2
+      val label = if (rank <= threshold) {
+        -1.0
+      } else {
+        1.0
+      }
+      loss match {
+        case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
+        case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
+        case _ => {
+          log.error("Unknown loss function %s".format(loss))
+          System.exit(-1)
+        }
+      }
+      lossCount = lossCount + 1
+      if (lossCount % lossMod == 0) {
+        log.info("Loss = %f, samples = %d".format(lossSum / lossMod.toDouble, lossCount))
+        lossSum = 0.0
+      }
+    })
+    val output = scala.collection.mutable.HashMap[(String, String), SplineModel.WeightSpline]()
+    workingModel
+      .getWeightSpline
+      .foreach(family => {
+        family._2.foreach(feature => {
+          output.put((family._1, feature._1), feature._2)
+        })
+    })
+    output.iterator
   }
   
   def updateLogistic(model : SplineModel,
