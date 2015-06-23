@@ -97,6 +97,12 @@ class SplineTrainerTest {
   def testSplineTrainerHingeMultiscale : Unit = {
     testSplineTrainer("hinge", 0.0, "multiscale : [ 5, 7, 16]")
   }
+  
+  
+  @Test
+  def testSplineTrainerHingeMultiscaleLessBags : Unit = {
+    testSplineTrainer("hinge", 0.2, "multiscale : [ 7, 16]")
+  }
 
   def testSplineTrainer(loss : String, dropout : Double, extraArgs : String) = {
     val examples = ArrayBuffer[Example]()
