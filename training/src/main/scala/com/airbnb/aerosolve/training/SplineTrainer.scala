@@ -485,6 +485,9 @@ object SplineTrainer {
     output
   }
   
+  // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+  // We rescale by 1 / p so that at inference time we don't have to scale by p.
+  // In our case p = 1.0 - dropout rate
   def updateLogistic(model : SplineModel,
                      fv : FeatureVector,
                      label : Double,
