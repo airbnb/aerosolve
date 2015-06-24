@@ -11,6 +11,7 @@ import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.Config
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
@@ -18,6 +19,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.collection.mutable.HashMap
 import scala.util.Try
 
 object SplineTrainer {
@@ -37,7 +39,14 @@ object SplineTrainer {
     val minCount : Int = config.getInt(key + ".min_count")
     val subsample : Double = config.getDouble(key + ".subsample")
     val linfinityCap : Double = config.getDouble(key + ".linfinity_cap")
+    val smoothingTolerance : Double = config.getDouble(key + ".smoothing_tolerance")
+    val linfinityThreshold : Double = config.getDouble(key + ".linfinity_threshold")
+
     val margin : Double = Try(config.getDouble(key + ".margin")).getOrElse(1.0)
+    
+    val multiscale : Array[Int] = Try(
+        config.getIntList(key + ".multiscale").asScala.map(x => x.toInt).toArray)
+      .getOrElse(Array[Int]())
 
     val pointwise : RDD[Example] =
       LinearRankerUtils
@@ -52,7 +61,8 @@ object SplineTrainer {
 
     log.info("Training using " + loss)
     for (i <- 1 to iterations) {
-      model = sgdTrain(sc,
+      model = if (multiscale.size == 0) {
+        sgdTrain(sc,     
                config,
                key,
                pointwise,
@@ -65,7 +75,28 @@ object SplineTrainer {
                subsample,
                i,
                margin,
+               smoothingTolerance,
+               linfinityThreshold,
                model)
+      } else {
+        sgdMultiscaleTrain(sc,     
+               config,
+               key,
+               pointwise,
+               numBins,
+               numBags,
+               rankKey,
+               multiscale,
+               loss,
+               learningRate,
+               dropout,
+               subsample,
+               i,
+               margin,
+               smoothingTolerance,
+               linfinityThreshold,
+               model)
+      }
     }
     model
   }
@@ -224,6 +255,8 @@ object SplineTrainer {
                subsample : Double,
                iteration : Int,
                margin : Double,
+               smoothingTolerance : Double,
+               linfinityThreshold : Double,
                model : SplineModel) : SplineModel = {
     log.info("Iteration %d".format(iteration))
 
@@ -231,8 +264,6 @@ object SplineTrainer {
 
     val threshold : Double = config.getDouble(key + ".rank_threshold")
 
-    val smoothingTolerance : Double = config.getDouble(key + ".smoothing_tolerance")
-    val linfinityThreshold : Double = config.getDouble(key + ".linfinity_threshold")
 
     val lossMod : Int = try {
       config.getInt(key + ".loss_mod")
@@ -243,50 +274,17 @@ object SplineTrainer {
     input
       .sample(false, subsample)
       .coalesce(numBags, true)
-      .mapPartitions(partition => {
-      val workingModel = modelBC.value
-      @volatile var lossSum : Double = 0.0
-      @volatile var lossCount : Int = 0
-      partition.foreach(example => {
-        val fv = example.example.get(0)
-        val rank = fv.floatFeatures.get(rankKey).asScala.head._2
-        val label = if (rank <= threshold) {
-          -1.0
-        } else {
-          1.0
-        }
-        loss match {
-          case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
-          case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
-          case _ => {
-            log.error("Unknown loss function %s".format(loss))
-            System.exit(-1)
-          }
-        }
-        lossCount = lossCount + 1
-        if (lossCount % lossMod == 0) {
-          log.info("Loss = %f, samples = %d".format(lossSum / lossMod.toDouble, lossCount))
-          lossSum = 0.0
-        }
-      })
-      val output = scala.collection.mutable.HashMap[(String, String), SplineModel.WeightSpline]()
-      workingModel
-        .getWeightSpline
-        .foreach(family => {
-          family._2.foreach(feature => {
-            output.put((family._1, feature._1), feature._2)
-          })
-      })
-      output.iterator
-    })
+      .mapPartitions(partition =>
+        sgdPartition(partition,
+          modelBC, loss, lossMod, threshold, learningRate, dropout, margin,
+          rankKey))
     .groupByKey
     // Average the spline weights
     .map(x => {
       val head = x._2.head
       val spline = new WeightSpline(head.spline.getMinVal,
                                     head.spline.getMaxVal,
-                                    numBins,
-                                    true)
+                                    numBins)
       val scale = 1.0f / numBags.toFloat
       x._2.foreach(entry => {
         for (i <- 0 until numBins) {
@@ -304,6 +302,82 @@ object SplineTrainer {
       }
     })
 
+    deleteSmallSplines(model, linfinityThreshold)
+
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+    return model
+  }
+  
+  def sgdMultiscaleTrain(sc : SparkContext,
+                         config : Config,
+                         key : String,
+                         input : RDD[Example],
+                         numBins : Int,
+                         numBags : Int,
+                         rankKey : String,
+                         multiscale : Array[Int],
+                         loss : String,
+                         learningRate : Double,
+                         dropout : Double,
+                         subsample : Double,
+                         iteration : Int,
+                         margin : Double,
+                         smoothingTolerance : Double,
+                         linfinityThreshold : Double,
+                         model : SplineModel) : SplineModel = {
+    log.info("Multiscale Iteration %d".format(iteration))
+
+    val modelBC = sc.broadcast(model)
+
+    val threshold : Double = config.getDouble(key + ".rank_threshold")
+
+    val lossMod : Int = try {
+      config.getInt(key + ".loss_mod")
+    } catch {
+      case _ : Throwable => 100
+    }
+
+    input
+      .sample(false, subsample)
+      .coalesce(numBags, true)
+      .mapPartitionsWithIndex((index, partition) =>
+        sgdPartitionMultiscale(index, partition, multiscale,
+          modelBC, loss, lossMod, threshold, learningRate, dropout, margin,
+          rankKey))
+    .groupByKey
+    // Average the spline weights
+    .map(x => {
+      val head = x._2.head
+      val spline = new WeightSpline(head.spline.getMinVal,
+                                    head.spline.getMaxVal,
+                                    numBins)
+      val scale = 1.0f / numBags.toFloat
+      x._2.foreach(entry => {
+        entry.resample(numBins)
+        for (i <- 0 until numBins) {
+          spline.splineWeights(i) = spline.splineWeights(i) + scale * entry.splineWeights(i)
+        }
+      })
+      smoothSpline(smoothingTolerance, spline)
+      (x._1, spline)
+    })
+    .collect
+    .foreach(entry => {
+      val family = model.getWeightSpline.get(entry._1._1)
+      if (family != null && family.containsKey(entry._1._2)) {
+        family.put(entry._1._2, entry._2)
+      }
+    })
+
+    deleteSmallSplines(model, linfinityThreshold)
+
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+    return model
+  }
+
+  
+  def deleteSmallSplines(model : SplineModel,
+                         linfinityThreshold : Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
 
     model.getWeightSpline.asScala.foreach(family => {
@@ -322,18 +396,105 @@ object SplineTrainer {
         family.remove(entry._2)
       }
     })
-
-    TrainingUtils.saveModel(model, config, key + ".model_output")
-    return model
   }
-
+  
+  def sgdPartition(partition : Iterator[Example],
+                   modelBC : Broadcast[SplineModel],
+                   loss : String,
+                   lossMod : Int,
+                   threshold : Double,
+                   learningRate : Double,
+                   dropout : Double,
+                   margin : Double,
+                   rankKey : String) = {
+    val workingModel = modelBC.value
+    val output = sgdPartitionInternal(partition, workingModel, loss, lossMod, threshold, learningRate, dropout, margin, rankKey)
+    output.iterator
+  }
+  
+  def sgdPartitionMultiscale(
+       index : Int,
+       partition : Iterator[Example],
+       multiscale : Array[Int],
+       modelBC : Broadcast[SplineModel],
+       loss : String,
+       lossMod : Int,
+       threshold : Double,
+       learningRate : Double,
+       dropout : Double,
+       margin : Double,
+       rankKey : String) = {
+    val workingModel = modelBC.value
+    
+    val newBins = multiscale(index % multiscale.size)
+    
+    log.info("Resampling to %d bins".format(newBins))
+    workingModel
+      .getWeightSpline
+      .foreach(family => {
+        family._2.foreach(feature => {
+          feature._2.resample(newBins)
+        })
+    })
+    
+    val output = sgdPartitionInternal(partition, workingModel, loss, lossMod, threshold, learningRate, dropout, margin, rankKey)
+    output.iterator
+  }
+  
+  def sgdPartitionInternal(partition : Iterator[Example],
+                           workingModel : SplineModel,
+                           loss : String,
+                           lossMod : Int,
+                           threshold : Double,
+                           learningRate : Double,
+                           dropout : Double,
+                           margin : Double,
+                           rankKey : String) : HashMap[(String, String), SplineModel.WeightSpline] = {
+    @volatile var lossSum : Double = 0.0
+    @volatile var lossCount : Int = 0
+    partition.foreach(example => {
+      val fv = example.example.get(0)
+      val rank = fv.floatFeatures.get(rankKey).asScala.head._2
+      val label = if (rank <= threshold) {
+        -1.0
+      } else {
+        1.0
+      }
+      loss match {
+        case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
+        case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
+        case _ => {
+          log.error("Unknown loss function %s".format(loss))
+          System.exit(-1)
+        }
+      }
+      lossCount = lossCount + 1
+      if (lossCount % lossMod == 0) {
+        log.info("Loss = %f, samples = %d".format(lossSum / lossMod.toDouble, lossCount))
+        lossSum = 0.0
+      }
+    })
+    val output = HashMap[(String, String), SplineModel.WeightSpline]()
+    workingModel
+      .getWeightSpline
+      .foreach(family => {
+        family._2.foreach(feature => {
+          output.put((family._1, feature._1), feature._2)
+        })
+    })
+    output
+  }
+  
+  // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+  // We rescale by 1 / p so that at inference time we don't have to scale by p.
+  // In our case p = 1.0 - dropout rate
   def updateLogistic(model : SplineModel,
                      fv : FeatureVector,
                      label : Double,
                      learningRate : Double,
                      dropout : Double) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
     // To prevent blowup.
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
@@ -352,7 +513,7 @@ object SplineTrainer {
                   dropout : Double,
                   margin : Double) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
     val loss = scala.math.max(0.0, margin - label * prediction)
     if (loss > 0.0) {
       val grad = -label
