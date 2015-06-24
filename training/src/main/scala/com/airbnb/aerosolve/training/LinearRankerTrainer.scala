@@ -183,7 +183,7 @@ object LinearRankerTrainer {
           .foreach(sample => {
           val rank = sample.floatFeatures.get(rankKey).iterator.next()._2
           val features = LinearRankerUtils.getFeatures(sample).filter(x => rnd.nextDouble() > dropout)
-          val prediction = LinearRankerUtils.score(features, weightMap)
+          val prediction = LinearRankerUtils.score(features, weightMap) / (1.0 - dropout)
           val label = if (rank <= threshold) {
             -1.0
           } else {
@@ -250,7 +250,7 @@ object LinearRankerTrainer {
       val lambda2 : Double = config.getDouble(key + ".lambda2")
       val dropout : Double = config.getDouble(key + ".dropout")
       partition.foreach(sample => {
-        val prediction = LinearRankerUtils.score(sample.pos, weightMap)
+        val prediction = LinearRankerUtils.score(sample.pos, weightMap) / (1.0 - dropout)
         val label = if (sample.label <= threshold) {
           -1.0
         } else {
@@ -336,8 +336,8 @@ object LinearRankerTrainer {
       partition.foreach(ce => {
         val pos = ce.pos.filter(x => rnd.nextDouble() > dropout)
         val neg = ce.neg.filter(x => rnd.nextDouble() > dropout)
-        val posScore = LinearRankerUtils.score(pos, weightMap)
-        val negScore = LinearRankerUtils.score(neg, weightMap)
+        val posScore = LinearRankerUtils.score(pos, weightMap) / (1.0 - dropout)
+        val negScore = LinearRankerUtils.score(neg, weightMap) / (1.0 - dropout)
         val loss = 1.0 - posScore + negScore
         val lossEntry = weightMap.getOrElse(lossKey, (0.0, 0.0))
         if (loss > 0.0) {

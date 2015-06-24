@@ -49,7 +49,7 @@ class LinearClassificationTrainerTest {
       |  loss : "hinge"
       |  rank_key : "$rank"
       |  rank_threshold : 0.0
-      |  dropout : 0.0
+      |  dropout : 0.1
       |  learning_rate : 1.0
       |  lambda : 0.1
       |  lambda2 : 0.1

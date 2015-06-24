@@ -53,7 +53,7 @@ class LinearLogisticClassificationTrainerTest {
       |  iterations : 10
       |  lambda : 0.1
       |  lambda2 : 0.01
-      |  dropout : 0.0
+      |  dropout : 0.1
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
