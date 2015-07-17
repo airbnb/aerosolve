@@ -20,7 +20,7 @@ This library is meant to be used with sparse, interpretable features such as tho
 (search keywords, filters) or pricing (number of rooms, location, price). It is not as interpretable with problems with very dense
 non-human interpretable features such as raw pixels or audio samples.
 
-The are a few reasons to focus on interpretability:
+There are a few reasons to focus on interpretability:
 
   * Your corpus is new and not fully defined and you want more insight into your corpus
   * Having interpretable models lets you iterate quickly. Figure out where the model disagrees most and have insight into what kind of new features are needed.
