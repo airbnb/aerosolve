@@ -20,7 +20,7 @@ This library is meant to be used with sparse, interpretable features such as tho
 (search keywords, filters) or pricing (number of rooms, location, price). It is not as interpretable with problems with very dense
 non-human interpretable features such as raw pixels or audio samples.
 
-The are a few reasons to focus on interpretability:
+There are a few reasons to focus on interpretability:
 
   * Your corpus is new and not fully defined and you want more insight into your corpus
   * Having interpretable models lets you iterate quickly. Figure out where the model disagrees most and have insight into what kind of new features are needed.
@@ -84,7 +84,7 @@ quickly and in a controlled way.
 
 Here are some examples of feature transforms that are commonly used:
 
-  * [List transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/ListTransform.java). A meta transform that specifies other transforms to be applied 
+  * [List transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/ListTransform.java). A meta transform that specifies other transforms to be applied
   * [Cross transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/CrossTransform.java). Operates only on stringFeatures. Allows interactions between two different string feature families. e.g. "Keyword" cross "LISTING CITY" creates the new feature family "Keyword_x_city" -> "Free parking^San Francisco"
   * [Multiscale grid transform](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/MultiscaleGridQuantizeTransform.java) Constructs multiple nested grids for 2D coordinates. Useful for modelling geography.
 
