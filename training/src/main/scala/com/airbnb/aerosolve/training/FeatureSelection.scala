@@ -87,8 +87,8 @@ object FeatureSelection {
   // Returns the maximum entropy per family
   def maxEntropy(input : RDD[((String, String), Double)]) : RDD[((String, String), Double)] = {
     input
-      .map(x => (x._1._1, x))
+      .map(x => (x._1._1, (x._1._2, x._2)))
       .reduceByKey((a, b) => if (math.abs(a._2) > math.abs(b._2)) a else b)
-      .map(x => x._2)
+      .map(x => ((x._1, x._2._1), x._2._2))
   }
 }
