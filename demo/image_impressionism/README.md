@@ -73,7 +73,7 @@ We can then proceed to train the model using
 
 `sh job_runner.sh TrainModel`
 
-This step should take around 10 minutes and you can watch the progress using http://localhost:4040/stages/
+This step should take around 10 minutes and you can watch the progress using [http://localhost:4040/stages/](http://localhost:4040/stages/).
 
 The log should look something like this at the end
 
@@ -108,7 +108,7 @@ We are now ready to score the model! Type in
 
 ```
 sh job_runner.sh MakeImpression
-open output\impression.jpg
+open output/impression.jpg
 ```
 
 You should then see the image below which is an approximation of the image with the smallest block being 3x3 block.
