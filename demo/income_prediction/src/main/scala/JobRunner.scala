@@ -1,7 +1,8 @@
 package com.airbnb.aerosolve.demo.IncomePrediction;
-import com.typesafe.config.ConfigFactory
+
 import org.apache.spark.{SparkContext, SparkConf}
 import org.slf4j.{LoggerFactory, Logger}
+import com.typesafe.config.ConfigFactory
 
 /*
  * Runs an arbitrary job given a config resource name.
@@ -11,9 +12,9 @@ import org.slf4j.{LoggerFactory, Logger}
  * ... other job specific configs.
  * Example command line:
  * bin/spark-submit --executor-memory 8G
- * --class com.airbnb.aerosolve.demo.ImageImpressionism.JobRunner
- * image_impressionism-0.1.2-all.jar
- * image_impressionism.conf
+ * --class com.airbnb.aerosolve.demo.IncomePrediction.JobRunner
+ * income_prediction-1.0.0-all.jar
+ * income_prediction.conf
  */
 
 object JobRunner {
@@ -26,7 +27,7 @@ object JobRunner {
     log.info("Loading config from " + args(0))
     val config = ConfigFactory.load(args(0))
     val jobs : Seq[String] = args(1).split(',')
-    val conf = new SparkConf().setAppName("ImageImpressionism")
+    val conf = new SparkConf().setAppName("IncomePrediction")
     val sc = new SparkContext(conf)
     for (job <- jobs) {
       log.info("Running " + job)

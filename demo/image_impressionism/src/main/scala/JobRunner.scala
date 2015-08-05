@@ -2,9 +2,7 @@ package com.airbnb.aerosolve.demo.ImageImpressionism;
 
 import org.apache.spark.{SparkContext, SparkConf}
 import org.slf4j.{LoggerFactory, Logger}
-import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import scala.collection.JavaConversions._
 
 /*
  * Runs an arbitrary job given a config resource name.
@@ -15,7 +13,7 @@ import scala.collection.JavaConversions._
  * Example command line:
  * bin/spark-submit --executor-memory 8G
  * --class com.airbnb.aerosolve.demo.ImageImpressionism.JobRunner
- * image_impressionism-0.1.2-all.jar
+ * image_impressionism-1.0.0-all.jar
  * image_impressionism.conf
  */
 

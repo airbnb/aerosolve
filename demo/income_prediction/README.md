@@ -25,19 +25,20 @@ mv adult.data src/main/resources
 mv adult.test src/main/resources
 ```
 
-Descriptions of the dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names
-Save the dataset in src/main/resources
-And make sure the path is consistent with the config file in src/main/resources/income_prediction.conf
+Descriptions of the dataset can be found [here](https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names). 
 
-After you edit the config file, you can build the demo using
+Save the dataset at `src/main/resources`, and make sure the path is consistent with the config file in `src/main/resources/income_prediction.conf`.
+
+After you edit the config file, you can build the demo using:
 
 `gradle shadowjar --info`
 
-The first step is making examples for the training data and testing data. You can do this by running
+The first step is making examples for the training data and testing data. You can do this by running:
 
-`sh job_runner.sh MakeTraining`
-
-`sh job_runner.sh MakeTesting`
+```
+sh job_runner.sh MakeTraining
+sh job_runner.sh MakeTesting
+```
 
 You can view what is in the examples using spark-shell:
 
