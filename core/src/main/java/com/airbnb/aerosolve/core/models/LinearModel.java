@@ -131,8 +131,26 @@ public class LinearModel extends AbstractModel {
 
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
-    // (TODO) implement debugScoreComponents
+    // linear model takes only string features
+    Map<String, Set<String>> stringFeatures = combinedItem.getStringFeatures();
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
+    if (stringFeatures == null || weights == null) {
+      return scoreRecordsList;
+    }
+    for (Entry<String, Set<String>> entry : stringFeatures.entrySet()) {
+      String family = entry.getKey();
+      Map<String, Float> inner = weights.get(family);
+      if (inner == null) continue;
+      for (String value : entry.getValue()) {
+        DebugScoreRecord record = new DebugScoreRecord();
+        record.setFeatureFamily(family);
+        record.setFeatureName(value);
+        // 1.0 if the string feature exists, 0.0 otherwise
+        record.setFeatureValue(1.0);
+        record.setFeatureWeight(inner.get(value));
+        scoreRecordsList.add(record);
+      }
+    }
     return scoreRecordsList;
   }
 
