@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
@@ -11,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
@@ -120,6 +122,24 @@ public class LinearModelTest {
       writer.close();
     } catch (IOException e) {
       assertTrue("Could not save", false);
+    }
+  }
+
+  @Test
+  public void testDebugScoreComponents() {
+    LinearModel model = makeLinearModel();
+    FeatureVector fv = makeFeatureVector();
+    List<DebugScoreRecord> scoreRecordsList = model.debugScoreComponents(fv);
+    assertTrue(scoreRecordsList.size() == 2);
+    for (DebugScoreRecord record : scoreRecordsList) {
+      assertTrue(record.featureFamily == "string_feature");
+      assertTrue(record.featureName == "aaa" || record.featureName == "bbb");
+      assertTrue(record.featureValue == 1.0);
+      if (record.featureName == "aaa") {
+        assertTrue(record.featureWeight == 0.5f);
+      } else {
+        assertTrue(record.featureWeight == 0.25f);
+      }
     }
   }
 }
