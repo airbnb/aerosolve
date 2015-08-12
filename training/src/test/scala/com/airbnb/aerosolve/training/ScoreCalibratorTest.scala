@@ -12,10 +12,10 @@ class ScoreCalibratorTest {
   def makeConfigBatch: String = {
     """
       |model_config {
-      |  iterations : 5000
-      |  learning_rate : 0.5
+      |  iterations : 500
+      |  learning_rate : 10.0
+      |  rate_decay : 0.95
       |  tolerance : 0.00001
-      |  l2_reg : 0.1
       |}
     """.stripMargin
   }
@@ -27,7 +27,6 @@ class ScoreCalibratorTest {
       |  learning_rate : 0.1
       |  rate_decay : 0.95
       |  num_bags : 10
-      |  l2_reg : 0.1
       |  tolerance : 0.0001
       |}
     """.stripMargin
@@ -49,9 +48,8 @@ class ScoreCalibratorTest {
     var sc = new SparkContext("local", "ScoreCaliboratorTest")
 
     try {
-      // testScoreCalibratorRun(sc, trainData, trainLabel, testData, testLabel, threshold, "Batch")
-
       testScoreCalibratorRun(sc, trainData, "SGD", a, b)
+      testScoreCalibratorRun(sc, trainData, "Batch", a, b)
     }
     finally {
       sc.stop
@@ -75,7 +73,7 @@ class ScoreCalibratorTest {
     }
 
     val result = trainType match {
-      case "Batch" => ScoreCalibrator.trainBatchMLE(config.getConfig("model_config"), trainRDD)
+      case "Batch" => ScoreCalibrator.trainBatchMLE(config.getConfig("model_config"), trainData)
       case "SGD" => ScoreCalibrator.trainSGD(config.getConfig("model_config"), trainRDD)
       }
 
@@ -87,7 +85,5 @@ class ScoreCalibratorTest {
     log.info("Absolute error: offset %f, slope %f".format(errorOffset, errorSlope))
     log.info("Relative error: offset %f, slope %f".format(errorOffset / math.abs(offset), errorSlope / math.abs(slope)))
     assert(errorOffset / math.abs(offset) < 0.1 && errorSlope / math.abs(slope) < 0.1)
-
     }
-
 }
