@@ -112,19 +112,16 @@ object ScoreCalibrator {
 
   // Batch Gradient Descent: Maximum Likelihood Estimate (MLE)
   def trainBatchMLE(config : Config,
-                    input : RDD[(Double, Boolean)]) : Array[Double] = {
+                    input : Array[(Double, Boolean)]) : Array[Double] = {
 
     val maxIter : Int = config.getInt("iterations")
-    val learningRate : Double = config.getDouble("learning_rate")
-    val precision: Double = config.getDouble("precision")
-    val l2Reg: Double = config.getDouble("l2_reg")
-    val cachedInput = input.collect
-    val score = cachedInput.map(x => x._1) // Double
-    val label = cachedInput.map(x => x._2) // Boolean
+    var learningRate : Double = config.getDouble("learning_rate")
+    val tolerance : Double = config.getDouble("tolerance")
+    val rateDecay : Double = config.getDouble("rate_decay")
+    val score = input.map(x => x._1) // Double
+    val label = input.map(x => x._2) // Boolean
 
     // Transforming the label to target probability
-    val numPos = label.count(x => x)
-    val numNeg = label.size - numPos
     val n = label.size
     val transformedLabel = label.map(x => if (x) 1.0 else 0.0)
 
@@ -150,16 +147,13 @@ object ScoreCalibrator {
       val gradientA = predDiff.sum / n
       val gradientB = predDiff.zip(score).map(x => x._1 * x._2).sum / n
 
-      a -= learningRate * (gradientA + l2Reg * a)
-      b -= learningRate * (gradientB + l2Reg * b)
-
+      a -= learningRate * gradientA
+      b -= learningRate * gradientB
+      learningRate = learningRate * rateDecay
       iter += 1
-    } while(math.abs(old_a - a) > precision &&
-      math.abs(old_b - b) > precision && iter < maxIter)
-
-    log.info("Iteration %d, a = %f; b = %f".format(iter, a, b))
+      log.info("Iteration %d, a = %f; b = %f".format(iter, a, b))
+    } while((math.abs(old_a - a) > tolerance ||
+             math.abs(old_b - b) > tolerance) && iter < maxIter)
     Array(a, b)
   }
-
-
 }
