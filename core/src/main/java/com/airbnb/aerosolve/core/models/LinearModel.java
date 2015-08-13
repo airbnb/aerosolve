@@ -143,12 +143,15 @@ public class LinearModel extends AbstractModel {
       if (inner == null) continue;
       for (String value : entry.getValue()) {
         DebugScoreRecord record = new DebugScoreRecord();
-        record.setFeatureFamily(family);
-        record.setFeatureName(value);
-        // 1.0 if the string feature exists, 0.0 otherwise
-        record.setFeatureValue(1.0);
-        record.setFeatureWeight(inner.get(value));
-        scoreRecordsList.add(record);
+        Float weight = inner.get(value);
+        if (weight != null) {
+          record.setFeatureFamily(family);
+          record.setFeatureName(value);
+          // 1.0 if the string feature exists, 0.0 otherwise
+          record.setFeatureValue(1.0);
+          record.setFeatureWeight(weight);
+          scoreRecordsList.add(record);
+        }
       }
     }
     return scoreRecordsList;

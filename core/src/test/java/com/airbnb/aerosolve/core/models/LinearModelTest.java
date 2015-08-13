@@ -32,6 +32,8 @@ public class LinearModelTest {
     Set list = new HashSet<String>();
     list.add("aaa");
     list.add("bbb");
+    // add a feature that is missing in the model
+    list.add("ccc");
     HashMap stringFeatures = new HashMap<String, ArrayList<String>>();
     stringFeatures.put("string_feature", list);
     FeatureVector featureVector = new FeatureVector();
