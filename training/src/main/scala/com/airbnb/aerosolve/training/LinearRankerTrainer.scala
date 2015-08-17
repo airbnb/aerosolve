@@ -429,12 +429,11 @@ object LinearRankerTrainer {
     // Since we are bagging models, average them by numBags
     val scale : Double = 1.0 / numBags.toDouble
 
-    val filteredInput = input
-    .filter(examples => examples != null)
-    .sample(false, subsample)
-
     for (i <- 1 to iterations) {
       log.info("Iteration %d".format(i))
+      val filteredInput = input
+        .filter(examples => examples != null)
+        .sample(false, subsample)
       val resultsRDD = pickTrainer(sc, filteredInput, config, key, loss, numBags, weights, i)
         .reduceByKey((a,b) => (a._1 + b._1, a._2 + b._2))
         .persist()
