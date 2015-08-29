@@ -41,6 +41,7 @@ object SplineTrainer {
     val linfinityCap : Double = config.getDouble(key + ".linfinity_cap")
     val smoothingTolerance : Double = config.getDouble(key + ".smoothing_tolerance")
     val linfinityThreshold : Double = config.getDouble(key + ".linfinity_threshold")
+    val initModelPath : String = Try{config.getString(key + ".init_model")}.getOrElse("")
 
     val margin : Double = Try(config.getDouble(key + ".margin")).getOrElse(1.0)
     
@@ -52,11 +53,25 @@ object SplineTrainer {
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
 
-    var model = new SplineModel()
-    model.initForTraining(numBins)
-    model.setSplineNormCap(linfinityCap.toFloat)
-    initModel(minCount, subsample, rankKey, pointwise, model)
-    setPrior(config, key, model)
+    val initialModel = if(initModelPath == "") {
+      None
+    } else {
+      TrainingUtils.loadScoreModel(initModelPath)
+    }
+    var model = if(initialModel.isDefined) {
+      val newModel = initialModel.get.asInstanceOf[SplineModel]
+      newModel.setSplineNormCap(linfinityCap.toFloat)
+      initModel(minCount, subsample, rankKey, pointwise, newModel, false)
+      newModel
+    } else {
+      val newModel = new SplineModel()
+      newModel.initForTraining(numBins)
+      newModel.setSplineNormCap(linfinityCap.toFloat)
+      initModel(minCount, subsample, rankKey, pointwise, newModel, true)
+      setPrior(config, key, newModel)
+      newModel
+    }
+
     log.info("Computing min/max values for all features")
 
     log.info("Training using " + loss)
@@ -101,16 +116,17 @@ object SplineTrainer {
     model
   }
 
-  // Intializes the model
+  // Initializes the model
   def initModel(minCount : Int,
                 subsample : Double,
                 rankKey : String,
                 input : RDD[Example],
-                model : SplineModel) = {
+                model : SplineModel,
+                overwrite : Boolean) = {
     val minMax = getMinMax(minCount, rankKey, input.sample(false, subsample))
     log.info("Num features = %d".format(minMax.length))
     for (entry <- minMax) {
-      model.addSpline(entry._1._1, entry._1._2, entry._2._1.toFloat, entry._2._2.toFloat)
+      model.addSpline(entry._1._1, entry._1._2, entry._2._1.toFloat, entry._2._2.toFloat, overwrite)
     }
   }
 
@@ -149,8 +165,8 @@ object SplineTrainer {
 
   // Returns the min/max of a feature
   def getMinMax(minCount : Int,
-                  rankKey : String,
-                  input : RDD[Example]) : Array[((String, String), (Double, Double))] = {
+                rankKey : String,
+                input : RDD[Example]) : Array[((String, String), (Double, Double))] = {
     input
       .mapPartitions(partition => {
       // family, feature name => min, max, count

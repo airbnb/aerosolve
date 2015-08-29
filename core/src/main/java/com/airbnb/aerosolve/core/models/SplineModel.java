@@ -179,17 +179,21 @@ public class SplineModel extends AbstractModel {
   }
 
   // Adds a new spline
-  public void addSpline(String family, String feature, float minVal, float maxVal) {
+  public void addSpline(String family, String feature, float minVal, float maxVal, Boolean overwrite) {
+    // if overwrite=true, we overwrite an existing spline, otherwise we don't modify an existing spline
     Map<String, WeightSpline> featFamily = weightSpline.get(family);
     if (featFamily == null) {
       featFamily = new HashMap<>();
       weightSpline.put(family, featFamily);
     }
-    if (maxVal <= minVal) {
-      maxVal = minVal + 1.0f;
+
+    if (overwrite || !featFamily.containsKey(feature)) {
+      if (maxVal <= minVal) {
+        maxVal = minVal + 1.0f;
+      }
+      WeightSpline ws = new WeightSpline(minVal, maxVal, numBins);
+      featFamily.put(feature, ws);
     }
-    WeightSpline ws = new WeightSpline(minVal, maxVal, numBins);
-    featFamily.put(feature, ws);
   }
 
   private void updateWeightSpline(float val,
