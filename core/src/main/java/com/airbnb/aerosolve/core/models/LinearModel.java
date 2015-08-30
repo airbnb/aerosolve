@@ -183,7 +183,13 @@ public class LinearModel extends AbstractModel {
     header.setModelType("linear");
     header.setSlope(slope);
     header.setOffset(offset);
-    header.setNumRecords(weights.size());
+    long count = 0;
+    for (Map.Entry<String, Map<String, Float>> familyMap : weights.entrySet()) {
+      for (Map.Entry<String, Float> feature : familyMap.getValue().entrySet()) {
+        count++;
+      }
+    }
+    header.setNumRecords(count);
     ModelRecord headerRec = new ModelRecord();
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
