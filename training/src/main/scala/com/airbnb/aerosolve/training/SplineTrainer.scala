@@ -24,6 +24,22 @@ import scala.util.Try
 
 object SplineTrainer {
   private final val log: Logger = LoggerFactory.getLogger("SplineTrainer")
+  
+  case class SplineTrainerParams(
+       numBins : Int,
+       numBags : Int,
+       rankKey : String,
+       loss : String,
+       learningRate : Double,
+       dropout : Double,
+       subsample : Double,
+       margin : Double,
+       smoothingTolerance : Double,
+       linfinityThreshold : Double,
+       threshold : Double,
+       lossMod : Int
+   )
+  
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -42,12 +58,32 @@ object SplineTrainer {
     val smoothingTolerance : Double = config.getDouble(key + ".smoothing_tolerance")
     val linfinityThreshold : Double = config.getDouble(key + ".linfinity_threshold")
     val initModelPath : String = Try{config.getString(key + ".init_model")}.getOrElse("")
+    val threshold : Double = config.getDouble(key + ".rank_threshold")
+
+    val lossMod : Int = try {
+      config.getInt(key + ".loss_mod")
+    } catch {
+      case _ : Throwable => 100
+    }
 
     val margin : Double = Try(config.getDouble(key + ".margin")).getOrElse(1.0)
     
     val multiscale : Array[Int] = Try(
         config.getIntList(key + ".multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
+      
+    val params = SplineTrainerParams(numBins = numBins,
+       numBags = numBags,
+       rankKey = rankKey,
+       loss = loss,
+       learningRate = learningRate,
+       dropout = dropout,
+       subsample = subsample,
+       margin = margin,
+       smoothingTolerance = smoothingTolerance,
+       linfinityThreshold = linfinityThreshold,
+       threshold = threshold,
+       lossMod = lossMod)
 
     val pointwise : RDD[Example] =
       LinearRankerUtils
@@ -81,35 +117,17 @@ object SplineTrainer {
                config,
                key,
                pointwise,
-               numBins,
-               numBags,
-               rankKey,
-               loss,
-               learningRate,
-               dropout,
-               subsample,
                i,
-               margin,
-               smoothingTolerance,
-               linfinityThreshold,
+               params,
                model)
       } else {
         sgdMultiscaleTrain(sc,     
                config,
                key,
                pointwise,
-               numBins,
-               numBags,
-               rankKey,
                multiscale,
-               loss,
-               learningRate,
-               dropout,
-               subsample,
                i,
-               margin,
-               smoothingTolerance,
-               linfinityThreshold,
+               params,
                model)
       }
     }
@@ -262,52 +280,32 @@ object SplineTrainer {
                config : Config,
                key : String,
                input : RDD[Example],
-               numBins : Int,
-               numBags : Int,
-               rankKey : String,
-               loss : String,
-               learningRate : Double,
-               dropout : Double,
-               subsample : Double,
                iteration : Int,
-               margin : Double,
-               smoothingTolerance : Double,
-               linfinityThreshold : Double,
+               params : SplineTrainerParams,
                model : SplineModel) : SplineModel = {
     log.info("Iteration %d".format(iteration))
 
     val modelBC = sc.broadcast(model)
 
-    val threshold : Double = config.getDouble(key + ".rank_threshold")
-
-
-    val lossMod : Int = try {
-      config.getInt(key + ".loss_mod")
-    } catch {
-      case _ : Throwable => 100
-    }
-
     input
-      .sample(false, subsample)
-      .coalesce(numBags, true)
+      .sample(false, params.subsample)
+      .coalesce(params.numBags, true)
       .mapPartitions(partition =>
-        sgdPartition(partition,
-          modelBC, loss, lossMod, threshold, learningRate, dropout, margin,
-          rankKey))
+        sgdPartition(partition, modelBC, params))
     .groupByKey
     // Average the spline weights
     .map(x => {
       val head = x._2.head
       val spline = new WeightSpline(head.spline.getMinVal,
                                     head.spline.getMaxVal,
-                                    numBins)
-      val scale = 1.0f / numBags.toFloat
+                                    params.numBins)
+      val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
-        for (i <- 0 until numBins) {
+        for (i <- 0 until params.numBins) {
           spline.splineWeights(i) = spline.splineWeights(i) + scale * entry.splineWeights(i)
         }
       })
-      smoothSpline(smoothingTolerance, spline)
+      smoothSpline(params.smoothingTolerance, spline)
       (x._1, spline)
     })
     .collect
@@ -318,7 +316,7 @@ object SplineTrainer {
       }
     })
 
-    deleteSmallSplines(model, linfinityThreshold)
+    deleteSmallSplines(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, config, key + ".model_output")
     return model
@@ -328,53 +326,35 @@ object SplineTrainer {
                          config : Config,
                          key : String,
                          input : RDD[Example],
-                         numBins : Int,
-                         numBags : Int,
-                         rankKey : String,
                          multiscale : Array[Int],
-                         loss : String,
-                         learningRate : Double,
-                         dropout : Double,
-                         subsample : Double,
                          iteration : Int,
-                         margin : Double,
-                         smoothingTolerance : Double,
-                         linfinityThreshold : Double,
+                         params : SplineTrainerParams,
                          model : SplineModel) : SplineModel = {
     log.info("Multiscale Iteration %d".format(iteration))
 
     val modelBC = sc.broadcast(model)
 
-    val threshold : Double = config.getDouble(key + ".rank_threshold")
-
-    val lossMod : Int = try {
-      config.getInt(key + ".loss_mod")
-    } catch {
-      case _ : Throwable => 100
-    }
-
     input
-      .sample(false, subsample)
-      .coalesce(numBags, true)
+      .sample(false, params.subsample)
+      .coalesce(params.numBags, true)
       .mapPartitionsWithIndex((index, partition) =>
         sgdPartitionMultiscale(index, partition, multiscale,
-          modelBC, loss, lossMod, threshold, learningRate, dropout, margin,
-          rankKey))
+          modelBC, params))
     .groupByKey
     // Average the spline weights
     .map(x => {
       val head = x._2.head
       val spline = new WeightSpline(head.spline.getMinVal,
                                     head.spline.getMaxVal,
-                                    numBins)
-      val scale = 1.0f / numBags.toFloat
+                                    params.numBins)
+      val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
-        entry.resample(numBins)
-        for (i <- 0 until numBins) {
+        entry.resample(params.numBins)
+        for (i <- 0 until params.numBins) {
           spline.splineWeights(i) = spline.splineWeights(i) + scale * entry.splineWeights(i)
         }
       })
-      smoothSpline(smoothingTolerance, spline)
+      smoothSpline(params.smoothingTolerance, spline)
       (x._1, spline)
     })
     .collect
@@ -385,13 +365,12 @@ object SplineTrainer {
       }
     })
 
-    deleteSmallSplines(model, linfinityThreshold)
+    deleteSmallSplines(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, config, key + ".model_output")
     return model
   }
 
-  
   def deleteSmallSplines(model : SplineModel,
                          linfinityThreshold : Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
@@ -416,15 +395,9 @@ object SplineTrainer {
   
   def sgdPartition(partition : Iterator[Example],
                    modelBC : Broadcast[SplineModel],
-                   loss : String,
-                   lossMod : Int,
-                   threshold : Double,
-                   learningRate : Double,
-                   dropout : Double,
-                   margin : Double,
-                   rankKey : String) = {
+                   params : SplineTrainerParams) = {
     val workingModel = modelBC.value
-    val output = sgdPartitionInternal(partition, workingModel, loss, lossMod, threshold, learningRate, dropout, margin, rankKey)
+    val output = sgdPartitionInternal(partition, workingModel, params)
     output.iterator
   }
   
@@ -433,13 +406,7 @@ object SplineTrainer {
        partition : Iterator[Example],
        multiscale : Array[Int],
        modelBC : Broadcast[SplineModel],
-       loss : String,
-       lossMod : Int,
-       threshold : Double,
-       learningRate : Double,
-       dropout : Double,
-       margin : Double,
-       rankKey : String) = {
+       params : SplineTrainerParams) = {
     val workingModel = modelBC.value
     
     val newBins = multiscale(index % multiscale.size)
@@ -453,40 +420,35 @@ object SplineTrainer {
         })
     })
     
-    val output = sgdPartitionInternal(partition, workingModel, loss, lossMod, threshold, learningRate, dropout, margin, rankKey)
+    val output = sgdPartitionInternal(partition, workingModel, params)
     output.iterator
   }
   
   def sgdPartitionInternal(partition : Iterator[Example],
                            workingModel : SplineModel,
-                           loss : String,
-                           lossMod : Int,
-                           threshold : Double,
-                           learningRate : Double,
-                           dropout : Double,
-                           margin : Double,
-                           rankKey : String) : HashMap[(String, String), SplineModel.WeightSpline] = {
+                           params : SplineTrainerParams) :
+                           HashMap[(String, String), SplineModel.WeightSpline] = {
     @volatile var lossSum : Double = 0.0
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
       val fv = example.example.get(0)
-      val rank = fv.floatFeatures.get(rankKey).asScala.head._2
-      val label = if (rank <= threshold) {
+      val rank = fv.floatFeatures.get(params.rankKey).asScala.head._2
+      val label = if (rank <= params.threshold) {
         -1.0
       } else {
         1.0
       }
-      loss match {
-        case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, learningRate,dropout)
-        case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, learningRate, dropout, margin)
+      params.loss match {
+        case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, params)
+        case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, params)
         case _ => {
-          log.error("Unknown loss function %s".format(loss))
+          log.error("Unknown loss function %s".format(params.loss))
           System.exit(-1)
         }
       }
       lossCount = lossCount + 1
-      if (lossCount % lossMod == 0) {
-        log.info("Loss = %f, samples = %d".format(lossSum / lossMod.toDouble, lossCount))
+      if (lossCount % params.lossMod == 0) {
+        log.info("Loss = %f, samples = %d".format(lossSum / params.lossMod.toDouble, lossCount))
         lossSum = 0.0
       }
     })
@@ -507,17 +469,16 @@ object SplineTrainer {
   def updateLogistic(model : SplineModel,
                      fv : FeatureVector,
                      label : Double,
-                     learningRate : Double,
-                     dropout : Double) : Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
+                     params : SplineTrainerParams) : Double = {
+    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
     // To prevent blowup.
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
     model.update(grad.toFloat,
-                 learningRate.toFloat,
+                 params.learningRate.toFloat,
                  flatFeatures)
     return loss
   }
@@ -525,16 +486,14 @@ object SplineTrainer {
   def updateHinge(model : SplineModel,
                   fv : FeatureVector,
                   label : Double,
-                  learningRate : Double,
-                  dropout : Double,
-                  margin : Double) : Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - dropout)
-    val loss = scala.math.max(0.0, margin - label * prediction)
+                  params : SplineTrainerParams) : Double = {
+    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
       val grad = -label
       model.update(grad.toFloat,
-                   learningRate.toFloat,
+                   params.learningRate.toFloat,
                    flatFeatures)
     }
     return loss
