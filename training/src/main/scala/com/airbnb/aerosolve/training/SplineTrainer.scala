@@ -189,22 +189,24 @@ object SplineTrainer {
       .mapPartitions(partition => {
       // family, feature name => min, max, count
       val weights = new ConcurrentHashMap[(String, String), (Double, Double, Int)]().asScala
-      partition.foreach(example => {
-        val flatFeature = Util.flattenFeature(example.example.get(0)).asScala
-        flatFeature.foreach(familyMap => {
-          if (!rankKey.equals(familyMap._1)) {
-            familyMap._2.foreach(feature => {
-              val key = (familyMap._1, feature._1)
-              val curr = weights.getOrElse(key,
-                                           (Double.MaxValue, -Double.MaxValue, 0))
-              weights.put(key,
-                          (scala.math.min(curr._1, feature._2),
-                           scala.math.max(curr._2, feature._2),
-                           curr._3 + 1)
-              )
-            })
-          }
-        })
+      partition.foreach(examples => {
+        for (i <- 0 until examples.example.size()) {
+          val flatFeature = Util.flattenFeature(examples.example.get(i)).asScala
+          flatFeature.foreach(familyMap => {
+            if (!rankKey.equals(familyMap._1)) {
+              familyMap._2.foreach(feature => {
+                val key = (familyMap._1, feature._1)
+                val curr = weights.getOrElse(key,
+                                             (Double.MaxValue, -Double.MaxValue, 0))
+                weights.put(key,
+                            (scala.math.min(curr._1, feature._2),
+                             scala.math.max(curr._2, feature._2),
+                             curr._3 + 1)
+                )
+              })
+            }
+          })
+        }
       })
       weights.iterator
     })
