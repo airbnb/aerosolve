@@ -124,6 +124,19 @@ object LinearRankerUtils {
     })
     .flatMap(x => x)
   }
+  
+  // Transforms an RDD of examples
+  def transformExamples(
+                    examples : RDD[Example],
+                    config : Config,
+                    key : String) : RDD[Example] = {
+    val transformer = new Transformer(config, key)
+    examples.map(example => {
+        transformer.combineContextAndItems(example)
+        example.unsetContext()
+        example
+      })
+  }
 
   // Since examples are bags of user impressions, for pointwise algoriths
   // we need to shuffle each feature vector separately.

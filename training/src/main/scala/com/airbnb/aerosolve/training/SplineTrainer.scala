@@ -85,9 +85,12 @@ object SplineTrainer {
        threshold = threshold,
        lossMod = lossMod)
 
-    val pointwise : RDD[Example] =
+    val transformed : RDD[Example] = if (loss.startsWith("rank")) {
+      LinearRankerUtils.transformExamples(input, config, key)
+    } else {
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
+    }
 
     val initialModel = if(initModelPath == "") {
       None
@@ -97,13 +100,13 @@ object SplineTrainer {
     var model = if(initialModel.isDefined) {
       val newModel = initialModel.get.asInstanceOf[SplineModel]
       newModel.setSplineNormCap(linfinityCap.toFloat)
-      initModel(minCount, subsample, rankKey, pointwise, newModel, false)
+      initModel(minCount, subsample, rankKey, transformed, newModel, false)
       newModel
     } else {
       val newModel = new SplineModel()
       newModel.initForTraining(numBins)
       newModel.setSplineNormCap(linfinityCap.toFloat)
-      initModel(minCount, subsample, rankKey, pointwise, newModel, true)
+      initModel(minCount, subsample, rankKey, transformed, newModel, true)
       setPrior(config, key, newModel)
       newModel
     }
@@ -116,7 +119,7 @@ object SplineTrainer {
         sgdTrain(sc,     
                config,
                key,
-               pointwise,
+               transformed,
                i,
                params,
                model)
@@ -124,7 +127,7 @@ object SplineTrainer {
         sgdMultiscaleTrain(sc,     
                config,
                key,
-               pointwise,
+               transformed,
                multiscale,
                i,
                params,
