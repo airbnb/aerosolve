@@ -37,15 +37,24 @@ object SplineTrainer {
        smoothingTolerance : Double,
        linfinityThreshold : Double,
        threshold : Double,
-       lossMod : Int
+       lossMod : Int,
+       isRanking : Boolean
    )
-  
 
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
             key : String) : SplineModel = {
     val loss : String = config.getString(key + ".loss")
+    val isRanking = loss match {
+      case "logistic" => false
+      case "hinge" => false
+      case _ => {
+        log.error("Unknown loss function %s".format(loss))
+        System.exit(-1)
+        false
+      }
+    }
     val numBins : Int = config.getInt(key + ".num_bins")
     val numBags : Int = config.getInt(key + ".num_bags")
     val iterations : Int = config.getInt(key + ".iterations")
@@ -83,9 +92,10 @@ object SplineTrainer {
        smoothingTolerance = smoothingTolerance,
        linfinityThreshold = linfinityThreshold,
        threshold = threshold,
-       lossMod = lossMod)
+       lossMod = lossMod,
+       isRanking = isRanking)
 
-    val transformed : RDD[Example] = if (loss.startsWith("rank")) {
+    val transformed : RDD[Example] = if (isRanking) {
       LinearRankerUtils.transformExamples(input, config, key)
     } else {
       LinearRankerUtils
@@ -436,20 +446,9 @@ object SplineTrainer {
     @volatile var lossSum : Double = 0.0
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
-      val fv = example.example.get(0)
-      val rank = fv.floatFeatures.get(params.rankKey).asScala.head._2
-      val label = if (rank <= params.threshold) {
-        -1.0
+      if (params.isRanking) {
       } else {
-        1.0
-      }
-      params.loss match {
-        case "logistic" => lossSum = lossSum + updateLogistic(workingModel, fv, label, params)
-        case "hinge" => lossSum = lossSum + updateHinge(workingModel, fv, label, params)
-        case _ => {
-          log.error("Unknown loss function %s".format(params.loss))
-          System.exit(-1)
-        }
+        lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
       }
       lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
@@ -468,6 +467,22 @@ object SplineTrainer {
     output
   }
   
+  def pointwiseLoss(fv : FeatureVector,
+                    workingModel : SplineModel,
+                    loss : String,
+                    params : SplineTrainerParams) : Double = {
+    val rank = fv.floatFeatures.get(params.rankKey).asScala.head._2
+    val label = if (rank <= params.threshold) {
+      -1.0
+    } else {
+      1.0
+    }
+    loss match {
+      case "logistic" => updateLogistic(workingModel, fv, label, params)
+      case "hinge" => updateHinge(workingModel, fv, label, params)
+    }
+  }
+
   // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   // We rescale by 1 / p so that at inference time we don't have to scale by p.
   // In our case p = 1.0 - dropout rate
