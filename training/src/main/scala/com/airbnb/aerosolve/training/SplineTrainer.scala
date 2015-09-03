@@ -41,7 +41,8 @@ object SplineTrainer {
        lossMod : Int,
        isRanking : Boolean,    // If we have a list based ranking loss
        rankFraction : Double,  // Fraction of time to use ranking loss when loss is rank_and_hinge
-       rankMargin : Double     // The margin for ranking loss 
+       rankMargin : Double,    // The margin for ranking loss
+       maxSamplesPerExample : Int // Max number of samples to use per example
    )
 
   def train(sc : SparkContext,
@@ -87,6 +88,7 @@ object SplineTrainer {
       
     val rankFraction : Double = Try(config.getDouble(key + ".rank_fraction")).getOrElse(0.5)
     val rankMargin : Double = Try(config.getDouble(key + ".rank_margin")).getOrElse(0.5)
+    val maxSamplesPerExample : Int = Try(config.getInt(key + ".max_samples_per_example")).getOrElse(10)
       
     val params = SplineTrainerParams(
        numBins = numBins,
@@ -103,7 +105,8 @@ object SplineTrainer {
        lossMod = lossMod,
        isRanking = isRanking,
        rankFraction = rankFraction,
-       rankMargin = rankMargin)
+       rankMargin = rankMargin,
+       maxSamplesPerExample = maxSamplesPerExample)
 
     val transformed : RDD[Example] = if (isRanking) {
       LinearRankerUtils.transformExamples(input, config, key)
@@ -457,11 +460,17 @@ object SplineTrainer {
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
       if (params.isRanking) {
-        lossSum += rankAndHingeLoss(example, workingModel, params)
+        // Since this is SGD we don't want to over sample from one example
+        // but we also want to make good use of the example already in RAM
+        val count = scala.math.min(params.maxSamplesPerExample, example.example.size)
+        for (i <- 0 until count) {
+          lossSum += rankAndHingeLoss(example, workingModel, params)
+          lossCount = lossCount + 1 
+        }
       } else {
         lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+        lossCount = lossCount + 1 
       }
-      lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
         log.info("Loss = %f, samples = %d".format(lossSum / params.lossMod.toDouble, lossCount))
         lossSum = 0.0
