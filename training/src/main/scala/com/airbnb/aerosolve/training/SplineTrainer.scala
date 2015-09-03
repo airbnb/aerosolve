@@ -21,10 +21,11 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
 import scala.util.Try
+import scala.util.Random
 
 object SplineTrainer {
   private final val log: Logger = LoggerFactory.getLogger("SplineTrainer")
-  
+    
   case class SplineTrainerParams(
        numBins : Int,
        numBags : Int,
@@ -38,7 +39,9 @@ object SplineTrainer {
        linfinityThreshold : Double,
        threshold : Double,
        lossMod : Int,
-       isRanking : Boolean
+       isRanking : Boolean,    // If we have a list based ranking loss
+       rankFraction : Double,  // Fraction of time to use ranking loss when loss is rank_and_hinge
+       rankMargin : Double     // The margin for ranking loss 
    )
 
   def train(sc : SparkContext,
@@ -47,6 +50,7 @@ object SplineTrainer {
             key : String) : SplineModel = {
     val loss : String = config.getString(key + ".loss")
     val isRanking = loss match {
+      case "rank_and_hinge" => true
       case "logistic" => false
       case "hinge" => false
       case _ => {
@@ -81,7 +85,11 @@ object SplineTrainer {
         config.getIntList(key + ".multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
       
-    val params = SplineTrainerParams(numBins = numBins,
+    val rankFraction : Double = Try(config.getDouble(key + ".rank_fraction")).getOrElse(0.5)
+    val rankMargin : Double = Try(config.getDouble(key + ".rank_margin")).getOrElse(0.5)
+      
+    val params = SplineTrainerParams(
+       numBins = numBins,
        numBags = numBags,
        rankKey = rankKey,
        loss = loss,
@@ -93,7 +101,9 @@ object SplineTrainer {
        linfinityThreshold = linfinityThreshold,
        threshold = threshold,
        lossMod = lossMod,
-       isRanking = isRanking)
+       isRanking = isRanking,
+       rankFraction = rankFraction,
+       rankMargin = rankMargin)
 
     val transformed : RDD[Example] = if (isRanking) {
       LinearRankerUtils.transformExamples(input, config, key)
@@ -447,6 +457,7 @@ object SplineTrainer {
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
       if (params.isRanking) {
+        lossSum += rankAndHingeLoss(example, workingModel, params)
       } else {
         lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
       }
@@ -467,16 +478,82 @@ object SplineTrainer {
     output
   }
   
+  def rankAndHingeLoss(example : Example,
+                       workingModel : SplineModel,
+                       params : SplineTrainerParams) : Double = {
+    val count = example.example.size
+    
+    val idx1 = Random.nextInt(count)
+    val fv1 = example.example.get(idx1)
+    var doHinge : Boolean = false
+    var loss : Double = 0.0
+    if (Random.nextDouble() < params.rankFraction) {
+      val label1 = LinearRankerUtils.getLabel(fv1, params.rankKey, params.threshold)
+      val idx2 = pickCounterExample(example, idx1, label1, count, params)
+      if (idx2 >= 0) {
+        val fv2 = example.example.get(idx2)
+        val label2 = LinearRankerUtils.getLabel(fv2, params.rankKey, params.threshold)
+        // Can't do dropout for ranking loss since we are relying on difference of features.
+        val flatFeatures1 = Util.flattenFeature(fv1)
+        val prediction1 = workingModel.scoreFlatFeatures(flatFeatures1)
+        val flatFeatures2 = Util.flattenFeature(fv2)
+        val prediction2 = workingModel.scoreFlatFeatures(flatFeatures2)
+        if (label1 > label2) {
+          loss = scala.math.max(0.0, params.rankMargin - prediction1 + prediction2)
+        } else {
+          loss = scala.math.max(0.0, params.rankMargin - prediction2 + prediction1)
+        }
+        
+        if (loss > 0) {
+          workingModel.update(-label1.toFloat,
+                              params.learningRate.toFloat,
+                              flatFeatures1)
+          workingModel.update(-label2.toFloat,
+                              params.learningRate.toFloat,
+                              flatFeatures2)          
+        }
+      } else {
+        // No counter example.
+        doHinge = true
+      }
+    } else {
+      // We chose to do hinge loss regardless.
+      doHinge = true
+    }
+    if (doHinge) {
+      loss = pointwiseLoss(fv1,
+                           workingModel,
+                           "hinge",
+                           params)
+    }
+    return loss 
+  }
+  
+  // Picks the first random counter example to idx1
+  def pickCounterExample(example : Example,
+                         idx1 : Int,
+                         label1 : Double,
+                         count : Int,
+                         params : SplineTrainerParams) : Int = {
+    val shuffle = Random.shuffle((0 until count).toBuffer)
+    
+    for (idx2 <- shuffle) {
+      if (idx2 != idx1) {
+        val label2 = LinearRankerUtils.getLabel(
+            example.example.get(idx2), params.rankKey, params.threshold)
+        if (label2 != label1) {
+          return idx2
+        }
+      }
+    }
+    return -1;
+  }
+  
   def pointwiseLoss(fv : FeatureVector,
                     workingModel : SplineModel,
                     loss : String,
                     params : SplineTrainerParams) : Double = {
-    val rank = fv.floatFeatures.get(params.rankKey).asScala.head._2
-    val label = if (rank <= params.threshold) {
-      -1.0
-    } else {
-      1.0
-    }
+    val label = LinearRankerUtils.getLabel(fv, params.rankKey, params.threshold)
     loss match {
       case "logistic" => updateLogistic(workingModel, fv, label, params)
       case "hinge" => updateHinge(workingModel, fv, label, params)
