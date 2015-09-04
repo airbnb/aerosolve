@@ -181,14 +181,4 @@ object LinearRankerUtils {
       CompressedExample(getFeatures(ex), Array[(String, String)](), label)
     })
   }
-  
-  def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
-    val rank = fv.floatFeatures.get(rankKey).asScala.head._2
-    val label = if (rank <= threshold) {
-      -1.0
-    } else {
-      1.0
-    }
-    return label
-  }
 }
