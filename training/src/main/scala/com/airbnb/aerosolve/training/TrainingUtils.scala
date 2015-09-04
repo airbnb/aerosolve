@@ -8,6 +8,7 @@ import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.models.ModelFactory
@@ -227,5 +228,15 @@ object TrainingUtils {
     })
       .collect
       .toArray
+  }
+  
+  def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
+    val rank = fv.floatFeatures.get(rankKey).asScala.head._2
+    val label = if (rank <= threshold) {
+      -1.0
+    } else {
+      1.0
+    }
+    return label
   }
 }

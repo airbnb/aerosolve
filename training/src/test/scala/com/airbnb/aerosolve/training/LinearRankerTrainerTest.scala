@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory
 import org.junit.Assert.assertTrue
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 
 class LinearRankerTrainerTest {
   val log = LoggerFactory.getLogger("LinearRankerTrainerTest")
@@ -87,7 +89,7 @@ class LinearRankerTrainerTest {
     makeExamples(examples, "bob", 3)
     makeExamples(examples, "charlie", 4)
 
-    var sc = new SparkContext("local", "PamirTrainerTest")
+    var sc = new SparkContext("local", "LinearRankerTrainerTest")
 
     try {
 
@@ -120,4 +122,36 @@ class LinearRankerTrainerTest {
       System.clearProperty("spark.master.port")
     }
   }
+  @Test def TransformExamplesTest {
+    val examples = ArrayBuffer[Example]()
+    makeExamples(examples, "alice", 2)
+
+    var sc = new SparkContext("local", "TransformExamplesTest")
+
+    try {
+
+      val config = ConfigFactory.parseString(makeConfig)
+
+      val input = sc.parallelize(examples)
+      val xform = LinearRankerUtils
+      .transformExamples(input, config, "model_config")
+      .collect
+      .toArray
+      .head
+      log.info(xform.toString)
+      val fv = xform.example.asScala.toArray
+      assertTrue(fv(0).stringFeatures.get("name").asScala.head.equals("alice"))
+      assertTrue(fv(0).stringFeatures.get("number").asScala.head.equals("0"))
+      assertTrue(fv(0).stringFeatures.get("name_X_number").asScala.head.equals("alice^0"))
+      assertTrue(fv(1).stringFeatures.get("name").asScala.head.equals("alice"))
+      assertTrue(fv(1).stringFeatures.get("number").asScala.head.equals("1"))
+      assertTrue(fv(1).stringFeatures.get("name_X_number").asScala.head.equals("alice^1"))
+    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+  
 }
