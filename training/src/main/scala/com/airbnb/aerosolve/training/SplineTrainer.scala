@@ -497,11 +497,11 @@ object SplineTrainer {
     var doHinge : Boolean = false
     var loss : Double = 0.0
     if (Random.nextDouble() < params.rankFraction) {
-      val label1 = LinearRankerUtils.getLabel(fv1, params.rankKey, params.threshold)
+      val label1 = TrainingUtils.getLabel(fv1, params.rankKey, params.threshold)
       val idx2 = pickCounterExample(example, idx1, label1, count, params)
       if (idx2 >= 0) {
         val fv2 = example.example.get(idx2)
-        val label2 = LinearRankerUtils.getLabel(fv2, params.rankKey, params.threshold)
+        val label2 = TrainingUtils.getLabel(fv2, params.rankKey, params.threshold)
         // Can't do dropout for ranking loss since we are relying on difference of features.
         val flatFeatures1 = Util.flattenFeature(fv1)
         val prediction1 = workingModel.scoreFlatFeatures(flatFeatures1)
@@ -548,7 +548,7 @@ object SplineTrainer {
     
     for (idx2 <- shuffle) {
       if (idx2 != idx1) {
-        val label2 = LinearRankerUtils.getLabel(
+        val label2 = TrainingUtils.getLabel(
             example.example.get(idx2), params.rankKey, params.threshold)
         if (label2 != label1) {
           return idx2
@@ -562,7 +562,7 @@ object SplineTrainer {
                     workingModel : SplineModel,
                     loss : String,
                     params : SplineTrainerParams) : Double = {
-    val label = LinearRankerUtils.getLabel(fv, params.rankKey, params.threshold)
+    val label = TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
     loss match {
       case "logistic" => updateLogistic(workingModel, fv, label, params)
       case "hinge" => updateHinge(workingModel, fv, label, params)

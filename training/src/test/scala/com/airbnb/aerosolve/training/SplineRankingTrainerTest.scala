@@ -44,7 +44,7 @@ class SplineRankingTrainerTest {
     val rank : Double = if (i % likes_mod == 0) {
       1.0
     } else {
-      0.0
+      -1.0
     }
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
