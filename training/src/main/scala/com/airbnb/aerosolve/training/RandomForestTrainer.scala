@@ -80,5 +80,13 @@ object RandomForestTrainer {
       forest.getTrees().append(tree)
     }
     forest
-  }  
+  }
+  
+  def trainAndSaveToFile(sc : SparkContext,
+                         input : RDD[Example],
+                         config : Config,
+                         key : String) = {
+    val model = train(sc, input, config, key)
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
 }

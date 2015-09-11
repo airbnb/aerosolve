@@ -169,6 +169,7 @@ object TrainingUtils {
       case "spline" => SplineTrainer.trainAndSaveToFile(sc, input, config, key)
       case "boosted_stumps" => BoostedStumpsTrainer.trainAndSaveToFile(sc, input, config, key)
       case "decision_tree" => DecisionTreeTrainer.trainAndSaveToFile(sc, input, config, key)
+      case "random_forest" => RandomForestTrainer.trainAndSaveToFile(sc, input, config, key)
     }
   }
 
