@@ -42,12 +42,12 @@ class RandomForestTrainerTest {
       |}
       |model_config {
       |  rank_key : "$rank"
-      |  num_candidates : 20
+      |  num_candidates : 100
       |  rank_threshold : 0.0
       |  max_depth : 5
       |  min_leaf_items : 1
       |  num_tries : 10
-      |  num_trees : 10
+      |  num_trees : 5
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
