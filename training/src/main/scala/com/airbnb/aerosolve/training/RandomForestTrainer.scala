@@ -64,9 +64,13 @@ object RandomForestTrainer {
       Array(tree).iterator      
     })
     .collect
+    .toArray
+    
+    log.info("%d trees trained".format(trees.size))
     
     val forest = new RandomForestModel()
     val scale = 1.0f / numTrees.toFloat
+    forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
     for (tree <- trees) {
       for (stump <- tree.getStumps) {
         if (stump.featureWeight != 0.0f) {

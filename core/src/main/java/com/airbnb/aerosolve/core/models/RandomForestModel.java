@@ -87,6 +87,7 @@ public class RandomForestModel extends AbstractModel {
       ModelRecord record = Util.decodeModel(line);
       DecisionTreeModel tree = new DecisionTreeModel();
       tree.loadInternal(record.getModelHeader(), reader);
+      trees.add(tree);
     }
   }
 }
