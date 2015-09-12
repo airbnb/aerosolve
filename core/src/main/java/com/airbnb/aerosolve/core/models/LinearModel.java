@@ -161,6 +161,13 @@ public class LinearModel extends AbstractModel {
   @Override
   protected void loadInternal(ModelHeader header, BufferedReader reader) throws IOException {
     long rows = header.getNumRecords();
+    // Very old models did not set slope and offset so check first.
+    if (header.isSetSlope()) {
+      slope = header.getSlope();      
+    }
+    if (header.isSetOffset()) {
+      offset = header.getOffset();      
+    }
     weights = new HashMap<>();
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();

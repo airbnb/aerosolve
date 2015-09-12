@@ -23,6 +23,7 @@ public final class ModelFactory {
       case "spline": return new SplineModel();
       case "boosted_stumps": return new BoostedStumpsModel();
       case "decision_tree": return new DecisionTreeModel();
+      case "forest": return new ForestModel();
     }
     log.error("Could not create model of type " + name);
     return null;

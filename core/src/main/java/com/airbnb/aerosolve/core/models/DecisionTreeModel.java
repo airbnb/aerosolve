@@ -35,7 +35,10 @@ public class DecisionTreeModel extends AbstractModel {
   @Override
   public float scoreItem(FeatureVector combinedItem) {
     Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-
+    return scoreFlattenedFeature(floatFeatures);
+  }
+  
+  public float scoreFlattenedFeature(Map<String, Map<String, Double>> floatFeatures) {
     int leaf = getLeafIndex(floatFeatures);
     if (leaf < 0) return 0.0f;
 
