@@ -4,7 +4,7 @@ import java.util
 
 import com.airbnb.aerosolve.core.models.BoostedStumpsModel
 import com.airbnb.aerosolve.core.models.DecisionTreeModel
-import com.airbnb.aerosolve.core.models.RandomForestModel
+import com.airbnb.aerosolve.core.models.ForestModel
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.core.util.Util
@@ -18,14 +18,14 @@ import scala.util.Random
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
-// The decision tree is meant to be a prior for the spline model / linear model
-object RandomForestTrainer {
-  private final val log: Logger = LoggerFactory.getLogger("RandomForestTrainer")
+// A tree forest trainer.
+object ForestTrainer {
+  private final val log: Logger = LoggerFactory.getLogger("ForestTrainer")
 
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : RandomForestModel = {
+            key : String) : ForestModel = {
     val candidateSize : Int = config.getInt(key + ".num_candidates")
     val rankKey : String = config.getString(key + ".rank_key")
     val rankThreshold : Double = config.getDouble(key + ".rank_threshold")
@@ -68,7 +68,7 @@ object RandomForestTrainer {
     
     log.info("%d trees trained".format(trees.size))
     
-    val forest = new RandomForestModel()
+    val forest = new ForestModel()
     val scale = 1.0f / numTrees.toFloat
     forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
     for (tree <- trees) {

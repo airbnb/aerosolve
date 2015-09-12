@@ -14,8 +14,8 @@ import scala.collection.JavaConverters._
 
 import scala.collection.mutable.ArrayBuffer
 
-class RandomForestTrainerTest {
-  val log = LoggerFactory.getLogger("RandomForestTrainerTest")
+class ForestTrainerTest {
+  val log = LoggerFactory.getLogger("ForestTrainerTest")
 
   def makeExample(x : Double,
                   y : Double,
@@ -56,7 +56,7 @@ class RandomForestTrainerTest {
   }
 
   @Test
-  def testRandomForestTrainer() = {
+  def testForestTrainer() = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -75,13 +75,13 @@ class RandomForestTrainerTest {
       examples += makeExample(x, y, rank)
     }
 
-    var sc = new SparkContext("local", "RandomForestTrainerTest")
+    var sc = new SparkContext("local", "ForestTrainerTest")
 
     try {
       val config = ConfigFactory.parseString(makeConfig())
 
       val input = sc.parallelize(examples)
-      val model = RandomForestTrainer.train(sc, input, config, "model_config")
+      val model = ForestTrainer.train(sc, input, config, "model_config")
 
       val trees = model.getTrees.asScala
       for (tree <- trees) {

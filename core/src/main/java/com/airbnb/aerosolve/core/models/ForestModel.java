@@ -21,15 +21,15 @@ import com.airbnb.aerosolve.core.util.Spline;
 import lombok.Getter;
 import lombok.Setter;
 
-// A simple random forest model.
-public class RandomForestModel extends AbstractModel {
+// A tree forest model.
+public class ForestModel extends AbstractModel {
 
   private static final long serialVersionUID = 3651061358422885378L;
 
   @Getter @Setter
   protected ArrayList<DecisionTreeModel> trees;
 
-  public RandomForestModel() {
+  public ForestModel() {
   }
 
   @Override
@@ -46,14 +46,14 @@ public class RandomForestModel extends AbstractModel {
   }
 
   @Override
-  // Random Forests don't usually have debuggable components.
+  // Forests don't usually have debuggable components.
   public float debugScoreItem(FeatureVector combinedItem,
       StringBuilder builder) {
     return 0.0f;
   }
 
   @Override
-  // Random Forests don't usually have debuggable components.
+  // Forests don't usually have debuggable components.
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
     return scoreRecordsList;
@@ -61,7 +61,7 @@ public class RandomForestModel extends AbstractModel {
 
   public void save(BufferedWriter writer) throws IOException {
     ModelHeader header = new ModelHeader();
-    header.setModelType("random_forest");
+    header.setModelType("forest");
     long count = trees.size();
     header.setNumRecords(count);
     header.setSlope(slope);
