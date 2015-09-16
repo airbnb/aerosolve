@@ -14,6 +14,7 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Random
+import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -31,6 +32,7 @@ object DecisionTreeTrainer {
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
     val numTries : Int = config.getInt(key + ".num_tries")
+    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("gini")
 
     val examples = LinearRankerUtils
         .makePointwiseFloat(input, config, key)
@@ -41,7 +43,7 @@ object DecisionTreeTrainer {
     
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
-    buildTree(stumps, examples, 0, 0, maxDepth, rankKey, rankThreshold, numTries, minLeafCount)
+    buildTree(stumps, examples, 0, 0, maxDepth, rankKey, rankThreshold, numTries, minLeafCount, splitCriteria)
     
     val model = new DecisionTreeModel()
     model.setStumps(stumps)
@@ -57,12 +59,13 @@ object DecisionTreeTrainer {
                 rankKey : String,
                 rankThreshold : Double,
                 numTries : Int,
-                minLeafCount : Int) : Unit = {
+                minLeafCount : Int,
+                splitCriteria : String) : Unit = {
     if (currDepth >= maxDepth) {
       stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold)
       return
     }
-    val split = getBestSplit(examples, rankKey, rankThreshold, numTries, minLeafCount)
+    val split = getBestSplit(examples, rankKey, rankThreshold, numTries, minLeafCount, splitCriteria)
     if (split == None) {
       stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold)
       return
@@ -84,7 +87,8 @@ object DecisionTreeTrainer {
               rankKey,
               rankThreshold,
               numTries,
-              minLeafCount)
+              minLeafCount,
+              splitCriteria)
     buildTree(stumps,
               examples.filter(x => BoostedStumpsModel.getStumpResponse(stumps(currIdx), x) == true),
               right,
@@ -93,7 +97,8 @@ object DecisionTreeTrainer {
               rankKey,
               rankThreshold,
               numTries,
-              minLeafCount)    
+              minLeafCount,
+              splitCriteria)    
   }
   
   def makeLeaf(examples :  Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
@@ -122,9 +127,10 @@ object DecisionTreeTrainer {
                    rankKey : String,
                    rankThreshold : Double,
                    numTries : Int,
-                   minLeafCount : Int) : Option[ModelRecord] = {
+                   minLeafCount : Int,
+                   splitCriteria : String) : Option[ModelRecord] = {
     var record : Option[ModelRecord] = None
-    var best : Double = 0
+    var best : Double = -1e10
     val rnd = new Random()
     for (i <- 0 until numTries) {
       // Pick an example index randomly
@@ -156,14 +162,53 @@ object DecisionTreeTrainer {
         val rightCount = rightPos + rightNeg
         val leftCount = leftPos + leftNeg
         if (rightCount >= minLeafCount && leftCount >= minLeafCount) {
-          val scale = 1.0 / (leftCount * rightCount)
-          // http://en.wikipedia.org/wiki/Bhattacharyya_distance
-          val bhattacharyya = math.sqrt(leftPos * rightPos * scale) + math.sqrt(leftNeg * rightNeg * scale)
-          // http://en.wikipedia.org/wiki/Hellinger_distance
-          val hellinger = math.sqrt(1.0 - bhattacharyya)
-          if (hellinger > best) {
-            best = hellinger
-            record = candidateOpt
+          val p1 = rightPos / rightCount
+          val n1 = rightNeg / rightCount
+          val f1 = rightCount / (leftCount + rightCount)
+          val p2 = leftPos / leftCount
+          val n2 = leftNeg / leftCount
+          val f2 = leftCount / (leftCount + rightCount)
+          splitCriteria match {
+            case "gini" => {
+              // Using negative gini since we are maximizing.
+              val gini = - (f1 * (p1 * (1.0 - p1)  + n1 * (1.0 - n1)) +
+                  f2 * (n2 * (1.0 - n2) + p2 * (1.0 - p2)))
+              if (gini > best) {
+                best = gini
+                record = candidateOpt
+              }
+            }
+            case "information_gain" => {
+              var ig = 0.0
+              if (p1 > 0) {
+                ig += f1 * p1 * scala.math.log(p1)
+              }
+              if (n1 > 0) {
+                ig += f1 * n1 * scala.math.log(n1)
+              }
+              if (p2 > 0) {
+                ig += f2 * p2 * scala.math.log(p2)
+              }
+              if (n2 > 0) {
+                ig += f2 * n2 * scala.math.log(n2)
+              }              
+              if (ig > best) {
+                best = ig
+                record = candidateOpt
+              }
+            }
+            case "hellinger" => {
+              val scale = 1.0 / (leftCount * rightCount)
+              // http://en.wikipedia.org/wiki/Bhattacharyya_distance
+              val bhattacharyya = math.sqrt(leftPos * rightPos * scale) + math.sqrt(leftNeg * rightNeg * scale)
+              // http://en.wikipedia.org/wiki/Hellinger_distance
+              val hellinger = math.sqrt(1.0 - bhattacharyya)
+              if (hellinger > best) {
+                best = hellinger
+                record = candidateOpt
+              }              
+            }
+            case _ => log.error("Unknown split criteria %s".format(splitCriteria))
           }
         }
       }

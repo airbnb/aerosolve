@@ -15,6 +15,7 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Random
+import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -32,6 +33,7 @@ object ForestTrainer {
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
     val numTries : Int = config.getInt(key + ".num_tries")
+    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("gini")
     
     val numTrees : Int = config.getInt(key + ".num_trees")
 
@@ -56,7 +58,8 @@ object ForestTrainer {
           rankKey,
           rankThreshold,
           numTries,
-          minLeafCount)
+          minLeafCount,
+          splitCriteria)
       
       val tree = new DecisionTreeModel()
       tree.setStumps(stumps)
