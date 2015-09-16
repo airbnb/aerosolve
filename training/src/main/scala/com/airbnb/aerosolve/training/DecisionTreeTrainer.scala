@@ -32,7 +32,7 @@ object DecisionTreeTrainer {
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
     val numTries : Int = config.getInt(key + ".num_tries")
-    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("hellinger")
+    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("gini")
 
     val examples = LinearRankerUtils
         .makePointwiseFloat(input, config, key)
