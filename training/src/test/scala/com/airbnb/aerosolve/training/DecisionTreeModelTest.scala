@@ -34,7 +34,7 @@ class DecisionTreeModelTest {
     return example
   }
 
-  def makeConfig() : String = {
+  def makeConfig(splitCriteria : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -42,20 +42,37 @@ class DecisionTreeModelTest {
       |}
       |model_config {
       |  rank_key : "$rank"
-      |  num_candidates : 100
+      |  split_criteria : "%s"
+      |  num_candidates : 1000
       |  rank_threshold : 0.0
-      |  max_depth : 10
-      |  min_leaf_items : 1
+      |  max_depth : 20
+      |  min_leaf_items : 5
       |  num_tries : 10
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
     """.stripMargin
+       .format(splitCriteria)
   }
-
+  
   @Test
-  def testDecisionTreeTrainer() = {
+  def testDecisionTreeTrainerHellinger() = {
+    testDecisionTreeTrainer("hellinger", 0.8)
+  }
+  
+  @Test
+  def testDecisionTreeTrainerGini() = {
+    testDecisionTreeTrainer("gini", 0.8)
+  }
+  
+  @Test
+  def testDecisionTreeTrainerInformationGain() = {
+    testDecisionTreeTrainer("information_gain", 0.8)
+  }
+  
+  def testDecisionTreeTrainer(splitCriteria : String,
+                              expectedCorrect : Double) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -77,7 +94,7 @@ class DecisionTreeModelTest {
     var sc = new SparkContext("local", "DecisionTreeModelTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig())
+      val config = ConfigFactory.parseString(makeConfig(splitCriteria))
 
       val input = sc.parallelize(examples)
       val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
@@ -98,7 +115,7 @@ class DecisionTreeModelTest {
       val fracCorrect : Double = numCorrect * 1.0 / examples.length
       log.info("Num correct = %d, frac correct = %f, num pos = %d, num neg = %d"
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
-      assertTrue(fracCorrect > 0.9)
+      assertTrue(fracCorrect > expectedCorrect)
 
       val swriter = new StringWriter();
       val writer = new BufferedWriter(swriter);
