@@ -172,7 +172,7 @@ object DecisionTreeTrainer {
             case "gini" => {
               // Using negative gini since we are maximizing.
               val gini = - (f1 * (p1 * (1.0 - p1)  + n1 * (1.0 - n1)) +
-                  f2 * (n2 * (1.0 - n2) + p2 * (1 - p2)))
+                  f2 * (n2 * (1.0 - n2) + p2 * (1.0 - p2)))
               if (gini > best) {
                 best = gini
                 record = candidateOpt
