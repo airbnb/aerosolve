@@ -115,8 +115,14 @@ object BoostedForestTrainer {
      params.samplingStrategy match {
        // Picks the first few items that match the criteria. Better for large data sets.
        case "first" => {
-         importanceSampled.mapPartitions(x => {
-           Array(x.take(params.candidateSize).toBuffer).iterator           
+         importanceSampled.mapPartitions(part => {
+           val result = scala.collection.mutable.ArrayBuffer[java.util.Map[java.lang.String, java.util.Map[java.lang.String, java.lang.Double]]]()
+           part.foreach(x => {
+             if (result.size < params.candidateSize) {
+               result.append(x)
+             }
+           })
+           Array(result).iterator
          })
          .reduce((a, b) => scala.util.Random.shuffle(a ++ b).take(params.candidateSize))
          .toArray
