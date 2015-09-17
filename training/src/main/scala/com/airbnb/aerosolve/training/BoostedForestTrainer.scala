@@ -118,7 +118,7 @@ object BoostedForestTrainer {
          importanceSampled.mapPartitions(x => {
            Array(x.take(params.candidateSize).toBuffer).iterator           
          })
-         .reduce((a, b) => (a ++ b).take(params.candidateSize))
+         .reduce((a, b) => scala.util.Random.shuffle(a ++ b).take(params.candidateSize))
          .toArray
        }
        // Picks uniformly. Beter for small data sets.
