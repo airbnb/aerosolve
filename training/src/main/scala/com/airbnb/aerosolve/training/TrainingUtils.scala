@@ -170,6 +170,7 @@ object TrainingUtils {
       case "boosted_stumps" => BoostedStumpsTrainer.trainAndSaveToFile(sc, input, config, key)
       case "decision_tree" => DecisionTreeTrainer.trainAndSaveToFile(sc, input, config, key)
       case "forest" => ForestTrainer.trainAndSaveToFile(sc, input, config, key)
+      case "boosted_forest" => BoostedForestTrainer.trainAndSaveToFile(sc, input, config, key)
     }
   }
 
