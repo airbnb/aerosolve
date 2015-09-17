@@ -4,6 +4,7 @@ import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
+import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 import org.junit.Test
@@ -15,25 +16,6 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 class ForestTrainerTest {
-  val log = LoggerFactory.getLogger("ForestTrainerTest")
-
-  def makeExample(x : Double,
-                  y : Double,
-                  target : Double) : Example = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setFloatFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put("", target)
-    floatFeatures.put("loc", new java.util.HashMap)
-    val loc = floatFeatures.get("loc")
-    loc.put("x", x)
-    loc.put("y", y)
-    example.addToExample(item)
-    return example
-  }
-
   def makeConfig(splitCriteria : String) : String = {
     """
       |identity_transform {
@@ -59,20 +41,45 @@ class ForestTrainerTest {
 
   @Test
   def testForestTrainerHellinger() = {
-    testForestTrainer("hellinger", 0.8)
+    val config = ConfigFactory.parseString(makeConfig("hellinger"))
+    ForestTrainerTestHelper.testForestTrainer(config, false, 0.8)
   }
   
   @Test
-  def testForetTrainerGini() = {
-    testForestTrainer("gini", 0.8)
+  def testForestTrainerGini() = {
+    val config = ConfigFactory.parseString(makeConfig("gini"))
+    ForestTrainerTestHelper.testForestTrainer(config, false, 0.8)
   }
   
   @Test
   def testForestTrainerInformationGain() = {
-    testForestTrainer("information_gain", 0.8)
+    val config = ConfigFactory.parseString(makeConfig("information_gain"))
+    ForestTrainerTestHelper.testForestTrainer(config, false, 0.8)
   }
   
-  def testForestTrainer(splitCriteria : String, expectedCorrect : Double) = {
+}
+
+object ForestTrainerTestHelper {
+  val log = LoggerFactory.getLogger("ForestTrainerTest")
+
+  def makeExample(x : Double,
+                  y : Double,
+                  target : Double) : Example = {
+    val example = new Example
+    val item: FeatureVector = new FeatureVector
+    item.setFloatFeatures(new java.util.HashMap)
+    val floatFeatures = item.getFloatFeatures
+    floatFeatures.put("$rank", new java.util.HashMap)
+    floatFeatures.get("$rank").put("", target)
+    floatFeatures.put("loc", new java.util.HashMap)
+    val loc = floatFeatures.get("loc")
+    loc.put("x", x)
+    loc.put("y", y)
+    example.addToExample(item)
+    return example
+  }
+
+  def testForestTrainer(config : Config, boost : Boolean, expectedCorrect : Double) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -94,10 +101,12 @@ class ForestTrainerTest {
     var sc = new SparkContext("local", "ForestTrainerTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(splitCriteria))
-
       val input = sc.parallelize(examples)
-      val model = ForestTrainer.train(sc, input, config, "model_config")
+      val model = if (boost) {
+        BoostedForestTrainer.train(sc, input, config, "model_config")
+      } else {
+        ForestTrainer.train(sc, input, config, "model_config")
+      }
 
       val trees = model.getTrees.asScala
       for (tree <- trees) {
