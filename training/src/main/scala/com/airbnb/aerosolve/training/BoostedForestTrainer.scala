@@ -36,7 +36,8 @@ object BoostedForestTrainer {
                                          numTrees :Int,
                                          subsample : Double,
                                          iterations : Int,
-                                         learningRate : Double)
+                                         learningRate : Double,
+                                         samplingStrategy : String)
                                          
   case class ForestResponse(tree : Int, leaf : Int, weight : Double)
   case class ForestResult(label : Double, sum : Double, response : Array[ForestResponse])
@@ -58,6 +59,7 @@ object BoostedForestTrainer {
     val subsample : Double = taskConfig.getDouble("subsample")
     val learningRate : Double = taskConfig.getDouble("learning_rate")
     val numTrees : Int = taskConfig.getInt("num_trees")
+    val samplingStrategy : String = taskConfig.getString("sampling_strategy")
     
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
           rankKey = rankKey,
@@ -69,7 +71,8 @@ object BoostedForestTrainer {
           numTrees = numTrees,
           subsample = subsample,
           iterations = iterations,
-          learningRate = learningRate
+          learningRate = learningRate,
+          samplingStrategy = samplingStrategy
         )
     
     val forest = new ForestModel()
@@ -84,14 +87,14 @@ object BoostedForestTrainer {
     forest
   }
   
-  def addNewTree(sc : SparkContext,
+  def getSample(sc : SparkContext,
       forest: ForestModel,
       input : RDD[Example],
       config : Config,
       key : String,
       params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
-    val ex = LinearRankerUtils
+    val importanceSampled = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
               .map(x => {
                 val item = x.example(0)
@@ -108,7 +111,29 @@ object BoostedForestTrainer {
               })
               .filter(x => x != None)
               .map(x => Util.flattenFeature(x.get))
-              .takeSample(false, params.candidateSize)
+
+     params.samplingStrategy match {
+       // Picks the first few items that match the criteria. Better for large data sets.
+       case "first" => {
+         importanceSampled.mapPartitions(x => {
+           Array(x.take(params.candidateSize).toBuffer).iterator           
+         })
+         .reduce((a, b) => scala.util.Random.shuffle(a ++ b).take(params.candidateSize))
+         .toArray
+       }
+       // Picks uniformly. Beter for small data sets.
+       case "uniform" => importanceSampled.takeSample(false, params.candidateSize)
+       case _ => importanceSampled.takeSample(false, params.candidateSize)
+     }
+  }
+
+  def addNewTree(sc : SparkContext,
+      forest: ForestModel,
+      input : RDD[Example],
+      config : Config,
+      key : String,
+      params : BoostedForestTrainerParams) = {
+    val ex = getSample(sc, forest, input, config, key, params)
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
     DecisionTreeTrainer.buildTree(
