@@ -106,8 +106,7 @@ object BoostedForestTrainer {
               })
               .filter(x => x != None)
               .map(x => Util.flattenFeature(x.get))
-              .take(opt.candidateSize)
-              .toArray
+              .takeSample(false, opt.candidateSize)
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
     DecisionTreeTrainer.buildTree(
