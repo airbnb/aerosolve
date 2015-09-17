@@ -22,10 +22,11 @@ import scala.collection.JavaConverters._
 // A boosted tree forest trainer.
 // Alternates between fitting a tree and building one on the importance
 // sampled outliers of previous trees.
+// https://en.wikipedia.org/wiki/Gradient_boosting
 object BoostedForestTrainer {
   private final val log: Logger = LoggerFactory.getLogger("BoostedForestTrainer")
   
-  case class BoostedForestTrainerOptions(candidateSize : Int,
+  case class BoostedForestTrainerParams(candidateSize : Int,
                                          rankKey : String,
                                          rankThreshold : Double,
                                          maxDepth : Int,
@@ -44,20 +45,21 @@ object BoostedForestTrainer {
             input : RDD[Example],
             config : Config,
             key : String) : ForestModel = {
-    val candidateSize : Int = config.getInt(key + ".num_candidates")
-    val rankKey : String = config.getString(key + ".rank_key")
-    val rankThreshold : Double = config.getDouble(key + ".rank_threshold")
-    val maxDepth : Int = config.getInt(key + ".max_depth")
-    val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
-    val numTries : Int = config.getInt(key + ".num_tries")
-    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("gini")
+    val taskConfig = config.getConfig(key)
+    val candidateSize : Int = taskConfig.getInt("num_candidates")
+    val rankKey : String = taskConfig.getString("rank_key")
+    val rankThreshold : Double = taskConfig.getDouble("rank_threshold")
+    val maxDepth : Int = taskConfig.getInt("max_depth")
+    val minLeafCount : Int = taskConfig.getInt("min_leaf_items")
+    val numTries : Int = taskConfig.getInt("num_tries")
+    val splitCriteria : String = Try(taskConfig.getString("split_criteria")).getOrElse("gini")
     
-    val iterations : Int = config.getInt(key + ".iterations")
-    val subsample : Double = config.getDouble(key + ".subsample")
-    val learningRate : Double = config.getDouble(key + ".learning_rate")
-    val numTrees : Int = config.getInt(key + ".num_trees")
+    val iterations : Int = taskConfig.getInt("iterations")
+    val subsample : Double = taskConfig.getDouble("subsample")
+    val learningRate : Double = taskConfig.getDouble("learning_rate")
+    val numTrees : Int = taskConfig.getInt("num_trees")
     
-    val opt = BoostedForestTrainerOptions(candidateSize = candidateSize,
+    val params = BoostedForestTrainerParams(candidateSize = candidateSize,
           rankKey = rankKey,
           rankThreshold = rankThreshold,
           maxDepth = maxDepth,
@@ -75,8 +77,8 @@ object BoostedForestTrainer {
     
     for (i <- 0 until numTrees) {
       log.info("Iteration %d".format(i))
-      addNewTree(sc, forest, input, config, key, opt)
-      boostForest(sc, forest, input, config, key, opt)
+      addNewTree(sc, forest, input, config, key, params)
+      boostForest(sc, forest, input, config, key, params)
     }
     
     forest
@@ -87,13 +89,13 @@ object BoostedForestTrainer {
       input : RDD[Example],
       config : Config,
       key : String,
-      opt : BoostedForestTrainerOptions) = {
+      params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
     val ex = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
               .map(x => {
                 val item = x.example(0)
-                val label = TrainingUtils.getLabel(item, opt.rankKey, opt.rankThreshold)
+                val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
                 val localForest = forestBC.value
                 val score = localForest.scoreItem(x.example(0))
                 val prob = localForest.scoreProbability(score)
@@ -106,7 +108,7 @@ object BoostedForestTrainer {
               })
               .filter(x => x != None)
               .map(x => Util.flattenFeature(x.get))
-              .takeSample(false, opt.candidateSize)
+              .takeSample(false, params.candidateSize)
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
     DecisionTreeTrainer.buildTree(
@@ -114,16 +116,16 @@ object BoostedForestTrainer {
         ex,
         0,
         0,
-        opt.maxDepth,
-        opt.rankKey,
-        opt.rankThreshold,
-        opt.numTries,
-        opt.minLeafCount,
-        opt.splitCriteria)
+        params.maxDepth,
+        params.rankKey,
+        params.rankThreshold,
+        params.numTries,
+        params.minLeafCount,
+        params.splitCriteria)
     
     val tree = new DecisionTreeModel()
     tree.setStumps(stumps)
-    val scale = 1.0f / opt.numTrees.toFloat
+    val scale = 1.0f / params.numTrees.toFloat
     for (stump <- tree.getStumps) {
       if (stump.featureWeight != 0.0f) {
         stump.featureWeight *= scale
@@ -137,15 +139,15 @@ object BoostedForestTrainer {
                   input : RDD[Example],
                   config : Config,
                   key : String,
-                  opt : BoostedForestTrainerOptions) = {
-     for (i <- 0 until opt.iterations) {
+                  params : BoostedForestTrainerParams) = {
+     for (i <- 0 until params.iterations) {
        log.info("Running boost iteration %d".format(i))
        val forestBC = sc.broadcast(forest)
        // Get forest responses
        val labelSumResponse = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
-              .sample(false, opt.subsample)
-              .map(x => getForestResponse(forestBC.value, x, opt))
+              .sample(false, params.subsample)
+              .map(x => getForestResponse(forestBC.value, x, params))
        // Get forest batch gradient
        val countAndGradient = labelSumResponse.mapPartitions(part => {
          val gradientMap = scala.collection.mutable.HashMap[(Int, Int), (Double, Double)]()
@@ -174,8 +176,8 @@ object BoostedForestTrainer {
          val (count, grad) = cg._2
          val curr = stump.getFeatureWeight()
          val avgGrad = grad / count
-         stump.setFeatureWeight(curr - opt.learningRate * avgGrad)
-         sum = avgGrad * avgGrad
+         stump.setFeatureWeight(curr - params.learningRate * avgGrad)
+         sum += avgGrad * avgGrad
        }
        log.info("Gradient L2 Norm = %f".format(scala.math.sqrt(sum)))
      }
@@ -183,7 +185,7 @@ object BoostedForestTrainer {
   
   def getForestResponse(forest : ForestModel,
                         ex : Example,
-                        opt : BoostedForestTrainerOptions) : ForestResult = {
+                        params : BoostedForestTrainerParams) : ForestResult = {
     val item = ex.example.get(0)
     val floatFeatures = Util.flattenFeature(item)
     val result = scala.collection.mutable.ArrayBuffer[ForestResponse]()
@@ -200,7 +202,7 @@ object BoostedForestTrainer {
         result.append(response)
       }      
     }
-    val label = TrainingUtils.getLabel(item, opt.rankKey, opt.rankThreshold)
+    val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
     ForestResult(label, sum, result.toArray)
   }
   
