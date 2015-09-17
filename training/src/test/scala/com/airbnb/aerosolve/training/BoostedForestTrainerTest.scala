@@ -29,7 +29,7 @@ class BoostedForestTrainerTest {
       |  split_criteria : "%s"
       |  num_candidates : 1000
       |  rank_threshold : 0.0
-      |  max_depth : 2
+      |  max_depth : 3
       |  min_leaf_items : 5
       |  num_tries : 10
       |  num_trees : 10
