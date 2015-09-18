@@ -224,7 +224,7 @@ object Evaluation {
         out.append((prefix + "FP", 1.0))
       }
     } else {
-      if (record.label < 0) {
+      if (record.label <= 0) {
         out.append((prefix + "TN", 1.0))
       } else {
         out.append((prefix + "FN", 1.0))
