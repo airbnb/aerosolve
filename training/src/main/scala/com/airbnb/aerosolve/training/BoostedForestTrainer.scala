@@ -92,7 +92,11 @@ object BoostedForestTrainer {
     val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
     val score = forest.scoreItem(item)
     val prob = forest.scoreProbability(score)
-    val importance = 1.0 - label * prob
+    val importance = if (label > 0) {
+      1.0 - prob
+    } else {
+      prob
+    }
     if (scala.util.Random.nextDouble < importance) {
       Some(item)
     } else {
