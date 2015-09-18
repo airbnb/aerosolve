@@ -87,6 +87,19 @@ object BoostedForestTrainer {
     forest
   }
   
+  def optionalExample(ex : Example, forest : ForestModel, params : BoostedForestTrainerParams) = {
+    val item = ex.example(0)
+    val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
+    val score = forest.scoreItem(item)
+    val prob = forest.scoreProbability(score)
+    val importance = 1.0 - label * prob
+    if (scala.util.Random.nextDouble < importance) {
+      Some(item)
+    } else {
+      None
+    }
+  }
+
   def getSample(sc : SparkContext,
       forest: ForestModel,
       input : RDD[Example],
@@ -94,32 +107,21 @@ object BoostedForestTrainer {
       key : String,
       params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
-    val importanceSampled = LinearRankerUtils
+    val paramsBC = sc.broadcast(params)
+    val examples = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
-              .map(x => {
-                val item = x.example(0)
-                val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
-                val localForest = forestBC.value
-                val score = localForest.scoreItem(x.example(0))
-                val prob = localForest.scoreProbability(score)
-                val importance = 1.0 - label * prob
-                if (scala.util.Random.nextDouble < importance) {
-                  Some(item)
-                } else {
-                  None
-                }
-              })
-              .filter(x => x != None)
-              .map(x => Util.flattenFeature(x.get))
 
      params.samplingStrategy match {
        // Picks the first few items that match the criteria. Better for large data sets.
        case "first" => {
-         importanceSampled.mapPartitions(part => {
+         examples.mapPartitions(part => {
            val result = scala.collection.mutable.ArrayBuffer[java.util.Map[java.lang.String, java.util.Map[java.lang.String, java.lang.Double]]]()
            part.foreach(x => {
              if (result.size < params.candidateSize) {
-               result.append(x)
+               val opt = optionalExample(x, forestBC.value, paramsBC.value)
+               if (opt != None) {
+                 result.append(Util.flattenFeature(opt.get))
+               }
              }
            })
            Array(result).iterator
@@ -128,8 +130,11 @@ object BoostedForestTrainer {
          .toArray
        }
        // Picks uniformly. Beter for small data sets.
-       case "uniform" => importanceSampled.takeSample(false, params.candidateSize)
-       case _ => importanceSampled.takeSample(false, params.candidateSize)
+       case "uniform" => examples
+         .map(x => optionalExample(x, forestBC.value, paramsBC.value))
+         .filter(x => x != None)
+         .map(x => Util.flattenFeature(x.get))
+         .takeSample(false, params.candidateSize)
      }
   }
 
