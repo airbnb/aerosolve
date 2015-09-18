@@ -114,31 +114,17 @@ object BoostedForestTrainer {
     val paramsBC = sc.broadcast(params)
     val examples = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
+              .map(x => optionalExample(x, forestBC.value, paramsBC.value))
+              .filter(x => x != None)
+              .map(x => Util.flattenFeature(x.get))
 
      params.samplingStrategy match {
-       // Picks the first few items that match the criteria. Better for large data sets.
+       // Picks the first few items that match the criteria. Better for massive data sets.
        case "first" => {
-         examples.mapPartitions(part => {
-           val result = scala.collection.mutable.ArrayBuffer[java.util.Map[java.lang.String, java.util.Map[java.lang.String, java.lang.Double]]]()
-           part.foreach(x => {
-             if (result.size < params.candidateSize) {
-               val opt = optionalExample(x, forestBC.value, paramsBC.value)
-               if (opt != None) {
-                 result.append(Util.flattenFeature(opt.get))
-               }
-             }
-           })
-           Array(result).iterator
-         })
-         .reduce((a, b) => scala.util.Random.shuffle(a ++ b).take(params.candidateSize))
-         .toArray
+         examples.take(params.candidateSize)
        }
        // Picks uniformly. Beter for small data sets.
-       case "uniform" => examples
-         .map(x => optionalExample(x, forestBC.value, paramsBC.value))
-         .filter(x => x != None)
-         .map(x => Util.flattenFeature(x.get))
-         .takeSample(false, params.candidateSize)
+       case "uniform" => examples.takeSample(false, params.candidateSize)
      }
   }
 
@@ -149,6 +135,7 @@ object BoostedForestTrainer {
       key : String,
       params : BoostedForestTrainerParams) = {
     val ex = getSample(sc, forest, input, config, key, params)
+    log.info("Got %d examples".format(ex.size))
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
     DecisionTreeTrainer.buildTree(
