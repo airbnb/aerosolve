@@ -4,6 +4,7 @@ import com.airbnb.aerosolve.core.EvaluationRecord
 import org.apache.spark.SparkContext
 import org.junit.Test
 import org.slf4j.LoggerFactory
+import org.junit.Assert.fail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
@@ -50,6 +51,28 @@ class EvaluationTest {
         val negScore = -1.0 + rnd.nextGaussian()
         neg.setScore(negScore)
         neg.setLabel(-1.0)
+        recs.append(neg)
+      }
+    }
+    recs
+  }
+
+  def generateDataCorrelatedRegression = {
+    val recs = ArrayBuffer[EvaluationRecord]()
+    val rnd = new Random(0xDEADBEEF)
+    for (i <- 0 to 1000) {
+      for (is_training <- Array(true, false)) {
+        val pos = new EvaluationRecord()
+        pos.setIs_training(is_training)
+        val posScore = i + rnd.nextGaussian()
+        pos.setScore(posScore)
+        pos.setLabel(i)
+        recs.append(pos)
+        val neg = new EvaluationRecord()
+        neg.setIs_training(is_training)
+        val negScore = -i + rnd.nextGaussian()
+        neg.setScore(negScore)
+        neg.setLabel(-i)
         recs.append(neg)
       }
     }
@@ -132,6 +155,25 @@ class EvaluationTest {
       assertTrue(results.getOrElse("!HOLD_PRECISION", 0.0) > THRESHOLD)
     }
     finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port,
+      // since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  @Test def evaluationRegressionCorrelatedTest: Unit = {
+    val recs = generateDataCorrelatedRegression
+    var sc = new SparkContext("local", "EvaluationTest")
+
+    try {
+      val results = Evaluation.evaluateRegression(sc.parallelize(recs)).toMap
+
+      val ERROR_THRESHOLD = 2.0
+      assertTrue(results.getOrElse("!TRAIN_RMSE", { fail("TRAIN_RMSE missing"); 0.0}) < ERROR_THRESHOLD)
+      assertTrue(results.getOrElse("!HOLD_RMSE", { fail("HOLD_RMSE missing"); 0.0}) < ERROR_THRESHOLD)
+    } finally {
       sc.stop
       sc = null
       // To avoid Akka rebinding to the same port,
