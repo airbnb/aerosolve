@@ -96,6 +96,24 @@ object Evaluation {
     metrics
   }
 
+  def evaluateRegression(records : RDD[EvaluationRecord]) : Array[(String, Double)] = {
+    val metricsMap = records
+      .flatMap(x => evaluateRecordRegression(x))
+      .reduceByKey(_ + _)
+      .collectAsMap
+
+    val metrics = metricsMap.toBuffer
+    val te = metricsMap.getOrElse("TRAIN_SQERR", 0.0)
+    val tc = metricsMap.getOrElse("TRAIN_COUNT", 0.0)
+    metrics.append(("!TRAIN_RMSE", Math.sqrt(te / tc)))
+    val he = metricsMap.getOrElse("HOLD_SQERR", 0.0)
+    val hc = metricsMap.getOrElse("HOLD_COUNT", 0.0)
+    metrics.append(("!HOLD_RMSE", Math.sqrt(he / hc)))
+    metrics
+      .sortWith((a, b) => a._1 < b._1)
+      .toArray
+  }
+
   private def evaluateBinaryClassificationAUC(records : RDD[EvaluationRecord],
                                               metrics : Buffer[(String, Double)]) = {
     val COUNT = 5
@@ -210,6 +228,15 @@ object Evaluation {
     }
   }
 
+  private def evaluateRecordRegression(record : EvaluationRecord) : Iterator[(String, Double)] = {
+    val out = collection.mutable.ArrayBuffer[(String, Double)]()
+
+    val prefix = if (record.is_training) "TRAIN_" else "HOLD_"
+    out.append((prefix + "SQERR", (record.label - record.score) * (record.label - record.score)))
+    out.append((prefix + "COUNT", 1.0))
+    out.iterator
+  }
+
   // Given a record and a threshold compute if it is a true/false positive/negative
   // and the squared error assuming it is a probability.
   private def evaluateRecordBinaryClassification(record : EvaluationRecord,
@@ -224,7 +251,7 @@ object Evaluation {
         out.append((prefix + "FP", 1.0))
       }
     } else {
-      if (record.label < 0) {
+      if (record.label <= 0) {
         out.append((prefix + "TN", 1.0))
       } else {
         out.append((prefix + "FN", 1.0))
