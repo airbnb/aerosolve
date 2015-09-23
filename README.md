@@ -1,7 +1,12 @@
+
 aerosolve
 =========
 
 Machine learning **for humans**.
+
+[![Build Status](https://travis-ci.org/airbnb/aerosolve.png?branch=master)](https://travis-ci.org/airbnb/aerosolve)
+[ ![Download](https://api.bintray.com/packages/airbnb/aerosolve/aerosolve-core/images/download.svg) ](https://bintray.com/airbnb/aerosolve/aerosolve-core/_latestVersion)
+[ ![Download](https://api.bintray.com/packages/airbnb/aerosolve/aerosolve-training/images/download.svg) ](https://bintray.com/airbnb/aerosolve/aerosolve-training/_latestVersion)
 
 What is it?
 -----------
