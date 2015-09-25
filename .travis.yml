@@ -1,7 +1,6 @@
 language: java
-sudo : false
+os : osx
 
-addons:
-  apt:
-    packages:
-     - thrift-compiler
+before_install:
+  - brew update
+  - brew install thrift
