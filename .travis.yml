@@ -4,3 +4,4 @@ os : osx
 before_install:
   - brew update
   - brew install thrift
+  - brew install gradle
