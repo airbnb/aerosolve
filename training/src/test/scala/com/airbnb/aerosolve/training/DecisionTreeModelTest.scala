@@ -28,7 +28,7 @@ class DecisionTreeModelTest {
       |  split_criteria : "%s"
       |  num_candidates : 1000
       |  rank_threshold : 0.0
-      |  max_depth : 20
+      |  max_depth : 5
       |  min_leaf_items : 5
       |  num_tries : 10
       |  context_transform : identity_transform
@@ -38,24 +38,31 @@ class DecisionTreeModelTest {
     """.stripMargin
        .format(splitCriteria)
   }
-  
+
+  /*
   @Test
   def testDecisionTreeTrainerHellinger() = {
-    testDecisionTreeTrainer("hellinger", 0.8)
+    testDecisionTreeClassificationTrainer("hellinger", 0.8)
   }
-  
+
   @Test
   def testDecisionTreeTrainerGini() = {
-    testDecisionTreeTrainer("gini", 0.8)
+    testDecisionTreeClassificationTrainer("gini", 0.8)
   }
-  
+
   @Test
   def testDecisionTreeTrainerInformationGain() = {
-    testDecisionTreeTrainer("information_gain", 0.8)
+    testDecisionTreeClassificationTrainer("information_gain", 0.8)
   }
-  
-  def testDecisionTreeTrainer(splitCriteria : String,
-                              expectedCorrect : Double) = {
+  */
+
+  @Test
+  def testDecisionTreeTrainerVariance() = {
+    testDecisionTreeRegressionTrainer("variance")
+  }
+
+  def testDecisionTreeClassificationTrainer(splitCriteria : String,
+                                            expectedCorrect : Double) = {
     val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
 
     var sc = new SparkContext("local", "DecisionTreeModelTest")
@@ -69,8 +76,8 @@ class DecisionTreeModelTest {
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
 
-      var numCorrect : Int = 0;
-      var i : Int = 0;
+      var numCorrect : Int = 0
+      var i : Int = 0
       val labelArr = label.toArray
       for (ex <- examples) {
         val score = model.scoreItem(ex.example.get(0))
@@ -84,9 +91,9 @@ class DecisionTreeModelTest {
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
       assertTrue(fracCorrect > expectedCorrect)
 
-      val swriter = new StringWriter();
-      val writer = new BufferedWriter(swriter);
-      model.save(writer);
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
       writer.close()
       val str = swriter.toString()
       val sreader = new StringReader(str)
@@ -105,6 +112,30 @@ class DecisionTreeModelTest {
    } finally {
       sc.stop
       sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  def testDecisionTreeRegressionTrainer(splitCriteria : String) = {
+    val examples = TrainingTestHelper.makeRegressionExamples
+
+
+
+    var sc = new SparkContext("local", "DecisionTreeModelTest")
+
+    try {
+      val config = ConfigFactory.parseString(makeConfig(splitCriteria))
+
+      val input = sc.parallelize(examples)
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+
+      val stumps = model.getStumps.asScala
+      stumps.foreach(stump => log.info(stump.toString))
+    } finally {
+      sc.stop
+      sc = null
+
       // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
       System.clearProperty("spark.master.port")
     }

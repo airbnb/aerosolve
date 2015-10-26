@@ -1,9 +1,6 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.junit.Test
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,11 +24,11 @@ object TrainingTestHelper {
     return example
   }
   
-  def makeClassificationExamples() = {
+  def makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
-    var numPos : Int = 0;
+    var numPos : Int = 0
     for (i <- 0 until 200) {
       val x = 2.0 * rnd.nextDouble() - 1.0
       val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -46,5 +43,22 @@ object TrainingTestHelper {
       examples += makeExample(x, y, rank)
     }
     (examples, label, numPos)
+  }
+
+  def makeRegressionExamples = {
+    val examples = ArrayBuffer[Example]()
+    val label = ArrayBuffer[Double]()
+    val rnd = new java.util.Random(1234)
+
+    for (i <- 0 until 200) {
+      val x = 2.0 * rnd.nextDouble() - 1.0
+      val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
+
+      val quadradtic = x * x + y * y
+
+      examples += makeExample(x, y, quadradtic)
+    }
+
+    examples
   }
 }
