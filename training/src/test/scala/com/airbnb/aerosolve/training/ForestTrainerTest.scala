@@ -62,41 +62,9 @@ class ForestTrainerTest {
 object ForestTrainerTestHelper {
   val log = LoggerFactory.getLogger("ForestTrainerTest")
 
-  def makeExample(x : Double,
-                  y : Double,
-                  target : Double) : Example = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setFloatFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put("", target)
-    floatFeatures.put("loc", new java.util.HashMap)
-    val loc = floatFeatures.get("loc")
-    loc.put("x", x)
-    loc.put("y", y)
-    example.addToExample(item)
-    return example
-  }
-
   def testForestTrainer(config : Config, boost : Boolean, expectedCorrect : Double) = {
-    val examples = ArrayBuffer[Example]()
-    val label = ArrayBuffer[Double]()
-    val rnd = new java.util.Random(1234)
-    var numPos : Int = 0;
-    for (i <- 0 until 200) {
-      val x = 2.0 * rnd.nextDouble() - 1.0
-      val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
-      val poly = x * x + 0.1 * y * y + 0.1 * x + 0.2 * y - 0.1 + Math.sin(x)
-      val rank = if (poly < 1.0) {
-        1.0
-      } else {
-        -1.0
-      }
-      if (rank > 0) numPos = numPos + 1
-      label += rank
-      examples += makeExample(x, y, rank)
-    }
+
+    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
 
     var sc = new SparkContext("local", "ForestTrainerTest")
 
