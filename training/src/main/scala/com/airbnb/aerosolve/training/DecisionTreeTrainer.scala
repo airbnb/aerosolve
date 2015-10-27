@@ -289,6 +289,7 @@ object DecisionTreeTrainer {
   }
 
   // Evaluate a regression-type split
+  // See http://www.stat.cmu.edu/~cshalizi/350-2006/lecture-10.pdf for overview of algorithm used
   def evaluateRegressionSplit(
       examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
       rankKey : String,
