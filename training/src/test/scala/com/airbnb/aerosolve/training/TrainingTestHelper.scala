@@ -1,9 +1,6 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.junit.Test
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 
@@ -24,14 +21,14 @@ object TrainingTestHelper {
     loc.put("x", x)
     loc.put("y", y)
     example.addToExample(item)
-    return example
+    example
   }
-  
-  def makeClassificationExamples() = {
+
+  def makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
-    var numPos : Int = 0;
+    var numPos : Int = 0
     for (i <- 0 until 200) {
       val x = 2.0 * rnd.nextDouble() - 1.0
       val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -46,5 +43,24 @@ object TrainingTestHelper {
       examples += makeExample(x, y, rank)
     }
     (examples, label, numPos)
+  }
+
+  def makeRegressionExamples = {
+    val examples = ArrayBuffer[Example]()
+    val label = ArrayBuffer[Double]()
+    val rnd = new java.util.Random(1234)
+
+    for (i <- 0 until 200) {
+      val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
+      val y = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
+
+      // Curve will be a "saddle" with flat regions where, for instance, x = 0 and y > 2.06 or y < -1.96
+      val flattenedQuadratic = math.max(x * x - 2 * y * y - 0.5 * x + 0.2 * y, -8.0)
+
+      examples += makeExample(x, y, flattenedQuadratic)
+      label += flattenedQuadratic
+    }
+
+    (examples, label)
   }
 }
