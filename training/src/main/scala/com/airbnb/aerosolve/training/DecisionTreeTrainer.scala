@@ -51,7 +51,6 @@ object DecisionTreeTrainer {
         .map(x => Util.flattenFeature(x.example(0)))
         .filter(x => x.contains(rankKey))
         .take(candidateSize)
-        .toArray
     
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
@@ -59,8 +58,6 @@ object DecisionTreeTrainer {
     
     val model = new DecisionTreeModel()
     model.setStumps(stumps)
-
-    log.info("Dot model=> %s".format(model.toDot))
 
     model
   }
@@ -80,8 +77,6 @@ object DecisionTreeTrainer {
       return
     }
     val split = getBestSplit(examples, rankKey, rankThreshold, numTries, minLeafCount, splitCriteria)
-
-    log.info("**** Best split => %s".format(split))
 
     if (split == None) {
       stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold, splitCriteria)

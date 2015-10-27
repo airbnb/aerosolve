@@ -3,16 +3,15 @@ package com.airbnb.aerosolve.training
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
 import com.airbnb.aerosolve.core.models.ModelFactory
-import com.airbnb.aerosolve.core.{Example, FeatureVector}
+import com.airbnb.aerosolve.core.ModelRecord
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 import org.junit.Test
 import org.slf4j.LoggerFactory
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import scala.collection.JavaConverters._
+import org.junit.Assert._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions
 
 class DecisionTreeModelTest {
   val log = LoggerFactory.getLogger("DecisionTreeModelTest")
@@ -28,7 +27,7 @@ class DecisionTreeModelTest {
       |  split_criteria : "%s"
       |  num_candidates : 1000
       |  rank_threshold : 0.0
-      |  max_depth : 5
+      |  max_depth : 20
       |  min_leaf_items : 5
       |  num_tries : 10
       |  context_transform : identity_transform
@@ -39,7 +38,6 @@ class DecisionTreeModelTest {
        .format(splitCriteria)
   }
 
-  /*
   @Test
   def testDecisionTreeTrainerHellinger() = {
     testDecisionTreeClassificationTrainer("hellinger", 0.8)
@@ -54,7 +52,6 @@ class DecisionTreeModelTest {
   def testDecisionTreeTrainerInformationGain() = {
     testDecisionTreeClassificationTrainer("information_gain", 0.8)
   }
-  */
 
   @Test
   def testDecisionTreeTrainerVariance() = {
@@ -118,9 +115,7 @@ class DecisionTreeModelTest {
   }
 
   def testDecisionTreeRegressionTrainer(splitCriteria : String) = {
-    val examples = TrainingTestHelper.makeRegressionExamples
-
-
+    val (examples, label) = TrainingTestHelper.makeRegressionExamples
 
     var sc = new SparkContext("local", "DecisionTreeModelTest")
 
@@ -132,6 +127,21 @@ class DecisionTreeModelTest {
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
+
+      val labelArr = label.toArray
+      var i : Int = 0
+      var totalError : Double = 0
+
+      for (ex <- examples) {
+        val score = model.scoreItem(ex.example.get(0))
+        val exampleLabel = labelArr(i)
+
+        totalError += math.abs(score - exampleLabel)
+
+        i += 1
+      }
+
+      assertTrue(totalError / examples.size.toDouble < 3.0)
     } finally {
       sc.stop
       sc = null
@@ -140,4 +150,40 @@ class DecisionTreeModelTest {
       System.clearProperty("spark.master.port")
     }
   }
+
+  @Test
+  def testEvaluateRegressionSplit() = {
+    val examples = Array(
+      createJavaExample(1.1, 5.0),
+      createJavaExample(1.2, 5.6),
+      createJavaExample(1.5, 10.2),
+      createJavaExample(1.8, 12.5)
+    )
+    val testSplit = new ModelRecord()
+
+    testSplit.setFeatureFamily("loc")
+    testSplit.setFeatureName("x")
+    testSplit.setThreshold(1.3)
+
+    val result = DecisionTreeTrainer.evaluateRegressionSplit(examples, "$rank", 1, "variance", Some(testSplit))
+
+    // Mean of left is 5.3
+    val leftSumSq = math.pow(5.0 - 5.3, 2) + math.pow(5.6 - 5.3, 2)
+
+    // Mean of right is 11.35
+    val rightSumSq = math.pow(10.2 - 11.35, 2) + math.pow(12.5 - 11.35, 2)
+
+    assertEquals(result.get, -1.0 * (leftSumSq + rightSumSq), 0.000001f)
+  }
+
+  def createJavaExample(x : Double, rank : Double) = {
+    JavaConversions.mapAsJavaMap(
+      Map(
+        "loc" -> JavaConversions.mapAsJavaMap(Map("x" -> x)),
+        "$rank" -> JavaConversions.mapAsJavaMap(Map("" -> rank))
+      )
+    ).asInstanceOf[
+        java.util.Map[java.lang.String, java.util.Map[java.lang.String, java.lang.Double]]]
+  }
+
 }

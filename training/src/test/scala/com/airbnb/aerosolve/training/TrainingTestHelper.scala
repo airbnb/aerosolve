@@ -21,9 +21,9 @@ object TrainingTestHelper {
     loc.put("x", x)
     loc.put("y", y)
     example.addToExample(item)
-    return example
+    example
   }
-  
+
   def makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
@@ -51,14 +51,15 @@ object TrainingTestHelper {
     val rnd = new java.util.Random(1234)
 
     for (i <- 0 until 200) {
-      val x = 2.0 * rnd.nextDouble() - 1.0
-      val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
+      val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
+      val y = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
 
-      val quadradtic = x * x + y * y
+      val quadradtic = x * x - 2 * y * y - 0.5 * x + 0.2 * y
 
       examples += makeExample(x, y, quadradtic)
+      label += quadradtic
     }
 
-    examples
+    (examples, label)
   }
 }
