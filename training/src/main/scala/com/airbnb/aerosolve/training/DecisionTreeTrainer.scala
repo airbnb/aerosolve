@@ -149,6 +149,7 @@ object DecisionTreeTrainer {
           sum += labelValue
         }
 
+        // In regression case, leaf is the average of all the associated values
         rec.setFeatureWeight(sum / count)
       }
       case _ => {
