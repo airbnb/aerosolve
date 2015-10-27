@@ -54,10 +54,11 @@ object TrainingTestHelper {
       val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
       val y = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
 
-      val quadradtic = x * x - 2 * y * y - 0.5 * x + 0.2 * y
+      // Curve will be a "saddle" with flat regions where, for instance, x = 0 and y > 2.06 or y < -1.96
+      val flattenedQuadratic = math.max(x * x - 2 * y * y - 0.5 * x + 0.2 * y, -8.0)
 
-      examples += makeExample(x, y, quadradtic)
-      label += quadradtic
+      examples += makeExample(x, y, flattenedQuadratic)
+      label += flattenedQuadratic
     }
 
     (examples, label)

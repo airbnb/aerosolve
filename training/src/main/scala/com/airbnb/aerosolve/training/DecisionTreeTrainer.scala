@@ -308,8 +308,10 @@ object DecisionTreeTrainer {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
       val labelValue = example.get(rankKey).asScala.head._2
 
-      // Using "online algorithm" for computing mean and sum-squared errors as
-      // described in https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+      // Using Welford's Method for computing mean and sum-squared errors in numerically stable way;
+      // more details can be found in http://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance
+      //
+      // See unit test for verification that it is consistent with standard, two-pass approach
       if (response) {
         rightCount += 1
         val delta = labelValue - rightMean

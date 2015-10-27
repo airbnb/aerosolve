@@ -141,7 +141,20 @@ class DecisionTreeModelTest {
         i += 1
       }
 
+      // Total error not too high
       assertTrue(totalError / examples.size.toDouble < 3.0)
+
+      // Points in flat region result in score of min value (-8.0)
+      val flatRegionExamples = List(
+        TrainingTestHelper.makeExample(0, -3.5, 0),
+        TrainingTestHelper.makeExample(0, 3.2, 0)
+      )
+
+      flatRegionExamples.foreach { flatRegionExample =>
+        val score = model.scoreItem(flatRegionExample.example.get(0))
+
+        assertEquals(score, -8.0, 0.1f)
+      }
     } finally {
       sc.stop
       sc = null
@@ -156,8 +169,11 @@ class DecisionTreeModelTest {
     val examples = Array(
       createJavaExample(1.1, 5.0),
       createJavaExample(1.2, 5.6),
+      createJavaExample(1.25, 11.9),
       createJavaExample(1.5, 10.2),
-      createJavaExample(1.8, 12.5)
+      createJavaExample(1.8, 12.5),
+      createJavaExample(2.5, 8.3),
+      createJavaExample(2.9, 18.4)
     )
     val testSplit = new ModelRecord()
 
@@ -167,11 +183,14 @@ class DecisionTreeModelTest {
 
     val result = DecisionTreeTrainer.evaluateRegressionSplit(examples, "$rank", 1, "variance", Some(testSplit))
 
-    // Mean of left is 5.3
-    val leftSumSq = math.pow(5.0 - 5.3, 2) + math.pow(5.6 - 5.3, 2)
+    // Verify that Welford's Method is consistent with standard, two-pass calculation
+    val leftMean = (5.0 + 5.6 + 11.9) / 3.0
+    val leftSumSq = math.pow(5.0 - leftMean, 2) + math.pow(5.6 - leftMean, 2) + math.pow(11.9 - leftMean, 2)
 
-    // Mean of right is 11.35
-    val rightSumSq = math.pow(10.2 - 11.35, 2) + math.pow(12.5 - 11.35, 2)
+    val rightMean = (10.2 + 12.5 + 8.3 + 18.4) / 4.0
+    val rightSumSq =
+        math.pow(10.2 - rightMean, 2) + math.pow(12.5 - rightMean, 2) +
+        math.pow(8.3 - rightMean, 2) + math.pow(18.4 - rightMean, 2)
 
     assertEquals(result.get, -1.0 * (leftSumSq + rightSumSq), 0.000001f)
   }
