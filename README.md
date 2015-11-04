@@ -120,6 +120,11 @@ This allows us to debug the spline model for features that are buggy or unexpect
    * Decision tree model - in memory only. Mostly used to generate transforms for the linear or spline model.
    * Maxout neural network model. Experimental and mostly used as a comparison baseline.
 
+IDE
+------
+If you use intellij, try build first, so that thrift classes is available and to fix the spark compiling error inside intellij, type `command+;` and click dependency and change related files from test to compile, such as org.apache.spark and org.apache.hadoop:hadoop-common.
+We keep gradle config as testCompile so that to reduce jar file size.
+
 Support
 -------
 
