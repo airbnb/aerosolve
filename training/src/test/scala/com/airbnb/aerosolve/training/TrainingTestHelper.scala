@@ -47,10 +47,10 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
-  def makeRegressionExamples = {
+  def makeRegressionExamples(randomSeed: Int = 1234) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
-    val rnd = new java.util.Random(1234)
+    val rnd = new java.util.Random(randomSeed)
 
     for (i <- 0 until 200) {
       val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)

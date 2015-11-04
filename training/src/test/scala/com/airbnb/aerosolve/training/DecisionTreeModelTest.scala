@@ -115,7 +115,7 @@ class DecisionTreeModelTest {
   }
 
   def testDecisionTreeRegressionTrainer(splitCriteria : String) = {
-    val (examples, label) = TrainingTestHelper.makeRegressionExamples
+    val (examples, label) = TrainingTestHelper.makeRegressionExamples()
 
     var sc = new SparkContext("local", "DecisionTreeModelTest")
 
@@ -140,7 +140,7 @@ class DecisionTreeModelTest {
 
         i += 1
       }
-      log.info("totol error = %f".format(totalError / examples.size.toDouble))
+      log.info("Average absolute error = %f".format(totalError / examples.size.toDouble))
       // Total error not too high
       assertTrue(totalError / examples.size.toDouble < 3.0)
 

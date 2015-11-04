@@ -231,34 +231,43 @@ class SplineTrainerTest {
 
   @Test
   def testSplineRegression(): Unit = {
-    val (examples, label) = TrainingTestHelper.makeRegressionExamples
+    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples()
     var sc = new SparkContext("local", "SplineRegressionTest")
     try {
       val config = ConfigFactory.parseString(makeRegressionConfig)
-
-      val input = sc.parallelize(examples)
+      val input = sc.parallelize(trainingExample)
       val model = SplineTrainer.train(sc, input, config, "model_config")
-
       TrainingTestHelper.printSpline(model)
-
-      val labelArr = label.toArray
-      var i : Int = 0
-      var totalError : Double = 0
-
-      for (ex <- examples) {
+      val trainLabelArr = trainingLabel.toArray
+      var trainTotalError : Double = 0
+      var i = 0
+      // compute training error
+      for (ex <- trainingExample) {
         val score = model.scoreItem(ex.example.get(0))
-        val exampleLabel = labelArr(i)
-
-        totalError += math.abs(score - exampleLabel)
-
+        val label = trainLabelArr(i)
+        trainTotalError += math.abs(score - label)
         i += 1
       }
-      val error = totalError / examples.size.toDouble
-      log.info("Average absolute error = %f".format(error))
-
+      val trainError = trainTotalError / trainingExample.size.toDouble
+      log.info("Training: Average absolute error = %f".format(trainError))
       // Total error not too high
-      assertTrue( error < 3.0)
+      assertTrue(trainError < 3.0)
 
+      // compute testing error
+      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(25)
+      val testLabelArr = testingLabel.toArray
+      var testTotalError : Double = 0
+      // compute training error
+      i = 0
+      for (ex <- testingExample) {
+        val score = model.scoreItem(ex.example.get(0))
+        val label = testLabelArr(i)
+        testTotalError += math.abs(score - label)
+        i += 1
+      }
+      val testError = testTotalError / testingExample.size.toDouble
+      log.info("Testing: Average absolute error = %f".format(testError))
+      assertTrue(testError < 3.0)
     } finally {
       sc.stop
       sc = null
