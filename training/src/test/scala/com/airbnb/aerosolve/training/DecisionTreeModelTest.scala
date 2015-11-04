@@ -140,7 +140,7 @@ class DecisionTreeModelTest {
 
         i += 1
       }
-
+      log.info("totol error = %f".format(totalError / examples.size.toDouble))
       // Total error not too high
       assertTrue(totalError / examples.size.toDouble < 3.0)
 

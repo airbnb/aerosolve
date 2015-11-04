@@ -42,7 +42,8 @@ object SplineTrainer {
        isRanking : Boolean,    // If we have a list based ranking loss
        rankFraction : Double,  // Fraction of time to use ranking loss when loss is rank_and_hinge
        rankMargin : Double,    // The margin for ranking loss
-       maxSamplesPerExample : Int // Max number of samples to use per example
+       maxSamplesPerExample : Int, // Max number of samples to use per example
+       epsilon : Double        // epsilon used in epsilon-insensitive loss for regression training
    )
 
   def train(sc : SparkContext,
@@ -54,6 +55,7 @@ object SplineTrainer {
       case "rank_and_hinge" => true
       case "logistic" => false
       case "hinge" => false
+      case "regression" => false
       case _ => {
         log.error("Unknown loss function %s".format(loss))
         System.exit(-1)
@@ -73,6 +75,7 @@ object SplineTrainer {
     val linfinityThreshold : Double = config.getDouble(key + ".linfinity_threshold")
     val initModelPath : String = Try{config.getString(key + ".init_model")}.getOrElse("")
     val threshold : Double = config.getDouble(key + ".rank_threshold")
+    val epsilon: Double = Try{config.getDouble(key + ".epsilon")}.getOrElse(0.0)
 
     val lossMod : Int = try {
       config.getInt(key + ".loss_mod")
@@ -106,7 +109,8 @@ object SplineTrainer {
        isRanking = isRanking,
        rankFraction = rankFraction,
        rankMargin = rankMargin,
-       maxSamplesPerExample = maxSamplesPerExample)
+       maxSamplesPerExample = maxSamplesPerExample,
+       epsilon = epsilon)
 
     val transformed : RDD[Example] = if (isRanking) {
       LinearRankerUtils.transformExamples(input, config, key)
@@ -562,10 +566,16 @@ object SplineTrainer {
                     workingModel : SplineModel,
                     loss : String,
                     params : SplineTrainerParams) : Double = {
-    val label = TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
+    val label: Double = if (loss == "regression") {
+      fv.floatFeatures.get(params.rankKey).asScala.head._2.toDouble
+    } else {
+      TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
+    }
+
     loss match {
       case "logistic" => updateLogistic(workingModel, fv, label, params)
       case "hinge" => updateHinge(workingModel, fv, label, params)
+      case "regression" => updateRegressor(workingModel, fv, label, params)
     }
   }
 
@@ -601,6 +611,21 @@ object SplineTrainer {
       model.update(grad.toFloat,
                    params.learningRate.toFloat,
                    flatFeatures)
+    }
+    return loss
+  }
+
+  def updateRegressor(model: SplineModel,
+                      fv: FeatureVector,
+                      label: Double,
+                      params : SplineTrainerParams) : Double = {
+    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
+    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val loss = math.abs(prediction - label) // absolute difference
+    if (prediction - label > params.epsilon) {
+      model.update(1.0f, params.learningRate.toFloat, flatFeatures)
+    } else if (prediction - label < -params.epsilon) {
+      model.update(-1.0f, params.learningRate.toFloat, flatFeatures)
     }
     return loss
   }
