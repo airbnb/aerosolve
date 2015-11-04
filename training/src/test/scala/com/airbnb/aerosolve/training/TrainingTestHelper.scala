@@ -1,8 +1,10 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
+import com.airbnb.aerosolve.core.models.SplineModel
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConverters._
 
 object TrainingTestHelper {
   val log = LoggerFactory.getLogger("TrainingTestHelper")
@@ -45,10 +47,10 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
-  def makeRegressionExamples = {
+  def makeRegressionExamples(randomSeed: Int = 1234) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
-    val rnd = new java.util.Random(1234)
+    val rnd = new java.util.Random(randomSeed)
 
     for (i <- 0 until 200) {
       val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -62,5 +64,22 @@ object TrainingTestHelper {
     }
 
     (examples, label)
+  }
+
+  def printSpline(model: SplineModel) = {
+    val weights = model.getWeightSpline.asScala
+    for (familyMap <- weights) {
+      for (featureMap <- familyMap._2.asScala) {
+        log.info(("family=%s,feature=%s,"
+                  + "minVal=%f, maxVal=%f, weights=%s")
+                   .format(familyMap._1,
+                           featureMap._1,
+                           featureMap._2.spline.getMinVal,
+                           featureMap._2.spline.getMaxVal,
+                           featureMap._2.spline.getWeights.mkString(",")
+          )
+        )
+      }
+    }
   }
 }

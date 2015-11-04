@@ -1,13 +1,9 @@
 package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
-import java.util
 
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
 import com.airbnb.aerosolve.core.models.{ModelFactory, SplineModel}
-import com.airbnb.aerosolve.core.{Example, FeatureVector}
-import com.airbnb.aerosolve.core.util.Spline
-import java.util.{Scanner, HashMap}
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 import org.junit.Test
@@ -15,8 +11,6 @@ import org.slf4j.LoggerFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import scala.collection.JavaConverters._
-
-import scala.collection.mutable.ArrayBuffer
 
 class SplineTrainerTest {
   val log = LoggerFactory.getLogger("SplineTrainerTest")
@@ -69,6 +63,34 @@ class SplineTrainerTest {
       |  combined_transform : identity_transform
       |}
     """.stripMargin.format(loss, extraArgs, dropout)
+  }
+
+  def makeRegressionConfig() : String = {
+    """
+      |identity_transform {
+      |  transform : list
+      |  transforms: []
+      |}
+      |model_config {
+      |  num_bags : 3
+      |  loss : "regression"
+      |  rank_key : "$rank"
+      |  rank_threshold : 0.0
+      |  learning_rate : 0.5
+      |  num_bins : 16
+      |  iterations : 10
+      |  smoothing_tolerance : 0.1
+      |  linfinity_threshold : 0.01
+      |  linfinity_cap : 10.0
+      |  dropout : 0.0
+      |  min_count : 0
+      |  subsample : 1.0
+      |  epsilon: 0.1
+      |  context_transform : identity_transform
+      |  item_transform : identity_transform
+      |  combined_transform : identity_transform
+      |}
+    """.stripMargin
   }
 
   @Test
@@ -124,20 +146,7 @@ class SplineTrainerTest {
       val input = sc.parallelize(examples)
       val model = SplineTrainer.train(sc, input, config, "model_config")
 
-      val weights = model.getWeightSpline.asScala
-      for (familyMap <- weights) {
-        for (featureMap <- familyMap._2.asScala) {
-          log.info(("family=%s,feature=%s,"
-                    + "minVal=%f, maxVal=%f, weights=%s")
-                     .format(familyMap._1,
-                             featureMap._1,
-                             featureMap._2.spline.getMinVal,
-                             featureMap._2.spline.getMaxVal,
-                             featureMap._2.spline.toString
-            )
-          )
-        }
-      }
+      TrainingTestHelper.printSpline(model)
 
       var numCorrect : Int = 0
       var i : Int = 0
@@ -217,6 +226,53 @@ class SplineTrainerTest {
           assertEquals(spline.getMinVal, 0.0f, 0.01f)
         }
       }
+    }
+  }
+
+  @Test
+  def testSplineRegression(): Unit = {
+    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples()
+    var sc = new SparkContext("local", "SplineRegressionTest")
+    try {
+      val config = ConfigFactory.parseString(makeRegressionConfig)
+      val input = sc.parallelize(trainingExample)
+      val model = SplineTrainer.train(sc, input, config, "model_config")
+      TrainingTestHelper.printSpline(model)
+      val trainLabelArr = trainingLabel.toArray
+      var trainTotalError : Double = 0
+      var i = 0
+      // compute training error
+      for (ex <- trainingExample) {
+        val score = model.scoreItem(ex.example.get(0))
+        val label = trainLabelArr(i)
+        trainTotalError += math.abs(score - label)
+        i += 1
+      }
+      val trainError = trainTotalError / trainingExample.size.toDouble
+      log.info("Training: Average absolute error = %f".format(trainError))
+      // Total error not too high
+      assertTrue(trainError < 3.0)
+
+      // compute testing error
+      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(25)
+      val testLabelArr = testingLabel.toArray
+      var testTotalError : Double = 0
+      // compute training error
+      i = 0
+      for (ex <- testingExample) {
+        val score = model.scoreItem(ex.example.get(0))
+        val label = testLabelArr(i)
+        testTotalError += math.abs(score - label)
+        i += 1
+      }
+      val testError = testTotalError / testingExample.size.toDouble
+      log.info("Testing: Average absolute error = %f".format(testError))
+      assertTrue(testError < 3.0)
+    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
     }
   }
 }
