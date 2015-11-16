@@ -172,7 +172,11 @@ class EvaluationTest {
 
       val ERROR_THRESHOLD = 2.0
       assertTrue(results.getOrElse("!TRAIN_RMSE", { fail("TRAIN_RMSE missing"); 0.0}) < ERROR_THRESHOLD)
+      assertTrue(results.getOrElse("!TRAIN_SMAPE",
+        { fail("TRAIN_SMAPE missing"); 0.0}) < ERROR_THRESHOLD)
       assertTrue(results.getOrElse("!HOLD_RMSE", { fail("HOLD_RMSE missing"); 0.0}) < ERROR_THRESHOLD)
+      assertTrue(results.getOrElse("!HOLD_SMAPE",
+        { fail("HOLD_SMAPE missing"); 0.0}) < ERROR_THRESHOLD)
     } finally {
       sc.stop
       sc = null
