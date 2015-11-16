@@ -4,6 +4,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.apache.spark.rdd.RDD
 import com.airbnb.aerosolve.core.EvaluationRecord
 import org.apache.spark.SparkContext._
+import scala.collection.{mutable, Map}
 import scala.collection.mutable.{ArrayBuffer, Buffer}
 
 /*
@@ -96,6 +97,17 @@ object Evaluation {
     metrics
   }
 
+  private def regressionMetrics(map:Map[String, Double], prefix:String,
+                                 metrics:mutable.Buffer[(String, Double)]):Unit = {
+    val te = map.getOrElse(prefix + "SQERR", 0.0)
+    val tc = map.getOrElse(prefix + "COUNT", 0.0)
+    // to compute SMAPE third version https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
+    val absLabelMinusScore = map.getOrElse(prefix + "ABS_LABEL_MINUS_SCORE", 0.0)
+    val labelPlusScore = map.getOrElse(prefix + "LABEL_PLUS_SCORE", 0.0)
+    metrics.append(("!" + prefix + "RMSE", Math.sqrt(te / tc)))
+    metrics.append(("!" + prefix + "SMAPE", absLabelMinusScore/labelPlusScore))
+  }
+
   def evaluateRegression(records : RDD[EvaluationRecord]) : Array[(String, Double)] = {
     val metricsMap = records
       .flatMap(x => evaluateRecordRegression(x))
@@ -103,12 +115,8 @@ object Evaluation {
       .collectAsMap
 
     val metrics = metricsMap.toBuffer
-    val te = metricsMap.getOrElse("TRAIN_SQERR", 0.0)
-    val tc = metricsMap.getOrElse("TRAIN_COUNT", 0.0)
-    metrics.append(("!TRAIN_RMSE", Math.sqrt(te / tc)))
-    val he = metricsMap.getOrElse("HOLD_SQERR", 0.0)
-    val hc = metricsMap.getOrElse("HOLD_COUNT", 0.0)
-    metrics.append(("!HOLD_RMSE", Math.sqrt(he / hc)))
+    regressionMetrics(metricsMap, "TRAIN_", metrics)
+    regressionMetrics(metricsMap, "HOLD_", metrics)
     metrics
       .sortWith((a, b) => a._1 < b._1)
       .toArray
@@ -232,7 +240,14 @@ object Evaluation {
     val out = collection.mutable.ArrayBuffer[(String, Double)]()
 
     val prefix = if (record.is_training) "TRAIN_" else "HOLD_"
-    out.append((prefix + "SQERR", (record.label - record.score) * (record.label - record.score)))
+    val diff = (record.label - record.score)
+    val sqErr = diff * diff;
+    // to compute SMAPE third version https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
+    val absLabelMinusScore = Math.abs(diff)
+    val labelPlusScore = record.label + record.score
+    out.append((prefix + "SQERR", sqErr))
+    out.append((prefix + "ABS_LABEL_MINUS_SCORE", absLabelMinusScore))
+    out.append((prefix + "LABEL_PLUS_SCORE", labelPlusScore))
     out.append((prefix + "COUNT", 1.0))
     out.iterator
   }
