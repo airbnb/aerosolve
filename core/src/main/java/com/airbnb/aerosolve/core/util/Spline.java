@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 // A piecewise linear spline implementation supporting updates.
-public class Spline implements Serializable {
+public class Spline extends AbstractFunction {
   private static final long serialVersionUID = 5166347177557768302L;
 
   @Getter @Setter
@@ -56,7 +56,8 @@ public class Spline implements Serializable {
     this.binSize = diff / (numBins - 1.0f);
     this.binScale = 1.0f / binSize;
   }
-  
+
+  @Override
   public float evaluate(float x) {
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -68,6 +69,7 @@ public class Spline implements Serializable {
     return result;
   }
 
+  @Override
   public void update(float x, float delta) {
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -78,6 +80,20 @@ public class Spline implements Serializable {
       weights[bin] += (1.0f - t) * delta;
       weights[bin + 1] += t * delta;
     }
+  }
+
+  public void resample(int newBins) {
+    float[] newWeights = new float[newBins];
+    if (newBins != numBins) {
+      float scale = 1.0f / (newBins - 1.0f);
+      float diff = maxVal - minVal;
+      for (int i = 0; i < newBins; i++) {
+        float t = i * scale;
+        float x = diff * t + minVal;
+        newWeights[i] = evaluate(x);
+      }
+    }
+    setupSpline(minVal, maxVal, newWeights);
   }
 
   // Returns the lower bound bin
@@ -95,4 +111,30 @@ public class Spline implements Serializable {
     return t;
   }
 
+  public float L1Norm() {
+    float sum = 0.0f;
+    for (int i = 0; i < weights.length; i++) {
+      sum += Math.abs(weights[i]);
+    }
+    return sum;
+  }
+
+  public float LInfinityNorm() {
+    float best = 0.0f;
+    for (int i = 0; i < weights.length; i++) {
+      best = Math.max(best, Math.abs(weights[i]));
+    }
+    return best;
+  }
+
+  public void LInfinityCap(float cap) {
+    if (cap <= 0.0f) return;
+    float currentNorm = this.LInfinityNorm();
+    if (currentNorm > cap) {
+      float scale = cap / currentNorm;
+      for (int i = 0; i < weights.length; i++) {
+        weights[i] *= scale;
+      }
+    }
+  }
 }

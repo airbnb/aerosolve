@@ -25,7 +25,7 @@ public class SplineTest {
   }
   
   @Test
-  public void testSplineResample() {
+  public void testSplineResampleConstructor() {
     float[] weights = {5.0f, 10.0f, -20.0f};
     Spline spline = new Spline(1.0f, 3.0f, weights);
 
@@ -44,6 +44,33 @@ public class SplineTest {
     // Larger
     Spline spline4 = new Spline(spline, 100);
     testSpline(spline4, 0.2f);
+  }
+
+  @Test
+  public void testSplineResample() {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    // Same size
+    Spline spline1 = new Spline(1.0f, 3.0f, weights);
+    spline1.resample(3);
+    testSpline(spline1, 0.1f);
+
+    // Smaller
+    Spline spline2 = new Spline(1.0f, 3.0f, weights);
+    spline2.resample(2);
+    assertEquals(5.0f, spline2.evaluate(-1.0f), 0.1f);
+    assertEquals(5.0f, spline2.evaluate(1.0f), 0.1f);
+    assertEquals((5.0f - 20.0f) * 0.5f, spline2.evaluate(2.0f), 0.1f);
+    assertEquals(-20.0f, spline2.evaluate(3.0f), 0.1f);
+    assertEquals(-20.0f, spline2.evaluate(4.0f), 0.1f);
+
+    // Larger
+    Spline spline3 = new Spline(1.0f, 3.0f, weights);
+    spline3.resample(10);
+    testSpline(spline3, 0.2f);
+    spline3.resample(20);
+    testSpline(spline3, 0.2f);
+    spline3.resample(100);
+    testSpline(spline3, 0.2f);
   }
   
   void testSpline(Spline spline, float tol) {
@@ -88,5 +115,50 @@ public class SplineTest {
       log.info("x = " + x + " expected = " + expected + " got = " + eval);
       assertEquals(expected, spline.evaluate(x), 0.1f);
     }
+  }
+
+  @Test
+  public void testSplineL1Norm() {
+    float[] weights1 = {5.0f, 10.0f, -20.0f};
+    Spline spline1 = new Spline(1.0f, 3.0f, weights1);
+    assertEquals(35.0f, spline1.L1Norm(), 0.01f);
+
+    float[] weights2 = {0.0f, 0.0f};
+    Spline spline2 = new Spline(1.0f, 3.0f, weights2);
+    assertEquals(0.0f, spline2.L1Norm(), 0.01f);
+  }
+
+  @Test
+  public void testSplineLInfinityNorm() {
+    float[] weights1 = {5.0f, 10.0f, -20.0f};
+    Spline spline1 = new Spline(1.0f, 3.0f, weights1);
+    assertEquals(20.0f, spline1.LInfinityNorm(), 0.01f);
+
+    float[] weights2 = {0.0f, 0.0f};
+    Spline spline2 = new Spline(1.0f, 3.0f, weights2);
+    assertEquals(0.0f, spline2.LInfinityNorm(), 0.01f);
+  }
+
+  @Test
+  public void testSplineLInfinityCap() {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    Spline spline1 = new Spline(1.0f, 3.0f, weights);
+    // Larger (no scale)
+    spline1.LInfinityCap(30.0f);
+    assertEquals(5.0f, spline1.getWeights()[0], 0.01f);
+    assertEquals(10.0f, spline1.getWeights()[1], 0.01f);
+    assertEquals(-20.0f, spline1.getWeights()[2], 0.01f);
+    // Negative
+    spline1.LInfinityCap(-10.0f);
+    assertEquals(5.0f, spline1.getWeights()[0], 0.01f);
+    assertEquals(10.0f, spline1.getWeights()[1], 0.01f);
+    assertEquals(-20.0f, spline1.getWeights()[2], 0.01f);
+    // Smaller (with scale)
+    Spline spline2 = new Spline(1.0f, 3.0f, weights);
+    spline2.LInfinityCap(10.0f);
+    float scale = 10.0f / 20.0f;
+    assertEquals(5.0f * scale, spline2.getWeights()[0], 0.01f);
+    assertEquals(10.0f * scale, spline2.getWeights()[1], 0.01f);
+    assertEquals(-20.0f * scale, spline2.getWeights()[2], 0.01f);
   }
 }
