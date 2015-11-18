@@ -65,8 +65,8 @@ class LinearRegressionTrainerTest {
   }
   
   @Test
-  def testLinearRegression2Trainer() {
-    testLinearRegressionTrainerWithLoss("regression2")
+  def testLinearRegressionL2Trainer() {
+    testLinearRegressionTrainerWithLoss("regressionL2")
   }
   
   def testLinearRegressionTrainerWithLoss(loss: String) {

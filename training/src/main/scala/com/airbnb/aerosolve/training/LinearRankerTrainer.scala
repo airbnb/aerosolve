@@ -75,7 +75,7 @@ object LinearRankerTrainer {
     loss match {
       case "ranking" => rankingTrain(sc, input, config, key, numBags, weights, iteration)
       case "regression" => regressionTrain(sc, input, config, key, numBags, weights, iteration)
-      case "regression2" => regression2Train(sc, input, config, key, numBags, weights, iteration)
+      case "regressionL2" => regressionL2Train(sc, input, config, key, numBags, weights, iteration)
       case "hinge" => classificationTrain(sc, input, config, key, numBags, weights, iteration)
       case "logistic" => logisticTrain(sc, input, config, key, numBags, weights, iteration)
       case _ => {
@@ -152,7 +152,7 @@ object LinearRankerTrainer {
   }
   
   // Squared difference loss
-  def regression2Train(sc : SparkContext,
+  def regressionL2Train(sc : SparkContext,
                       input : RDD[Example],
                       config : Config,
                       key : String,
