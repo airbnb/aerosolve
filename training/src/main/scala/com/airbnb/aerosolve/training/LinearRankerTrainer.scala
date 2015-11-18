@@ -75,6 +75,7 @@ object LinearRankerTrainer {
     loss match {
       case "ranking" => rankingTrain(sc, input, config, key, numBags, weights, iteration)
       case "regression" => regressionTrain(sc, input, config, key, numBags, weights, iteration)
+      case "regressionL2" => regressionL2Train(sc, input, config, key, numBags, weights, iteration)
       case "hinge" => classificationTrain(sc, input, config, key, numBags, weights, iteration)
       case "logistic" => logisticTrain(sc, input, config, key, numBags, weights, iteration)
       case _ => {
@@ -143,6 +144,66 @@ object LinearRankerTrainer {
             })
             weightMap.put(lossKey, (lossEntry._1 + loss, lossEntry._2 + 1.0))
           }
+        })
+      })
+      weightMap
+        .iterator
+    })
+  }
+  
+  // Squared difference loss
+  def regressionL2Train(sc : SparkContext,
+                      input : RDD[Example],
+                      config : Config,
+                      key : String,
+                      numBags : Int,
+                      weights : collection.mutable.Map[(String, String), (Double, Double)],
+                      iteration : Int) :
+  RDD[((String, String), (Double, Double))] = {
+    val rankKey: String = config.getString(key + ".rank_key")
+    val lambda : Double = config.getDouble(key + ".lambda")
+    val lambda2 : Double = config.getDouble(key + ".lambda2")
+    val learningRate: Double = config.getDouble(key + ".learning_rate")
+    val weightsBC = sc.broadcast(weights)
+    LinearRankerUtils
+      .makePointwise(input, config, key, rankKey)
+      .coalesce(numBags, true)
+      .mapPartitions(partition => {
+      // The keys the feature (family, value)
+      // The values are the weight, sum of squared gradients.
+      val weightMap = weightsBC.value
+      val rnd = new Random()
+      partition.foreach(examples => {
+        examples
+          .example
+          .filter(x => x.stringFeatures != null &&
+                       x.floatFeatures != null &&
+                       x.floatFeatures.containsKey(rankKey))
+          .foreach(sample => {
+          val target = sample.floatFeatures.get(rankKey).iterator.next()._2
+          val features = LinearRankerUtils.getFeatures(sample)
+          val prediction = LinearRankerUtils.score(features, weightMap)
+          // The loss function is the squared error loss L = 0.5 * ||w'x - y||^2
+          // So dloss / dw = (w'x - y) * x
+
+          val diff = prediction - target
+          val sqdiff = diff * diff
+          val loss = 0.5 * sqdiff
+          val lossEntry = weightMap.getOrElse(lossKey, (0.0, 0.0))
+
+          val grad = diff
+          features.foreach(v => {
+            val wt = weightMap.getOrElse(v, (0.0, 0.0))
+            val newGradSum = wt._2 + sqdiff
+            val newWeight = fobosUpdate(currWeight = wt._1,
+                                        gradient = grad,
+                                        eta = learningRate,
+                                        l1Reg = lambda,
+                                        l2Reg = lambda2,
+                                        sum = newGradSum)
+            weightMap.put(v, (newWeight, newGradSum))
+          })
+          weightMap.put(lossKey, (lossEntry._1 + loss, lossEntry._2 + 1.0))          
         })
       })
       weightMap

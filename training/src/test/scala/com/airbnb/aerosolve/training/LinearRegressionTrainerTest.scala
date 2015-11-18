@@ -37,7 +37,7 @@ class LinearRegressionTrainerTest {
     examples += example
   }
 
-  def makeConfig: String = {
+  def makeConfig(loss : String): String = {
     """
       |identity_transform {
       |  transform : list
@@ -45,10 +45,10 @@ class LinearRegressionTrainerTest {
       |}
       |model_config {
       |  num_bags : 1
-      |  loss : "regression"
+      |  loss : "%s"
       |  rank_key : "$rank"
-      |  lambda : 0.1
-      |  lambda2 : 0.1
+      |  lambda : 0.01
+      |  lambda2 : 0.01
       |  epsilon : 0.1
       |  learning_rate : 1.0
       |  iterations : 10
@@ -56,9 +56,20 @@ class LinearRegressionTrainerTest {
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
-    """.stripMargin
+    """.stripMargin.format(loss)
   }
-  @Test def testLinearRegressionTrainer {
+
+  @Test
+  def testLinearRegressionTrainer() {
+    testLinearRegressionTrainerWithLoss("regression")
+  }
+  
+  @Test
+  def testLinearRegressionL2Trainer() {
+    testLinearRegressionTrainerWithLoss("regressionL2")
+  }
+  
+  def testLinearRegressionTrainerWithLoss(loss: String) {
     val examples = ArrayBuffer[Example]()
     for (i <- 0 until 10) {
       makeExamples(examples, "alice", 2 + 0.1 * scala.util.Random.nextDouble())
@@ -69,7 +80,7 @@ class LinearRegressionTrainerTest {
     var sc = new SparkContext("local", "RegressionTrainerTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig)
+      val config = ConfigFactory.parseString(makeConfig(loss))
 
       val input = sc.parallelize(examples)
       val origWeights = LinearRankerTrainer.train(sc, input, config, "model_config")
