@@ -6,7 +6,6 @@ import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.util.AbstractFunction;
 import com.airbnb.aerosolve.core.util.Linear;
-import com.airbnb.aerosolve.core.util.Polynomial;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.Spline;
 import lombok.Getter;
