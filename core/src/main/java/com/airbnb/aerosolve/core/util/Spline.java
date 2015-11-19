@@ -1,8 +1,11 @@
 package com.airbnb.aerosolve.core.util;
 
+import com.airbnb.aerosolve.core.ModelRecord;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
@@ -45,6 +48,22 @@ public class Spline extends AbstractFunction {
     }
     setupSpline(other.minVal, other.maxVal, newWeights);
   }
+
+  // A constructor from model record
+  public Spline(ModelRecord record) {
+    this.minVal = (float) record.getMinVal();
+    this.maxVal = (float) record.getMaxVal();
+    List<Double> weightVec = record.getWeightVector();
+    this.numBins = weightVec.size();
+    this.weights = new float[this.numBins];
+    for (int j = 0; j < numBins; j++) {
+      this.weights[j] = weightVec.get(j).floatValue();
+    }
+    float diff = Math.max(maxVal - minVal, 1e-10f);
+    this.scale = 1.0f / diff;
+    this.binSize = diff / (numBins - 1.0f);
+    this.binScale = 1.0f / binSize;
+  }
   
   private void setupSpline(float minVal, float maxVal, float [] weights) {
     this.weights = weights;
@@ -69,7 +88,6 @@ public class Spline extends AbstractFunction {
     return result;
   }
 
-  @Override
   public void update(float x, float delta) {
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -82,6 +100,22 @@ public class Spline extends AbstractFunction {
     }
   }
 
+  @Override
+  public ModelRecord toModelRecord(String featureFamily, String featureName) {
+    ModelRecord record = new ModelRecord();
+    record.setFunctionForm("Spline");
+    record.setFeatureFamily(featureFamily);
+    record.setFeatureName(featureName);
+    ArrayList<Double> arrayList = new ArrayList<Double>();
+    for (int i = 0; i < weights.length; i++) {
+      arrayList.add((double) weights[i]);
+    }
+    record.setWeightVector(arrayList);
+    record.setMinVal(minVal);
+    record.setMaxVal(maxVal);
+    return record;
+  }
+
   public void resample(int newBins) {
     float[] newWeights = new float[newBins];
     if (newBins != numBins) {
@@ -92,8 +126,8 @@ public class Spline extends AbstractFunction {
         float x = diff * t + minVal;
         newWeights[i] = evaluate(x);
       }
+      setupSpline(minVal, maxVal, newWeights);
     }
-    setupSpline(minVal, maxVal, newWeights);
   }
 
   // Returns the lower bound bin

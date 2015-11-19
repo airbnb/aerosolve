@@ -1,8 +1,23 @@
 package com.airbnb.aerosolve.core.util;
 
+import com.airbnb.aerosolve.core.ModelRecord;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.io.Serializable;
+
 /**
- * Created by peng_ye on 11/16/15.
+ * Base class for functions
  */
-public class AbstractFunction {
+abstract public class AbstractFunction implements Serializable{
+  @Getter @Setter
+  protected String functionForm; // default function is Spline
+
+  @Getter @Setter
+  private float[] weights;
+
+  abstract public float evaluate(float x);
+
+  abstract public ModelRecord toModelRecord(String featureFamily, String featureName);
 
 }

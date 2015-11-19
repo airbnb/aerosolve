@@ -1,15 +1,11 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelRecord;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.*;
-
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
@@ -47,6 +43,37 @@ public class SplineTest {
   }
 
   @Test
+  public void testSplineModelRecordConstructor() {
+    ModelRecord record = new ModelRecord();
+    record.setFeatureFamily("TEST");
+    record.setFeatureName("a");
+    record.setMinVal(1.0);
+    record.setMaxVal(3.0);
+    List<Double> weightVec = new ArrayList<Double>();
+    weightVec.add(5.0);
+    weightVec.add(10.0);
+    weightVec.add(-20.0);
+    record.setWeightVector(weightVec);
+    Spline spline = new Spline(record);
+    testSpline(spline, 0.1f);
+  }
+
+  @Test
+  public void testSplineToModelRecord() {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    Spline spline = new Spline(1.0f, 3.0f, weights);
+    ModelRecord record = spline.toModelRecord("family", "name");
+    assertEquals(record.getFeatureFamily(), "family");
+    assertEquals(record.getFeatureName(), "name");
+    List<Double> weightVector = record.getWeightVector();
+    assertEquals(5.0f, weightVector.get(0).floatValue(), 0.01f);
+    assertEquals(10.0f, weightVector.get(1).floatValue(), 0.01f);
+    assertEquals(-20.0f, weightVector.get(2).floatValue(), 0.01f);
+    assertEquals(1.0f, record.getMinVal(), 0.01f);
+    assertEquals(3.0f, record.getMaxVal(), 0.01f);
+  }
+
+  @Test
   public void testSplineResample() {
     float[] weights = {5.0f, 10.0f, -20.0f};
     // Same size
@@ -65,11 +92,9 @@ public class SplineTest {
 
     // Larger
     Spline spline3 = new Spline(1.0f, 3.0f, weights);
-    spline3.resample(10);
-    testSpline(spline3, 0.2f);
-    spline3.resample(20);
-    testSpline(spline3, 0.2f);
     spline3.resample(100);
+    testSpline(spline3, 0.2f);
+    spline3.resample(200);
     testSpline(spline3, 0.2f);
   }
   

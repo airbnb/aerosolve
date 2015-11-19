@@ -69,6 +69,8 @@ struct ModelRecord {
   10: optional double threshold;
   11: optional i32 leftChild;
   12: optional i32 rightChild;
+  // e.g. "Polynomial", "Spline"
+  13: optional string functionForm;
 }
 
 struct EvaluationRecord {
