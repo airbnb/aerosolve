@@ -1,7 +1,10 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector}
-import com.airbnb.aerosolve.core.models.SplineModel
+import java.util
+
+import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
+import com.airbnb.aerosolve.core.models.{SplineModel, AdditiveModel}
+import com.airbnb.aerosolve.core.util.{Spline, Linear}
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
@@ -30,7 +33,7 @@ object TrainingTestHelper {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
-    var numPos : Int = 0
+    var numPos: Int = 0
     for (i <- 0 until 200) {
       val x = 2.0 * rnd.nextDouble() - 1.0
       val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -45,6 +48,26 @@ object TrainingTestHelper {
       examples += makeExample(x, y, rank)
     }
     (examples, label, numPos)
+  }
+
+  def makeHybridExample(x : Double,
+                        y : Double,
+                        target : Double) : Example = {
+    val example = new Example
+    val item: FeatureVector = new FeatureVector
+    item.setFloatFeatures(new java.util.HashMap)
+    val floatFeatures = item.getFloatFeatures
+    floatFeatures.put("$rank", new java.util.HashMap)
+    floatFeatures.get("$rank").put("", target)
+    floatFeatures.put("loc", new java.util.HashMap)
+    floatFeatures.put("xy", new util.HashMap)
+    val loc = floatFeatures.get("loc")
+    loc.put("x", x)
+    loc.put("y", y)
+    val xy = floatFeatures.get("xy")
+    xy.put("xy", x * y)
+    example.addToExample(item)
+    example
   }
 
   def makeClassificationExamples = {
@@ -64,6 +87,27 @@ object TrainingTestHelper {
       if (rank > 0) numPos = numPos + 1
       label += rank
       examples += makeExample(x, y, rank)
+    }
+    (examples, label, numPos)
+  }
+
+  def makeLinearClassificationExamples = {
+    val examples = ArrayBuffer[Example]()
+    val label = ArrayBuffer[Double]()
+    val rnd = new java.util.Random(1234)
+    var numPos : Int = 0
+    for (i <- 0 until 200) {
+      val x = 2.0 * rnd.nextDouble() - 1.0
+      val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
+      val linear = -6.0 * x + y + 3.0 + 2 * x * y
+      val rank = if (linear < 1.0) {
+        1.0
+      } else {
+        -1.0
+      }
+      if (rank > 0) numPos = numPos + 1
+      label += rank
+      examples += makeHybridExample(x, y, rank)
     }
     (examples, label, numPos)
   }
@@ -100,6 +144,30 @@ object TrainingTestHelper {
                            featureMap._2.spline.getWeights.mkString(",")
           )
         )
+      }
+    }
+  }
+
+  def printAdditiveModel(model: AdditiveModel) = {
+    val weights = model.getWeights.asScala
+    for (familyMap <- weights) {
+      for (featureMap <- familyMap._2.asScala) {
+        log.info("family=%s,feature=%s".format(familyMap._1, featureMap._1))
+        val func = featureMap._2
+        val funcForm = func.getFunctionForm
+        log.info("functionForm=%s".format(funcForm))
+        if (funcForm == FunctionForm.SPLINE) {
+          val spline = func.asInstanceOf[Spline]
+          log.info("minVal=%f, maxVal=%f, weights=%s"
+                   .format(spline.getMinVal,
+                           spline.getMaxVal,
+                           spline.getWeights.mkString(",")
+            )
+          )
+        } else if (funcForm == FunctionForm.LINEAR) {
+          val linear = func.asInstanceOf[Linear]
+          log.info("offset=%f, slope=%f".format(linear.getWeights()(0), linear.getWeights()(1)))
+        }
       }
     }
   }
