@@ -200,7 +200,6 @@ class SplineTrainerTest {
     model.addSpline("B", "b", 0.0f, 1.0f, true)
     // add a new family with overwrite
     model.addSpline("C", "c", 0.0f, 1.0f, true)
-    // add an existing
     val weights = model.getWeightSpline.asScala
     for (familyMap <- weights) {
       for (featureMap <- familyMap._2.asScala) {

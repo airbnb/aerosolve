@@ -196,4 +196,44 @@ public class AdditiveModelTest {
       assertTrue("Could not save", false);
     }
   }
+
+  @Test
+  public void testAddFunction() {
+    AdditiveModel model = makeAdditiveModel();
+    // add an existing feature without overwrite
+    float[] newSplineParams = {2.0f, 10.0f, 5.0f}; // minVal, maxVal, numBins
+    float[] newLinearParams = {3.0f, 5.0f}; // offset, slope
+    model.addFunction("spline_float", "aaa", FunctionForm.SPLINE, newSplineParams, false);
+    // add an existing feature with overwrite
+    model.addFunction("linear_float", "ccc", FunctionForm.LINEAR, newLinearParams, true);
+    // add a new feature
+    model.addFunction("spline_float", "new", FunctionForm.SPLINE, newSplineParams, false);
+
+    Map<String, Map<String, AbstractFunction>> weights = model.getWeights();
+    for (Map.Entry<String, Map<String, AbstractFunction>>  featureFamily: weights.entrySet()) {
+      String familyName = featureFamily.getKey();
+      Map<String, AbstractFunction> features = featureFamily.getValue();
+      for (Map.Entry<String, AbstractFunction> feature: features.entrySet()) {
+        String featureName = feature.getKey();
+        AbstractFunction func = feature.getValue();
+        if (familyName.equals("spline_float")) {
+          Spline spline = (Spline) func;
+          if (featureName.equals("aaa")) {
+            assertTrue(spline.getMaxVal() == 3.0f);
+            assertTrue(spline.getMinVal() == 1.0f);
+            assertTrue(spline.getWeights().length == 3);
+          } else if (featureName.equals("new")) {
+            assertTrue(spline.getMaxVal() == 10.0f);
+            assertTrue(spline.getMinVal() == 2.0f);
+            assertTrue(spline.getWeights().length == 5);
+          }
+         } else if(familyName.equals("linear_float") && featureName.equals("ccc")) {
+          Linear linear = (Linear) func;
+          assertTrue(linear.getWeights().length == 2);
+          assertTrue(linear.getWeights()[0] == 3.0f);
+          assertTrue(linear.getWeights()[1] == 5.0f);
+        }
+      }
+    }
+  }
 }

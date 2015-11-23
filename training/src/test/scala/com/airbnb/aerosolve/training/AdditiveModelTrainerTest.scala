@@ -79,7 +79,7 @@ class AdditiveModelTrainerTest {
       |  %s
       |  rank_key : "$rank"
       |  rank_threshold : 0.0
-      |  learning_rate : 0.5
+      |  learning_rate : 0.1
       |  num_bins : 16
       |  iterations : 10
       |  smoothing_tolerance : 0.1
@@ -218,7 +218,7 @@ class AdditiveModelTrainerTest {
       }
 
       val threshold = if (exampleFunc.equals("linear")) {
-        1.0
+        0.5
       } else {
         3.0
       }
