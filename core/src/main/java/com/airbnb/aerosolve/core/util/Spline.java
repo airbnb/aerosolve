@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.FunctionForm;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,6 +26,8 @@ public class Spline extends AbstractFunction {
   private float scale;
   private float binSize;
   private float binScale;
+  @Getter
+  private FunctionForm functionForm = FunctionForm.SPLINE;
 
   public Spline(float minVal, float maxVal, float [] weights) {
     setupSpline(minVal, maxVal, weights);
@@ -77,6 +80,12 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
+  public AbstractFunction makeCopy() {
+    Spline newSpline = new Spline(this, this.numBins);
+    return newSpline;
+  }
+
+  @Override
   public float evaluate(float x) {
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -88,6 +97,7 @@ public class Spline extends AbstractFunction {
     return result;
   }
 
+  @Override
   public void update(float x, float delta) {
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -103,7 +113,7 @@ public class Spline extends AbstractFunction {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm("Spline");
+    record.setFunctionForm(FunctionForm.SPLINE);
     record.setFeatureFamily(featureFamily);
     record.setFeatureName(featureName);
     ArrayList<Double> arrayList = new ArrayList<Double>();
@@ -161,7 +171,9 @@ public class Spline extends AbstractFunction {
     return best;
   }
 
-  public void LInfinityCap(float cap) {
+  @Override
+  public void LInfinityCap(float... input) {
+    float cap = input[0];
     if (cap <= 0.0f) return;
     float currentNorm = this.LInfinityNorm();
     if (currentNorm > cap) {
@@ -169,6 +181,17 @@ public class Spline extends AbstractFunction {
       for (int i = 0; i < weights.length; i++) {
         weights[i] *= scale;
       }
+    }
+  }
+
+  @Override
+  public void setPriors(float[] params) {
+    float start = params[0];
+    float end = params[1];
+    // fit a line based on the input starting weight and ending weight
+    for (int i = 0; i < numBins; i++) {
+      float t = i / (numBins - 1.0f);
+      weights[i] = ((1.0f - t) * start + t * end);
     }
   }
 }

@@ -21,7 +21,7 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.{LoggerFactory, Logger}
 
 import scala.collection.JavaConverters._
-
+import scala.collection.JavaConversions._
 import com.typesafe.config.Config
 
 import scala.collection.mutable.ArrayBuffer
@@ -62,9 +62,17 @@ object TrainingUtils {
 
   def saveModel(model : AbstractModel,
                 config : Config,
-                key : String) = {
+                key : String): Unit = {
     try {
       val output = config.getString(key)
+      saveModel(model, output)
+    } catch {
+      case _ : Throwable => log.error("Could not save model")
+    }
+  }
+
+  def saveModel(model: AbstractModel, output: String): Unit = {
+    try {
       val fileSystem = FileSystem.get(new java.net.URI(output),
                                       new Configuration())
       val file = fileSystem.create(new Path(output), true)
@@ -233,6 +241,7 @@ object TrainingUtils {
   }
   
   def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
+    // get label for classification
     val rank = fv.floatFeatures.get(rankKey).asScala.head._2
     val label = if (rank <= threshold) {
       -1.0
@@ -240,5 +249,46 @@ object TrainingUtils {
       1.0
     }
     return label
+  }
+
+  def getLabel(fv : FeatureVector, rankKey : String) : Double = {
+    // get label for regression
+    fv.floatFeatures.get(rankKey).asScala.head._2.toDouble
+  }
+
+  // Returns the min/max of a feature
+  def getMinMax(minCount : Int,
+                input : RDD[Example]) : Array[((String, String), (Double, Double))] = {
+    // ignore features present in less than minCount examples
+    // output: Array[((featureFamily, featureName), (minValue, maxValue))]
+    input
+      .mapPartitions(partition => {
+      // family, feature name => min, max, count
+      val weights = new ConcurrentHashMap[(String, String), (Double, Double, Int)]().asScala
+      partition.foreach(examples => {
+        for (i <- 0 until examples.example.size()) {
+          val flatFeature = Util.flattenFeature(examples.example.get(i)).asScala
+          flatFeature.foreach(familyMap => {
+            familyMap._2.foreach(feature => {
+              val key = (familyMap._1, feature._1)
+              val curr = weights.getOrElse(key, (Double.MaxValue, -Double.MaxValue, 0))
+                weights.put(key,
+                            (scala.math.min(curr._1, feature._2),
+                              scala.math.max(curr._2, feature._2),
+                              curr._3 + 1)
+                )
+              })
+          })
+        }
+      })
+      weights.iterator
+    })
+      .reduceByKey((a, b) =>
+                     (scala.math.min(a._1, b._1),
+                       scala.math.max(a._2, b._2),
+                       a._3 + b._3))
+      .filter(x => x._2._3 >= minCount)
+      .map(x => (x._1, (x._2._1, x._2._2)))
+      .collect
   }
 }

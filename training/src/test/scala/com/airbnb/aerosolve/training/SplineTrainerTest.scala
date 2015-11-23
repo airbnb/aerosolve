@@ -34,7 +34,7 @@ class SplineTrainerTest {
     model.setWeightSpline(weights)
     model.setOffset(0.5f)
     model.setSlope(1.5f)
-    return model
+    model
   }
 
   def makeConfig(loss : String, dropout : Double, extraArgs : String) : String = {
