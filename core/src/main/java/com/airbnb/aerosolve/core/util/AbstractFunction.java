@@ -18,6 +18,12 @@ abstract public class AbstractFunction implements Serializable{
   @Getter @Setter
   private float[] weights;
 
+  @Getter
+  private float minVal;
+
+  @Getter
+  private float maxVal;
+
   abstract public AbstractFunction makeCopy();
 
   abstract public float evaluate(float x);
@@ -28,6 +34,7 @@ abstract public class AbstractFunction implements Serializable{
 
   abstract public void setPriors(float[] params);
 
-  abstract public void LInfinityCap(float... input);
+  abstract public void LInfinityCap(float cap);
 
+  abstract public float LInfinityNorm();
 }

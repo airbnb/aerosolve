@@ -172,18 +172,11 @@ object TrainingTestHelper {
         val func = featureMap._2
         val funcForm = func.getFunctionForm
         log.info("functionForm=%s".format(funcForm))
-        if (funcForm == FunctionForm.SPLINE) {
-          val spline = func.asInstanceOf[Spline]
-          log.info("minVal=%f, maxVal=%f, weights=%s"
-                   .format(spline.getMinVal,
-                           spline.getMaxVal,
-                           spline.getWeights.mkString(",")
-            )
-          )
-        } else if (funcForm == FunctionForm.LINEAR) {
-          val linear = func.asInstanceOf[Linear]
-          log.info("offset=%f, slope=%f".format(linear.getWeights()(0), linear.getWeights()(1)))
-        }
+        log.info("minVal=%f, maxVal=%f, weights=%s"
+                   .format(func.getMinVal,
+                           func.getMaxVal,
+                           func.getWeights.mkString(","))
+        )
       }
     }
   }

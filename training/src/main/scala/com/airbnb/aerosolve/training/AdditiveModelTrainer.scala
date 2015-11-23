@@ -108,7 +108,7 @@ object AdditiveModelTrainer {
       }
     })
 
-    deleteSmallSplines(model, params.linfinityThreshold)
+    deleteSmallFunctions(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, output)
     return model
@@ -275,9 +275,9 @@ object AdditiveModelTrainer {
     }
     // add linear
     for (((featureFamily, featureName), (minVal, maxVal)) <- minMaxLinear) {
-      // set default linear function as f(x) = x
+      // set default linear function as f(x) = 0
       model.addFunction(featureFamily, featureName, FunctionForm.LINEAR,
-                        Array(0.0f, 1.0f), overwrite)
+                        Array(minVal.toFloat, maxVal.toFloat), overwrite)
     }
   }
 
@@ -294,24 +294,20 @@ object AdditiveModelTrainer {
     }
   }
 
-  def deleteSmallSplines(model : AdditiveModel,
-                         linfinityThreshold : Double) = {
-    // TODO: implement the method for deleting small linear functions
+  def deleteSmallFunctions(model : AdditiveModel,
+                           linfinityThreshold : Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
 
     model.getWeights.asScala.foreach(family => {
       family._2.asScala.foreach(entry => {
         val func : AbstractFunction= entry._2
-        if (func.getFunctionForm == FunctionForm.SPLINE) {
-          val spline = func.asInstanceOf[Spline]
-          if (spline.LInfinityNorm < linfinityThreshold) {
-            toDelete.append((family._1, entry._1))
-          }
+        if (func.LInfinityNorm() < linfinityThreshold) {
+          toDelete.append((family._1, entry._1))
         }
       })
     })
 
-    log.info("Deleting %d empty splines".format(toDelete.size))
+    log.info("Deleting %d small functions".format(toDelete.size))
     toDelete.foreach(entry => {
       val family = model.getWeights.get(entry._1)
       if (family != null && family.containsKey(entry._2)) {

@@ -48,8 +48,8 @@ public class AdditiveModelTest {
     // for string feature, only the first element in weight is meaningful.
     innerSplineString.put("bbb", new Spline(1.0f, 2.0f, ws));
     float [] wl = {1.0f, 2.0f};
-    innerLinearFloat.put("ccc", new Linear(wl));
-    innerLinearString.put("ddd", new Linear(wl));
+    innerLinearFloat.put("ccc", new Linear(-10.0f, 5.0f, wl));
+    innerLinearString.put("ddd", new Linear(1.0f, 1.0f, wl));
     model.setWeights(weights);
     model.setOffset(0.5f);
     model.setSlope(1.5f);
@@ -101,19 +101,19 @@ public class AdditiveModelTest {
 
     FeatureVector fv1 = makeFeatureVector(1.0f, 0.0f);
     float score1 = model.scoreItem(fv1);
-    assertEquals(8.0f + 5.0f + 1.0f, score1, 0.001f);
+    assertEquals(8.0f + 5.0f + (1.0f + 2.0f * (0.0f + 10.0f) / 15.0f), score1, 0.001f);
 
     FeatureVector fv2 = makeFeatureVector(-1.0f, 0.0f);
     float score2 = model.scoreItem(fv2);
-    assertEquals(8.0f + 5.0f + 1.0f, score2, 0.001f);
+    assertEquals(8.0f + 5.0f + (1.0f + 2.0f * (0.0f + 10.0f) / 15.0f), score2, 0.001f);
 
     FeatureVector fv3 = makeFeatureVector(4.0f, 1.0f);
     float score3 = model.scoreItem(fv3);
-    assertEquals(8.0f - 20.0f + 3.0f, score3, 0.001f);
+    assertEquals(8.0f - 20.0f + (1.0f + 2.0f * (1.0f + 10.0f) / 15.0f), score3, 0.001f);
 
     FeatureVector fv4 = makeFeatureVector(2.0f, 7.0f);
     float score4 = model.scoreItem(fv4);
-    assertEquals(8.0f + 10.0f + 15.0f, score4, 0.001f);
+    assertEquals(8.0f + 10.0f + (1.0f + 2.0f * (7.0f + 10.0f) / 15.0f), score4, 0.001f);
   }
 
   @Test
@@ -202,7 +202,7 @@ public class AdditiveModelTest {
     AdditiveModel model = makeAdditiveModel();
     // add an existing feature without overwrite
     float[] newSplineParams = {2.0f, 10.0f, 5.0f}; // minVal, maxVal, numBins
-    float[] newLinearParams = {3.0f, 5.0f}; // offset, slope
+    float[] newLinearParams = {3.0f, 5.0f}; // minVal, maxVal
     model.addFunction("spline_float", "aaa", FunctionForm.SPLINE, newSplineParams, false);
     // add an existing feature with overwrite
     model.addFunction("linear_float", "ccc", FunctionForm.LINEAR, newLinearParams, true);
@@ -230,8 +230,10 @@ public class AdditiveModelTest {
          } else if(familyName.equals("linear_float") && featureName.equals("ccc")) {
           Linear linear = (Linear) func;
           assertTrue(linear.getWeights().length == 2);
-          assertTrue(linear.getWeights()[0] == 3.0f);
-          assertTrue(linear.getWeights()[1] == 5.0f);
+          assertTrue(linear.getWeights()[0] == 0.0f);
+          assertTrue(linear.getWeights()[1] == 0.0f);
+          assertTrue(linear.getMinVal() == 3.0f);
+          assertTrue(linear.getMaxVal() == 5.0f);
         }
       }
     }

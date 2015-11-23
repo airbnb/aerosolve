@@ -14,30 +14,6 @@ import scala.collection.mutable.ArrayBuffer
 
 class AdditiveModelTrainerTest {
   val log = LoggerFactory.getLogger("AdditiveModelTrainerTest")
-  def makeAdditiveModel(): AdditiveModel = {
-    val model: AdditiveModel = new AdditiveModel
-    val weights = new java.util.HashMap[String, java.util.Map[String, AbstractFunction]]()
-    val innerSplineFloat = new java.util.HashMap[String, AbstractFunction]()
-    val innerLinearFloat = new java.util.HashMap[String, AbstractFunction]()
-    val innerSplineString = new java.util.HashMap[String, AbstractFunction]()
-    val innerLinearString = new java.util.HashMap[String, AbstractFunction]()
-    weights.put("spline_float", innerSplineFloat)
-    weights.put("linear_float", innerLinearFloat)
-    weights.put("spline_string", innerSplineString)
-    weights.put("linear_string", innerLinearString)
-    val ws: Array[Float] = Array(5.0f, 10.0f, -20.0f)
-    innerSplineFloat.put("aaa", new Spline(1.0f, 3.0f, ws))
-    // for string feature, only the first element in weight is meaningful.
-    innerSplineString.put("bbb", new Spline(1.0f, 2.0f, ws))
-    val wl: Array[Float] = Array(1.0f, 2.0f)
-    innerLinearFloat.put("ccc", new Linear(wl))
-    innerLinearString.put("ddd", new Linear(wl))
-    model.setWeights(weights)
-    model.setOffset(0.5f)
-    model.setSlope(1.5f)
-    model
-  }
-
   def makeConfig(loss : String, dropout : Double, extraArgs : String) : String = {
     """
       |identity_transform {
@@ -55,7 +31,7 @@ class AdditiveModelTrainerTest {
       |  iterations : 10
       |  smoothing_tolerance : 0.1
       |  linfinity_threshold : 0.01
-      |  linfinity_cap : 1.0
+      |  linfinity_cap : 10.0
       |  dropout : %f
       |  min_count : 0
       |  subsample : 1.0
@@ -118,7 +94,12 @@ class AdditiveModelTrainerTest {
   }
 
   @Test
-  def testAdditiveModelTrainerLinearHinge : Unit = {
+  def testAdditiveModelTrainerLinearHinge1 : Unit = {
+    testAdditiveModelTrainer("hinge", 0.0, "", "linear")
+  }
+
+  @Test
+  def testAdditiveModelTrainerLinearHinge2 : Unit = {
   testAdditiveModelTrainer("hinge", 0.0, "linear_feature:[loc, xy]", "linear")
   }
 

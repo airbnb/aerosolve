@@ -185,18 +185,17 @@ public class AdditiveModel extends AbstractModel {
   public void addFunction(String featureFamily, String featureName, FunctionForm functionForm,
                           float[] params, boolean overwrite) {
     // For SPLINE: params[0] = minValue, params[1] = maxValue, params[2] = numBin
-    // For LINEAR: params[0] = offset, params[1] = slope
+    // For LINEAR: params[0] = minValue, params[1] = maxValue
     // overwrite: if TRUE, overwrite existing feature function
     Map<String, AbstractFunction> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
       featFamily = new HashMap<String, AbstractFunction>();
       weights.put(featureFamily, featFamily);
     }
-
+    float minVal = params[0];
+    float maxVal = params[1];
     if (overwrite || !featFamily.containsKey(featureName)) {
       if (functionForm == FunctionForm.SPLINE) {
-        float minVal = params[0];
-        float maxVal = params[1];
         int numBins = (int) params[2];
         if (maxVal <= minVal) {
           maxVal = minVal + 1.0f;
@@ -204,8 +203,7 @@ public class AdditiveModel extends AbstractModel {
         Spline spline = new Spline(minVal, maxVal, new float[numBins]);
         featFamily.put(featureName, spline);
     } else if (functionForm == FunctionForm.LINEAR) {
-        float[] wl = {params[0], params[1]};
-        Linear linear = new Linear(wl);
+        Linear linear = new Linear(minVal, maxVal, new float[2]);
         featFamily.put(featureName, linear);
       }
     }
@@ -225,27 +223,7 @@ public class AdditiveModel extends AbstractModel {
         if (func == null) continue;
         float val = feature.getValue().floatValue();
         func.update(val, -grad * learningRate);
-        if (func.getFunctionForm() == FunctionForm.SPLINE) {
-          func.LInfinityCap(cap);
-        } else if (func.getFunctionForm() == FunctionForm.LINEAR) {
-          func.LInfinityCap(cap, val);
-        }
-      }
-    }
-  }
-
-  public void update(float grad,
-                     float learningRate,
-                     Map<String, Map<String, Double>> flatFeatures) {
-    // update without lInfinite cap
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, AbstractFunction> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        AbstractFunction func = familyWeightMap.get(feature.getKey());
-        if (func == null) continue;
-        float val = feature.getValue().floatValue();
-        func.update(val, -grad * learningRate);
+        func.LInfinityCap(cap);
       }
     }
   }

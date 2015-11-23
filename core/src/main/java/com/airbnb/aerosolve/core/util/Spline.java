@@ -163,6 +163,7 @@ public class Spline extends AbstractFunction {
     return sum;
   }
 
+  @Override
   public float LInfinityNorm() {
     float best = 0.0f;
     for (int i = 0; i < weights.length; i++) {
@@ -172,8 +173,7 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void LInfinityCap(float... input) {
-    float cap = input[0];
+  public void LInfinityCap(float cap) {
     if (cap <= 0.0f) return;
     float currentNorm = this.LInfinityNorm();
     if (currentNorm > cap) {
