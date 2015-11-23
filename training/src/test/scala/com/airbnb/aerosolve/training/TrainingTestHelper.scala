@@ -131,6 +131,22 @@ object TrainingTestHelper {
     (examples, label)
   }
 
+  def makeLinearRegressionExamples(randomSeed: Int = 1234) = {
+    val examples = ArrayBuffer[Example]()
+    val label = ArrayBuffer[Double]()
+    val rnd = new java.util.Random(randomSeed)
+
+    for (i <- 0 until 200) {
+      val x = 2.0 * (rnd.nextDouble() - 0.5)
+      val y = 2.0 * (rnd.nextDouble() - 0.5)
+      val z = 0.1 * x * y - 0.5 * x + 0.2 * y + 1.0
+      examples += makeHybridExample(x, y, z)
+      label += z
+    }
+
+    (examples, label)
+  }
+
   def printSpline(model: SplineModel) = {
     val weights = model.getWeightSpline.asScala
     for (familyMap <- weights) {
