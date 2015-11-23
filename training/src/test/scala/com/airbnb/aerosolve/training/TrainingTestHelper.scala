@@ -26,6 +26,27 @@ object TrainingTestHelper {
     example
   }
 
+  def makeSimpleClassificationExamples = {
+    val examples = ArrayBuffer[Example]()
+    val label = ArrayBuffer[Double]()
+    val rnd = new java.util.Random(1234)
+    var numPos : Int = 0
+    for (i <- 0 until 200) {
+      val x = 2.0 * rnd.nextDouble() - 1.0
+      val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
+      val poly = x + y
+      val rank = if (poly < 1.0) {
+        1.0
+      } else {
+        -1.0
+      }
+      if (rank > 0) numPos = numPos + 1
+      label += rank
+      examples += makeExample(x, y, rank)
+    }
+    (examples, label, numPos)
+  }
+
   def makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
