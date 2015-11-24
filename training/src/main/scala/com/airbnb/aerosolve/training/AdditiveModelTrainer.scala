@@ -406,4 +406,12 @@ object AdditiveModelTrainer {
       linearFeatureFamilies,
       priors)
   }
+
+  def trainAndSaveToFile(sc : SparkContext,
+                         input : RDD[Example],
+                         config : Config,
+                         key : String) = {
+    val model = train(sc, input, config, key)
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
 }
