@@ -5,6 +5,10 @@
  */
 
 namespace java com.airbnb.aerosolve.core
+enum FunctionForm {
+  SPLINE,
+  LINEAR
+}
 
 struct FeatureVector {
   // The first field is the feature family. e.g. "geo"
@@ -69,6 +73,8 @@ struct ModelRecord {
   10: optional double threshold;
   11: optional i32 leftChild;
   12: optional i32 rightChild;
+  // e.g. SPLINE, LINEAR
+  13: optional FunctionForm functionForm;
 }
 
 struct EvaluationRecord {

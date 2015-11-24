@@ -138,8 +138,6 @@ object SplineTrainer {
       newModel
     }
 
-    log.info("Computing min/max values for all features")
-
     log.info("Training using " + loss)
     for (i <- 1 to iterations) {
       model = if (multiscale.size == 0) {
@@ -171,7 +169,10 @@ object SplineTrainer {
                 input : RDD[Example],
                 model : SplineModel,
                 overwrite : Boolean) = {
-    val minMax = getMinMax(minCount, rankKey, input.sample(false, subsample))
+    log.info("Computing min/max values for all features")
+    val minMax = TrainingUtils
+      .getMinMax(minCount, input.sample(false, subsample))
+      .filter(x => x._1._1 != rankKey)
     log.info("Num features = %d".format(minMax.length))
     for (entry <- minMax) {
       model.addSpline(entry._1._1, entry._1._2, entry._2._1.toFloat, entry._2._2.toFloat, overwrite)
@@ -209,45 +210,6 @@ object SplineTrainer {
     } catch {
       case _ : Throwable => log.info("No prior given")
     }
-  }
-
-  // Returns the min/max of a feature
-  def getMinMax(minCount : Int,
-                rankKey : String,
-                input : RDD[Example]) : Array[((String, String), (Double, Double))] = {
-    input
-      .mapPartitions(partition => {
-      // family, feature name => min, max, count
-      val weights = new ConcurrentHashMap[(String, String), (Double, Double, Int)]().asScala
-      partition.foreach(examples => {
-        for (i <- 0 until examples.example.size()) {
-          val flatFeature = Util.flattenFeature(examples.example.get(i)).asScala
-          flatFeature.foreach(familyMap => {
-            if (!rankKey.equals(familyMap._1)) {
-              familyMap._2.foreach(feature => {
-                val key = (familyMap._1, feature._1)
-                val curr = weights.getOrElse(key,
-                                             (Double.MaxValue, -Double.MaxValue, 0))
-                weights.put(key,
-                            (scala.math.min(curr._1, feature._2),
-                             scala.math.max(curr._2, feature._2),
-                             curr._3 + 1)
-                )
-              })
-            }
-          })
-        }
-      })
-      weights.iterator
-    })
-    .reduceByKey((a, b) =>
-                   (scala.math.min(a._1, b._1),
-                    scala.math.max(a._2, b._2),
-                    a._3 + b._3))
-    .filter(x => x._2._3 >= minCount)
-    .map(x => (x._1, (x._2._1, x._2._2)))
-    .collect
-    .toArray
   }
 
   def evaluatePolynomial(coeff : Array[Double],
@@ -567,7 +529,7 @@ object SplineTrainer {
                     loss : String,
                     params : SplineTrainerParams) : Double = {
     val label: Double = if (loss == "regression") {
-      fv.floatFeatures.get(params.rankKey).asScala.head._2.toDouble
+      TrainingUtils.getLabel(fv, params.rankKey)
     } else {
       TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
     }

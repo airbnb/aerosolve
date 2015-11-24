@@ -65,7 +65,7 @@ public class LinearModelTest {
 
   @Test
   public void testScoreNonEmptyFeature() {
-    FeatureVector featureVector = new FeatureVector();
+    FeatureVector featureVector = makeFeatureVector();
     LinearModel model = new LinearModel();
     Map<String, Map<String, Float>> weights = new HashMap<>();
     Map<String, Float> inner = new HashMap<>();
@@ -75,7 +75,7 @@ public class LinearModelTest {
     model.setWeights(weights);
     float score = model.scoreItem(featureVector);
     assertTrue(score < 0.76f);
-    assertTrue(score > -0.74f);
+    assertTrue(score > 0.74f);
   }
 
   @Test

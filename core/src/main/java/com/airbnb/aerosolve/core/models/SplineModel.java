@@ -222,6 +222,7 @@ public class SplineModel extends AbstractModel {
     return sum;
   }
 
+  @Override
   public void save(BufferedWriter writer) throws IOException {
     ModelHeader header = new ModelHeader();
     header.setModelType("spline");

@@ -24,6 +24,7 @@ public final class ModelFactory {
       case "boosted_stumps": return new BoostedStumpsModel();
       case "decision_tree": return new DecisionTreeModel();
       case "forest": return new ForestModel();
+      case "additive": return new AdditiveModel();
     }
     log.error("Could not create model of type " + name);
     return null;
