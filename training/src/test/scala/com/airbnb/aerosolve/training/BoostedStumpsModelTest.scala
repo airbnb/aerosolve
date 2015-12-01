@@ -79,11 +79,11 @@ class BoostedStumpsModelTest {
       val fracCorrect : Double = numCorrect * 1.0 / examples.length
       log.info("Num correct = %d, frac correct = %f, num pos = %d, num neg = %d"
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
-      assertTrue(fracCorrect > 0.80)
+      assertTrue(fracCorrect > 0.75)
 
-      val swriter = new StringWriter();
-      val writer = new BufferedWriter(swriter);
-      model.save(writer);
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
       writer.close()
       val str = swriter.toString()
       val sreader = new StringReader(str)
