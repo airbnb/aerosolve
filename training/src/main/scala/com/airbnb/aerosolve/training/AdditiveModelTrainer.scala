@@ -54,17 +54,25 @@ object AdditiveModelTrainer {
     val iterations : Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
     val transformed = transformExamples(input, config, key, params)
-    val model = modelInitialization(transformed, params)
+    var model = modelInitialization(transformed, params)
 
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
     for (i <- 1 to iterations) {
       log.info("Iteration %d".format(i))
-      sgdTrain(sc,
-               transformed,
-               params,
-               model,
-               output)
+      model = if (params.multiscale.length == 0) {
+        sgdTrain(sc,
+                 transformed,
+                 params,
+                 model,
+                 output)
+      } else {
+        sgdMultiscaleTrain(sc,
+                           transformed,
+                           params,
+                           model,
+                           output)
+      }
     }
     model
   }
@@ -75,31 +83,18 @@ object AdditiveModelTrainer {
                model : AdditiveModel,
                output : String) : AdditiveModel = {
     val modelBC = sc.broadcast(model)
-
+    val paramsBC = sc.broadcast(params)
     input
       .sample(false, params.subsample)
       .coalesce(params.numBags, true)
-      .mapPartitions(partition => sgdPartition(partition, modelBC, params))
+      .mapPartitions(partition => sgdPartition(partition, modelBC, paramsBC))
       .groupByKey()
       // Average the feature functions
-      .map(x => {
-      val head: AbstractFunction = x._2.head
-      val func = head.makeCopy()
-      val weightLength = func.getWeights.length
-      val weights = Array.fill[Float](weightLength)(0.0f)
+      // Average the weights
+      .mapValues(x => {
       val scale = 1.0f / params.numBags.toFloat
-      x._2.foreach(entry => {
-        for (i <- 0 until weightLength) {
-          weights(i) = weights(i) + scale * entry.getWeights()(i)
-        }
+      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
       })
-      func.setWeights(weights)
-      if (func.getFunctionForm == FunctionForm.SPLINE) {
-        smoothSpline(params.smoothingTolerance, func.asInstanceOf[Spline])
-      }
-      // x._1: (fvFamily, fvName), func: AbstractFunction
-      (x._1, func)
-    })
       .collect()
       .foreach(entry => {
       val family = model.getWeights.get(entry._1._1)
@@ -114,12 +109,98 @@ object AdditiveModelTrainer {
     return model
   }
 
+  def sgdMultiscaleTrain(sc : SparkContext,
+                         input : RDD[Example],
+                         params :AdditiveTrainerParams,
+                         model : AdditiveModel,
+                         output : String) : AdditiveModel = {
+    val modelBC = sc.broadcast(model)
+    val paramsBC = sc.broadcast(params)
+    input
+      .sample(false, params.subsample)
+      .coalesce(params.numBags, true)
+      .mapPartitionsWithIndex((index, partition) =>
+                                sgdPartitionMultiscale(index, partition, modelBC, paramsBC))
+      .groupByKey()
+      // Average the weights
+      .mapValues(x => {
+      val scale = 1.0f / params.numBags.toFloat
+      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
+      })
+      .collect()
+      .foreach(entry => {
+      val family = model.getWeights.get(entry._1._1)
+      if (family != null && family.containsKey(entry._1._2)) {
+        family.put(entry._1._2, entry._2)
+      }
+    })
+
+    deleteSmallFunctions(model, params.linfinityThreshold)
+    TrainingUtils.saveModel(model, output)
+    return model
+  }
+
   def sgdPartition(partition : Iterator[Example],
                    modelBC : Broadcast[AdditiveModel],
-                   params : AdditiveTrainerParams) = {
+                   paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), AbstractFunction)] = {
     val workingModel = modelBC.value
+    val params = paramsBC.value
     val output = sgdPartitionInternal(partition, workingModel, params)
     output.iterator
+  }
+
+  def sgdPartitionMultiscale(index : Int,
+                              partition : Iterator[Example],
+                              modelBC : Broadcast[AdditiveModel],
+                              paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), AbstractFunction)] = {
+    val workingModel = modelBC.value
+    val params = paramsBC.value
+    val multiscale = params.multiscale
+    val newBins = multiscale(index % multiscale.length)
+
+    log.info("Resampling to %d bins".format(newBins))
+    workingModel
+      .getWeights
+      .foreach(family => {
+      family._2.foreach(feature => {
+        val func = feature._2
+        if (func.getFunctionForm == FunctionForm.SPLINE) {
+          new Spline(func.asInstanceOf[Spline], newBins)
+        } else {
+          func
+        }
+      })
+    })
+
+    val output = sgdPartitionInternal(partition, workingModel, params)
+    output.iterator
+  }
+
+  private def aggregateFuncWeights(input: Iterable[AbstractFunction],
+                                   scale: Float,
+                                   numBins: Int,
+                                   smoothingTolerance: Float) : AbstractFunction = {
+    val head : AbstractFunction = input.head
+    val output = head.makeCopy()
+    val weightLength = output.getWeights.length
+    val weights = Array.fill[Float](weightLength)(0.0f)
+    input.foreach(entry => {
+      val func: AbstractFunction = if (entry.getFunctionForm == FunctionForm.SPLINE
+                                       && entry.getWeights.length != numBins) {
+        new Spline(entry.asInstanceOf[Spline], numBins)
+      } else {
+        entry
+      }
+      for (i <- 0 until weightLength) {
+        weights(i) = weights(i) + scale * func.getWeights()(i)
+      }
+    })
+
+    output.setWeights(weights)
+    if (output.getFunctionForm == FunctionForm.SPLINE) {
+      smoothSpline(smoothingTolerance, output.asInstanceOf[Spline])
+    }
+    output
   }
 
   private def sgdPartitionInternal(partition : Iterator[Example],

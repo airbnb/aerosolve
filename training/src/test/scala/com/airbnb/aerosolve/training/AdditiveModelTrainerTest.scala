@@ -94,6 +94,16 @@ class AdditiveModelTrainerTest {
   }
 
   @Test
+  def testAdditiveTrainerSplineHingeMultiscale : Unit = {
+    testAdditiveModelTrainer("hinge", 0.0, "multiscale : [5, 7, 16]")
+  }
+
+  @Test
+  def testAdditiveTrainerSplineHingeMultiscaleWithMargin : Unit = {
+    testAdditiveModelTrainer("hinge", 0.0, "margin : 0.5, multiscale : [5, 7, 16]")
+  }
+
+  @Test
   def testAdditiveModelTrainerLinearHinge1 : Unit = {
     testAdditiveModelTrainer("hinge", 0.0, "", "linear")
   }
@@ -154,13 +164,28 @@ class AdditiveModelTrainerTest {
   }
 
   @Test
+  def testAdditiveModelRegressionLinearMultiscale: Unit = {
+    testAdditiveModelTrainerRegression("linear_feature:[loc, xy], multiscale : [5, 7, 16]", "linear")
+  }
+
+  @Test
   def testAdditiveModelRegressionHybrid1: Unit = {
     testAdditiveModelTrainerRegression("linear_feature:[loc]", "linear")
   }
 
   @Test
+  def testAdditiveModelRegressionHybridMultiscale1: Unit = {
+    testAdditiveModelTrainerRegression("linear_feature:[loc], multiscale : [5, 7, 16]", "linear")
+  }
+
+  @Test
   def testAdditiveModelRegressionHybrid2: Unit = {
     testAdditiveModelTrainerRegression("linear_feature:[xy]", "linear")
+  }
+
+  @Test
+  def testAdditiveModelRegressionHybridMultiscale2: Unit = {
+    testAdditiveModelTrainerRegression("linear_feature:[xy], multiscale : [5, 7, 16]", "linear")
   }
 
   def testAdditiveModelTrainer(loss : String, dropout : Double, extraArgs : String, exampleFunc: String = "poly") = {
