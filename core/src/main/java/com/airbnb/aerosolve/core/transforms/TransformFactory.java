@@ -40,6 +40,10 @@ public class TransformFactory {
         result = new MultiscaleGridQuantizeTransform();
         break;
       }
+      case "custom_multiscale_quantize": {
+        result = new CustomMultiscaleQuantizeTransform();
+        break;
+      }
       case "multiscale_grid_continuous" : {
         result = new MultiscaleGridContinuousTransform();
         break;
