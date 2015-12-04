@@ -11,6 +11,11 @@ import java.util.Map.Entry;
 
 /**
  * A custom quantizer that quantizes features based on upper limits and bucket sizes from config
+ * "field1" specifies feature family name.
+ * If "select_features" is specified, we only transform features in the select_features list.
+ * If "exclude_features" is specified, we transform features that are not in the exclude_features list.
+ * If both "select_features" and "exclude_features" are specified, we transform features that are in
+ * "select_features" list and not in "exclude_features" list.
  */
 public class CustomLinearLogQuantizeTransform extends Transform {
 
