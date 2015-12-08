@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.DictionaryEntry;
+import com.airbnb.aerosolve.core.DictionaryRecord;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,49 +20,50 @@ public class StringDictionary implements Serializable {
   /**
    * The dictionary to maintain
    */
-  
-  protected Map<String, Map<String, Integer>> dictionary;
+ 
   @Getter
-  protected int entryCount;
-
+  protected DictionaryRecord dictionary;
+ 
   public StringDictionary() {
-    dictionary = new HashMap<>();
+    dictionary = new DictionaryRecord();
+    dictionary.setDictionary(new HashMap<String, Map<String, DictionaryEntry>>());
+    dictionary.setEntryCount(0);
   }
   
-  // Returns the index of the strings -1 if not present
-  public int getIndex(String family, String feature) {
-    Map<String, Integer> familyMap = dictionary.get(family);
+  // Returns the dictionary entry, null if not present
+  public DictionaryEntry getEntry(String family, String feature) {
+    Map<String, DictionaryEntry> familyMap = dictionary.dictionary.get(family);
     if (familyMap == null) {
-      return -1;
+      return null;
     }
-    Integer result = familyMap.get(feature);
-    if (result == null) {
-      return -1;
-    }
-    return result;
+    return familyMap.get(feature);
   }
    
   // Returns -1 if key exists, the index it was inserted if successful.
-  public int possiblyAdd(String family, String feature) {
-    Map<String, Integer> familyMap = dictionary.get(family);
+  public int possiblyAdd(String family, String feature, double mean, double scale) {
+    Map<String, DictionaryEntry> familyMap = dictionary.dictionary.get(family);
     if (familyMap == null) {
       familyMap = new HashMap<>();
-      dictionary.put(family, familyMap);
+      dictionary.dictionary.put(family, familyMap);
     }
-    if (familyMap.containsKey(feature)) return -1;    
-    int currIdx = entryCount;
-    entryCount = entryCount + 1;
-    familyMap.put(feature, currIdx);
+    if (familyMap.containsKey(feature)) return -1;
+    DictionaryEntry entry = new DictionaryEntry();
+    int currIdx = dictionary.getEntryCount();
+    entry.setIndex(currIdx);
+    entry.setMean(mean);
+    entry.setScale(scale);
+    dictionary.setEntryCount(currIdx + 1);
+    familyMap.put(feature, entry);
     return currIdx;
   }
   
   public FloatVector makeVectorFromSparseFloats(Map<String, Map<String, Double>> sparseFloats) {
-    FloatVector vec = new FloatVector(entryCount);
+    FloatVector vec = new FloatVector(dictionary.getEntryCount());
     for (Map.Entry<String, Map<String, Double>> kv : sparseFloats.entrySet()) {
       for (Map.Entry<String, Double> feat : kv.getValue().entrySet()) {
-        int index = getIndex(kv.getKey(), feat.getKey());
-        if (index >= 0) {
-          vec.values[index] = feat.getValue().floatValue();
+        DictionaryEntry entry = getEntry(kv.getKey(), feat.getKey());
+        if (entry != null) {
+          vec.values[entry.index] = (float) entry.scale * (feat.getValue().floatValue() - (float) entry.mean);
         }
       }
     }

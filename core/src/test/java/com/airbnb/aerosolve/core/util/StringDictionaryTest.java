@@ -1,7 +1,9 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.Example;
+
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.DictionaryEntry;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,27 +26,27 @@ public class StringDictionaryTest {
   
   StringDictionary makeDictionary() {
     StringDictionary dict = new StringDictionary();
-    int result = dict.getIndex("foo", "bar");
-    assertEquals(-1, result);
-    result = dict.possiblyAdd("LOC", "lat");
-    assertEquals(0, result);
-    result = dict.possiblyAdd("LOC", "lng");
-    assertEquals(1, result);
-    result = dict.possiblyAdd("foo", "bar");
-    assertEquals(2, result);
+    DictionaryEntry result = dict.getEntry("foo", "bar");
+    assertEquals(null, result);
+    int idx = dict.possiblyAdd("LOC", "lat", 0.1, 0.1);
+    assertEquals(0, idx);
+    idx = dict.possiblyAdd("LOC", "lng", 0.2, 0.2);
+    assertEquals(1, idx);
+    idx = dict.possiblyAdd("foo", "bar", 0.3, 0.3);
+    assertEquals(2, idx);
     return dict;
   }
 
    @Test
   public void testStringDictionaryAdd() {
      StringDictionary dict = makeDictionary();
-     assertEquals(3, dict.getEntryCount());
-     assertEquals(0, dict.getIndex("LOC", "lat"));
-     assertEquals(1, dict.getIndex("LOC", "lng"));
-     assertEquals(2, dict.getIndex("foo", "bar"));
-     int result = dict.possiblyAdd("foo", "bar");
+     assertEquals(3, dict.getDictionary().getEntryCount());
+     assertEquals(0, dict.getEntry("LOC", "lat").index);
+     assertEquals(1, dict.getEntry("LOC", "lng").index);
+     assertEquals(2, dict.getEntry("foo", "bar").index);
+     int result = dict.possiblyAdd("foo", "bar", 0.0, 0.0);
      assertEquals(-1, result);
-     assertEquals(3, dict.getEntryCount());     
+     assertEquals(3, dict.getDictionary().getEntryCount());     
   }
    
   @Test
@@ -65,9 +67,9 @@ public class StringDictionaryTest {
 
     FloatVector vec = dict.makeVectorFromSparseFloats(feature);
     assertEquals(3, vec.values.length);
-    assertEquals(1.0, vec.values[0], 0.1f);
-    assertEquals(2.0, vec.values[1], 0.1f);
-    assertEquals(3.0, vec.values[2], 0.1f);
+    assertEquals(0.1 * (1.0 - 0.1), vec.values[0], 0.1f);
+    assertEquals(0.2 * (2.0 - 0.2), vec.values[1], 0.1f);
+    assertEquals(0.3 * (3.0 - 0.3), vec.values[2], 0.1f);
   }
 
  }

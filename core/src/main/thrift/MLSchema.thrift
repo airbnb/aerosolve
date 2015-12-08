@@ -99,3 +99,14 @@ struct DebugScoreDiffRecord {
   6: optional double featureWeight2;
   7: optional double featureWeightDiff;
 }
+
+struct DictionaryEntry {
+  1: optional i32 index;
+  2: optional double mean;
+  3: optional double scale; 
+}
+
+struct DictionaryRecord {
+  1: optional map<string, map<string, DictionaryEntry>> dictionary;
+  2: optional i32 entryCount
+}
