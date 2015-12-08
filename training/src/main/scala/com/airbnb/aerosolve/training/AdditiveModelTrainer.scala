@@ -8,6 +8,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 
 import org.slf4j.{LoggerFactory, Logger}
 
@@ -44,7 +45,8 @@ object AdditiveModelTrainer {
                                    epsilon : Double,       // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: Array[String],
-                                   priors: Array[String])
+                                   priors: Array[String],
+                                   repartitionNum: Int)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -53,25 +55,31 @@ object AdditiveModelTrainer {
     val trainConfig = config.getConfig(key)
     val iterations : Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
-    val transformed = transformExamples(input, config, key, params)
+    val transformed = if (params.repartitionNum > 0) {
+      transformExamples(input, config, key, params)
+        .repartition(params.repartitionNum)
+        .persist(StorageLevel.DISK_ONLY)
+    } else {
+      transformExamples(input, config, key, params)
+    }
     var model = modelInitialization(transformed, params)
-
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
     for (i <- 1 to iterations) {
       log.info("Iteration %d".format(i))
       model = if (params.multiscale.length == 0) {
-        sgdTrain(sc,
-                 transformed,
-                 params,
-                 model,
-                 output)
+        sgdTrain(
+          sc,
+          transformed,
+          params,
+          model,
+          output)
       } else {
         sgdMultiscaleTrain(sc,
-                           transformed,
-                           params,
-                           model,
-                           output)
+          transformed,
+          params,
+          model,
+          output)
       }
     }
     model
@@ -84,9 +92,16 @@ object AdditiveModelTrainer {
                output : String) : AdditiveModel = {
     val modelBC = sc.broadcast(model)
     val paramsBC = sc.broadcast(params)
+    val shuffle = if (params.repartitionNum > 0) {
+      // coalesce without shuffle, since it has been shuffled at the beginning
+      false
+    } else {
+      // coalesce with shuffle
+      true
+    }
     input
       .sample(false, params.subsample)
-      .coalesce(params.numBags, true)
+      .coalesce(params.numBags, shuffle)
       .mapPartitions(partition => sgdPartition(partition, modelBC, paramsBC))
       .groupByKey()
       // Average the feature functions
@@ -116,9 +131,16 @@ object AdditiveModelTrainer {
                          output : String) : AdditiveModel = {
     val modelBC = sc.broadcast(model)
     val paramsBC = sc.broadcast(params)
+    val shuffle = if (params.repartitionNum > 0) {
+      // coalesce without shuffle, since it has been shuffled at the beginning
+      false
+    } else {
+      // coalesce with shuffle
+      true
+    }
     input
       .sample(false, params.subsample)
-      .coalesce(params.numBags, true)
+      .coalesce(params.numBags, shuffle)
       .mapPartitionsWithIndex((index, partition) =>
                                 sgdPartitionMultiscale(index, partition, modelBC, paramsBC))
       .groupByKey()
@@ -463,6 +485,7 @@ object AdditiveModelTrainer {
       .getOrElse(Array[Int]())
 
     val rankMargin : Double = Try(config.getDouble("rank_margin")).getOrElse(0.5)
+    val repartitionNum : Int = Try(config.getInt("repartition_number")).getOrElse(-1)
 
     AdditiveTrainerParams(
       numBins,
@@ -485,7 +508,8 @@ object AdditiveModelTrainer {
       epsilon,
       initModelPath,
       linearFeatureFamilies,
-      priors)
+      priors,
+      repartitionNum)
   }
 
   def trainAndSaveToFile(sc : SparkContext,
