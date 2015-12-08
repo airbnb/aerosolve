@@ -5,10 +5,12 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
+
 import lombok.Getter;
 import lombok.Setter;
 /**
@@ -45,6 +47,10 @@ public abstract class AbstractModel implements Model, Serializable {
   // returns probability: 1 / (1 + exp(-(offset + scale * score))
   public double scoreProbability(float score) {
     return 1.0 / (1.0 + Math.exp(-(offset + slope * score)));
+  }
+  
+  // Optional method implemented by online updatable models e.g. Spline, RBF
+  public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
   }
 
   // Helper function for FOBOS updates.

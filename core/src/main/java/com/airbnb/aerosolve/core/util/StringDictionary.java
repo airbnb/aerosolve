@@ -30,6 +30,10 @@ public class StringDictionary implements Serializable {
     dictionary.setEntryCount(0);
   }
   
+  public StringDictionary(DictionaryRecord dict) {
+    dictionary = dict;
+  }
+  
   // Returns the dictionary entry, null if not present
   public DictionaryEntry getEntry(String family, String feature) {
     Map<String, DictionaryEntry> familyMap = dictionary.dictionary.get(family);

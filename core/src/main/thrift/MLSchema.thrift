@@ -54,6 +54,7 @@ struct ModelHeader {
   // calibration parameter
   4: optional double slope;
   5: optional double offset;
+  6: optional DictionaryRecord dictionary;
 }
 
 struct ModelRecord {
