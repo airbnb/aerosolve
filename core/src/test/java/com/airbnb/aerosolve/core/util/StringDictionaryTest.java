@@ -46,5 +46,28 @@ public class StringDictionaryTest {
      assertEquals(-1, result);
      assertEquals(3, dict.getEntryCount());     
   }
+   
+  @Test
+  public void testStringDictionaryVector() {
+    Map<String, Map<String, Double>> feature = new HashMap<>();
+    Map<String, Double> loc = new HashMap<>();
+    Map<String, Double> foo = new HashMap<>();
+
+    feature.put("LOC", loc);
+    feature.put("foo", foo);
+    
+    loc.put("lat", 1.0);
+    loc.put("lng", 2.0);
+    foo.put("bar", 3.0);
+    foo.put("baz", 4.0);
+    
+    StringDictionary dict = makeDictionary();
+
+    FloatVector vec = dict.makeVectorFromSparseFloats(feature);
+    assertEquals(3, vec.values.length);
+    assertEquals(1.0, vec.values[0], 0.1f);
+    assertEquals(2.0, vec.values[1], 0.1f);
+    assertEquals(3.0, vec.values[2], 0.1f);
+  }
 
  }

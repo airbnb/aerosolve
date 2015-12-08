@@ -39,7 +39,6 @@ public class StringDictionary implements Serializable {
     }
     return result;
   }
-
    
   // Returns -1 if key exists, the index it was inserted if successful.
   public int possiblyAdd(String family, String feature) {
@@ -54,5 +53,17 @@ public class StringDictionary implements Serializable {
     familyMap.put(feature, currIdx);
     return currIdx;
   }
-
+  
+  public FloatVector makeVectorFromSparseFloats(Map<String, Map<String, Double>> sparseFloats) {
+    FloatVector vec = new FloatVector(entryCount);
+    for (Map.Entry<String, Map<String, Double>> kv : sparseFloats.entrySet()) {
+      for (Map.Entry<String, Double> feat : kv.getValue().entrySet()) {
+        int index = getIndex(kv.getKey(), feat.getKey());
+        if (index >= 0) {
+          vec.values[index] = feat.getValue().floatValue();
+        }
+      }
+    }
+    return vec;
+  }
 }
