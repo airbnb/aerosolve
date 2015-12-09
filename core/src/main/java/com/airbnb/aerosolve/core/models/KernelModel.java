@@ -32,7 +32,7 @@ public class KernelModel extends AbstractModel {
   
   protected StringDictionary dictionary;
   protected List<ModelRecord> supportVectors;
-
+  
   public KernelModel() {
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
@@ -43,6 +43,15 @@ public class KernelModel extends AbstractModel {
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
     return 0.0f; //scoreFlatFeatures(flatFeatures);
+  }
+  
+  // Returns the responses from all support vectors.
+  private FloatVector getResponses(FloatVector vec) {
+    FloatVector response = new FloatVector(supportVectors.size());
+    for (ModelRecord sv : supportVectors) {
+      
+    }
+    return response;
   }
   
   @Override
