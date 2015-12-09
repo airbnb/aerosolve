@@ -61,8 +61,8 @@ object KernelTrainer {
     
     log.info("Building dictionary")
     val dictionary = new StringDictionary();
-    val minMax : Array[((String, String), (Double, Double))] = TrainingUtils.getMinMax(minCount, examples)
-    log.info(s"Dictionary size is ${minMax.size}")
+    val stats = TrainingUtils.getFeatureStatistics(minCount, examples)
+    log.info(s"Dictionary size is ${stats.size}")
     
     val model = new KernelModel()
     

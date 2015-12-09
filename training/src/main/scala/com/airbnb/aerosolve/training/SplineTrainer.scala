@@ -170,12 +170,12 @@ object SplineTrainer {
                 model : SplineModel,
                 overwrite : Boolean) = {
     log.info("Computing min/max values for all features")
-    val minMax = TrainingUtils
-      .getMinMax(minCount, input.sample(false, subsample))
+    val stats = TrainingUtils
+      .getFeatureStatistics(minCount, input.sample(false, subsample))
       .filter(x => x._1._1 != rankKey)
-    log.info("Num features = %d".format(minMax.length))
-    for (entry <- minMax) {
-      model.addSpline(entry._1._1, entry._1._2, entry._2._1.toFloat, entry._2._2.toFloat, overwrite)
+    log.info("Num features = %d".format(stats.length))
+    for (entry <- stats) {
+      model.addSpline(entry._1._1, entry._1._2, entry._2.min.toFloat, entry._2.max.toFloat, overwrite)
     }
   }
 
