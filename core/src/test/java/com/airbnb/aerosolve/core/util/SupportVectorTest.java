@@ -28,10 +28,10 @@ public class SupportVectorTest {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
     FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
 
-    SupportVector sv = new SupportVector(v1, FunctionForm.RADIAL_BASIS_FUNCTION, 0.1f);
+    SupportVector sv = new SupportVector(v1, FunctionForm.RADIAL_BASIS_FUNCTION, 0.1f, 0.5f);
 
-    assertEquals(1.0, sv.evaluate(v1), 0.01f);
-    assertEquals(Math.exp(- 0.1 * (4.0 + 9.0)), sv.evaluate(v2), 0.01f);
+    assertEquals(0.5, sv.evaluate(v1), 0.01f);
+    assertEquals(0.5 * Math.exp(- 0.1 * (4.0 + 9.0)), sv.evaluate(v2), 0.01f);
   }
 
   @Test
@@ -39,11 +39,11 @@ public class SupportVectorTest {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
     FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
 
-    SupportVector sv = new SupportVector(v1, FunctionForm.ARC_COSINE, 0.1f);
+    SupportVector sv = new SupportVector(v1, FunctionForm.ARC_COSINE, 0.1f, 0.5f);
 
-    assertEquals(1.0, sv.evaluate(v1), 0.01f);
+    assertEquals(0.5, sv.evaluate(v1), 0.01f);
     double expected = 1.0 - (float) Math.acos( (3.0 + 10.0) / Math.sqrt((1.0 + 4.0) * (9.0 + 25.0))  ) / Math.PI;
-    assertEquals(expected, sv.evaluate(v2), 0.01f);
+    assertEquals(0.5* expected, sv.evaluate(v2), 0.01f);
   }
 
   @Test
@@ -51,14 +51,14 @@ public class SupportVectorTest {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
     FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
 
-    SupportVector tmp = new SupportVector(v1, FunctionForm.ARC_COSINE, 0.1f);
+    SupportVector tmp = new SupportVector(v1, FunctionForm.ARC_COSINE, 0.1f, 0.5f);
 
     ModelRecord rec = tmp.toModelRecord();
     SupportVector sv = new SupportVector(rec);
 
-    assertEquals(1.0, sv.evaluate(v1), 0.01f);
+    assertEquals(0.5, sv.evaluate(v1), 0.01f);
     double expected = 1.0 - (float) Math.acos( (3.0 + 10.0) / Math.sqrt((1.0 + 4.0) * (9.0 + 25.0))  ) / Math.PI;
-    assertEquals(expected, sv.evaluate(v2), 0.01f);
+    assertEquals(0.5 * expected, sv.evaluate(v2), 0.01f);
   }
 
 }

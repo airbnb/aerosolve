@@ -24,15 +24,21 @@ public class SupportVector implements Serializable {
   @Getter @Setter
   float scale;
   
-  public SupportVector(FloatVector fv, FunctionForm f, float s) {
+  // Weight of the kernel
+  @Getter @Setter
+  float weight;
+
+  public SupportVector(FloatVector fv, FunctionForm f, float s, float wt) {
     floatVector = fv;
     form = f;
     scale = s;
+    weight = wt;
   }
 
   public SupportVector(ModelRecord rec) {
     scale = (float) rec.scale;
     form = rec.getFunctionForm();
+    weight = (float) rec.getFeatureWeight();
     int size = rec.weightVector.size();
     floatVector = new FloatVector(size);
     for (int i = 0; i < size; i++) {
@@ -49,11 +55,12 @@ public class SupportVector implements Serializable {
       weightVector.add((double) floatVector.getValues()[i]);
     }
     rec.setWeightVector(weightVector);
+    rec.setFeatureWeight(weight);
     return rec;
   }
   
   // Evaluates the support vector with the other.
-  public float evaluate(FloatVector other) {
+  public float evaluateUnweighted(FloatVector other) {
     float result = 0.0f;
     switch (form) {
       case RADIAL_BASIS_FUNCTION: {
@@ -73,6 +80,11 @@ public class SupportVector implements Serializable {
       }
     }
     return result;
+  }
+  
+  // Evaluates the weighted support vector
+  public float evaluate(FloatVector other) {
+    return weight * evaluateUnweighted(other);
   }
   
 }
