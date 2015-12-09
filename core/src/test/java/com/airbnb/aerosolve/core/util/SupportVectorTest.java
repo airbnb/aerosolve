@@ -26,10 +26,23 @@ public class SupportVectorTest {
   public void testRbf() {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
     FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
-    
+
     SupportVector sv = new SupportVector(v1, FunctionForm.RADIAL_BASIS_FUNCTION, 0.1f);
-    
+
+    assertEquals(1.0, sv.evaluate(v1), 0.01f);
     assertEquals(Math.exp(- 0.1 * (4.0 + 9.0)), sv.evaluate(v2), 0.01f);
   }
-  
+
+  @Test
+  public void testArcCosine() {
+    FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
+    FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
+
+    SupportVector sv = new SupportVector(v1, FunctionForm.ARC_COSINE, 0.1f);
+
+    assertEquals(1.0, sv.evaluate(v1), 0.01f);
+    double expected = 1.0 - (float) Math.acos( (3.0 + 10.0) / Math.sqrt((1.0 + 4.0) * (9.0 + 25.0))  ) / Math.PI;
+    assertEquals(expected, sv.evaluate(v2), 0.01f);
+  }
+
 }

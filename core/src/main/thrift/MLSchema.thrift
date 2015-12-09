@@ -8,7 +8,8 @@ namespace java com.airbnb.aerosolve.core
 enum FunctionForm {
   SPLINE,
   LINEAR,
-  RADIAL_BASIS_FUNCTION
+  RADIAL_BASIS_FUNCTION,
+  ARC_COSINE
 }
 
 struct FeatureVector {

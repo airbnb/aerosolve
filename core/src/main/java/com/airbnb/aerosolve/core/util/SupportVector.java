@@ -36,6 +36,17 @@ public class SupportVector implements Serializable {
         result = (float) Math.exp(-scale * floatVector.l2Distance2(other));
         break;
       }
+      case ARC_COSINE: {
+        float top = floatVector.dot(other);
+        float bot = floatVector.dot(floatVector) * other.dot(other);
+        if (bot < 1e-6f) {
+          bot = 1e-6f;
+        }
+        double cos_theta = top / Math.sqrt(bot);
+        double theta = Math.acos(cos_theta);
+        result = (float) (1.0 - theta / Math.PI);
+        break;
+      }
     }
     return result;
   }
