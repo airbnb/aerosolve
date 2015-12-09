@@ -4,9 +4,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Random;
 
 import com.airbnb.aerosolve.core.FunctionForm;
+import com.airbnb.aerosolve.core.ModelRecord;
 
 public class SupportVector implements Serializable {
   // Dense support vector value.
@@ -22,10 +24,32 @@ public class SupportVector implements Serializable {
   @Getter @Setter
   float scale;
   
-  SupportVector(FloatVector fv, FunctionForm f, float s) {
+  public SupportVector(FloatVector fv, FunctionForm f, float s) {
     floatVector = fv;
     form = f;
     scale = s;
+  }
+
+  public SupportVector(ModelRecord rec) {
+    scale = (float) rec.scale;
+    form = rec.getFunctionForm();
+    int size = rec.weightVector.size();
+    floatVector = new FloatVector(size);
+    for (int i = 0; i < size; i++) {
+      floatVector.getValues()[i] = rec.weightVector.get(i).floatValue();
+    }
+  }
+
+  public ModelRecord toModelRecord() {
+    ModelRecord rec = new ModelRecord();
+    rec.setScale(scale);
+    rec.setFunctionForm(form);
+    ArrayList<Double> weightVector = new ArrayList<>();
+    for (int i = 0; i < floatVector.getValues().length; i++) {
+      weightVector.add((double) floatVector.getValues()[i]);
+    }
+    rec.setWeightVector(weightVector);
+    return rec;
   }
   
   // Evaluates the support vector with the other.

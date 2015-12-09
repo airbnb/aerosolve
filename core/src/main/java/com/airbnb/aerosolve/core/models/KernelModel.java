@@ -19,6 +19,7 @@ import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.StringDictionary;
 import com.airbnb.aerosolve.core.util.FloatVector;
+import com.airbnb.aerosolve.core.util.SupportVector;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -31,7 +32,7 @@ public class KernelModel extends AbstractModel {
   private static final long serialVersionUID = 7651061358422885397L;
   
   protected StringDictionary dictionary;
-  protected List<ModelRecord> supportVectors;
+  protected List<SupportVector> supportVectors;
   
   public KernelModel() {
     dictionary = new StringDictionary();
@@ -46,10 +47,11 @@ public class KernelModel extends AbstractModel {
   }
   
   // Returns the responses from all support vectors.
-  private FloatVector getResponses(FloatVector vec) {
-    FloatVector response = new FloatVector(supportVectors.size());
-    for (ModelRecord sv : supportVectors) {
-      
+  private float[] getResponses(FloatVector vec) {
+    float[] response = new float[supportVectors.size()];
+    for (int i = 0; i < supportVectors.size(); i++) {
+      SupportVector sv = supportVectors.get(i);
+      response[i] = sv.evaluate(vec);
     }
     return response;
   }
@@ -82,8 +84,8 @@ public class KernelModel extends AbstractModel {
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
-    for (ModelRecord rec : supportVectors) {
-      writer.write(Util.encode(rec));
+    for (SupportVector sv : supportVectors) {
+      writer.write(Util.encode(sv.toModelRecord()));
       writer.newLine();
     }
     writer.flush();
@@ -98,7 +100,7 @@ public class KernelModel extends AbstractModel {
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
-      supportVectors.add(record);
+      supportVectors.add(new SupportVector(record));
     }
   }
 }
