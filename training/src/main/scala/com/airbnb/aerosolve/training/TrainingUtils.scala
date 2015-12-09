@@ -180,6 +180,7 @@ object TrainingUtils {
       case "forest" => ForestTrainer.trainAndSaveToFile(sc, input, config, key)
       case "boosted_forest" => BoostedForestTrainer.trainAndSaveToFile(sc, input, config, key)
       case "additive" => AdditiveModelTrainer.trainAndSaveToFile(sc, input, config, key)
+      case "kernel" => KernelTrainer.trainAndSaveToFile(sc, input, config, key)
     }
   }
 

@@ -32,9 +32,12 @@ import lombok.Setter;
 public class KernelModel extends AbstractModel {
   private static final long serialVersionUID = 7651061358422885397L;
   
-  protected StringDictionary dictionary;
-  protected List<SupportVector> supportVectors;
+  @Getter @Setter
+  StringDictionary dictionary;
   
+  @Getter @Setter
+  List<SupportVector> supportVectors;
+
   // Capacity limits ... do not add if there are more than max support vectors or L2 distance is closer
   // than the threshold.
   @Getter @Setter
