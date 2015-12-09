@@ -48,10 +48,9 @@ object KernelTrainer {
         .filter(x => x.contains(rankKey))
         .take(candidateSize)
    
-
     model
   }
-  
+
   def initModel(modelConfig : Config, examples : RDD[Example]) : KernelModel = {
     val kernel : String = modelConfig.getString("kernel")
     val scale : Double = modelConfig.getDouble("scale")
@@ -64,7 +63,15 @@ object KernelTrainer {
     val stats = TrainingUtils.getFeatureStatistics(minCount, examples)
     log.info(s"Dictionary size is ${stats.size}")
     
+    for (stat <- stats) {
+      val (family, feature) = stat._1
+      val mean = stat._2.mean
+      val variance = Math.max(1e-6, stat._2.variance)
+      val scale = Math.sqrt(1.0 / variance)
+      dictionary.possiblyAdd(family, feature, mean, scale)
+    }
     val model = new KernelModel()
+    model.setDictionary(dictionary)
     
     model
   }
