@@ -16,6 +16,7 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.StringDictionary;
 import com.airbnb.aerosolve.core.util.FloatVector;
@@ -34,26 +35,37 @@ public class KernelModel extends AbstractModel {
   protected StringDictionary dictionary;
   protected List<SupportVector> supportVectors;
   
+  // Capacity limits ... do not add if there are more than max support vectors or L2 distance is closer
+  // than the threshold.
+  @Getter @Setter
+  int maxSupportVectors;
+  @Getter @Setter
+  float minDistance;
+  // Defaults for new support vectors.
+  @Getter @Setter
+  FunctionForm defaultForm;
+  @Getter @Setter
+  float defaultScale;
+
   public KernelModel() {
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
+    maxSupportVectors = 1000;
+    minDistance = 0.1f;
+    defaultScale = 1.0f;
+    defaultForm = FunctionForm.RADIAL_BASIS_FUNCTION;
   }
 
   @Override
   public float scoreItem(FeatureVector combinedItem) {
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
-    return 0.0f; //scoreFlatFeatures(flatFeatures);
-  }
-  
-  // Returns the responses from all support vectors.
-  private float[] getResponses(FloatVector vec) {
-    float[] response = new float[supportVectors.size()];
+    float sum = 0.0f;
     for (int i = 0; i < supportVectors.size(); i++) {
       SupportVector sv = supportVectors.get(i);
-      response[i] = sv.evaluate(vec);
+      sum += sv.evaluate(vec);
     }
-    return response;
+    return sum;
   }
   
   @Override
@@ -71,6 +83,14 @@ public class KernelModel extends AbstractModel {
 
   @Override
   public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
+    FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
+    possiblyAddSupportVector(vec, defaultForm, defaultScale, 0.0f);
+    float deltaG = - learningRate * grad;
+    for (SupportVector sv : supportVectors) {
+      float response = sv.evaluateUnweighted(vec);
+      float deltaW = deltaG * response;
+      sv.setWeight(sv.getWeight() + deltaW);
+    }
   }
 
   @Override
@@ -102,5 +122,18 @@ public class KernelModel extends AbstractModel {
       ModelRecord record = Util.decodeModel(line);
       supportVectors.add(new SupportVector(record));
     }
+  }
+
+  //Returns true if we added the support vector.
+  protected boolean possiblyAddSupportVector(FloatVector vec, FunctionForm form, float scale, float weight) {
+    if (supportVectors.size() >= maxSupportVectors) return false;
+    float minDist2 = minDistance * minDistance;
+    for (SupportVector sv : supportVectors) {
+      float dist2 = vec.l2Distance2(sv.getFloatVector());
+      if (dist2 < minDist2) return false;
+    }
+    SupportVector sv = new SupportVector(vec, form, scale, weight);
+    supportVectors.add(sv);
+    return true;
   }
 }
