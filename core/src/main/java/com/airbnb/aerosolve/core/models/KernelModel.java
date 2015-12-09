@@ -127,7 +127,7 @@ public class KernelModel extends AbstractModel {
     }
   }
 
-  //Returns true if we added the support vector.
+  // Returns true if we added the support vector.
   protected boolean possiblyAddSupportVector(FloatVector vec, FunctionForm form, float scale, float weight) {
     if (supportVectors.size() >= maxSupportVectors) return false;
     float minDist2 = minDistance * minDistance;
