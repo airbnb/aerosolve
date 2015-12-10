@@ -7,7 +7,9 @@ import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.FunctionForm
 import com.airbnb.aerosolve.core.ModelRecord
+import com.airbnb.aerosolve.core.util.FloatVector
 import com.airbnb.aerosolve.core.util.StringDictionary
+import com.airbnb.aerosolve.core.util.SupportVector
 import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
@@ -22,12 +24,6 @@ import scala.collection.JavaConverters._
 // The decision tree is meant to be a prior for the spline model / linear model
 object KernelTrainer {
   val log: Logger = LoggerFactory.getLogger("KernelTrainer")
-
-  // Mapping from names to kernel types
-  private final val FunctionFormMap = Map(
-    "rbf" -> FunctionForm.RADIAL_BASIS_FUNCTION,
-    "acos" -> FunctionForm.ARC_COSINE
-  )
   
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -35,6 +31,9 @@ object KernelTrainer {
             key : String) : KernelModel = {
     val modelConfig = config.getConfig(key)
     val candidateSize : Int = modelConfig.getInt("num_candidates")
+    val kernel : String = modelConfig.getString("kernel")
+    val maxSV : Int = modelConfig.getInt("max_vectors")
+    val scale : Float = modelConfig.getDouble("scale").toFloat
 
     val learningRate : Float = Try(modelConfig.getDouble("learning_rate").toFloat).getOrElse(0.1f)
     val rankKey : String = modelConfig.getString("rank_key")
@@ -53,11 +52,29 @@ object KernelTrainer {
       val gradient = computeGradient(model, candidate.example(0), loss, rankKey, rankThreshold)
       if (gradient != 0.0) {
         val flatFeatures = Util.flattenFeature(candidate.example(0));
+        val vec = model.getDictionary().makeVectorFromSparseFloats(flatFeatures);
+        addNewSupportVector(model, kernel, scale, vec, maxSV)
         model.onlineUpdate(gradient, learningRate, flatFeatures)
       }
     }
    
     model
+  }
+
+  def addNewSupportVector(model : KernelModel, kernel : String, scale : Float, vec : FloatVector, maxSV : Int) = {
+    val supportVectors = model.getSupportVectors()
+    if (supportVectors.size() < maxSV) {
+      val form = kernel match {
+        case "rbf" => FunctionForm.RADIAL_BASIS_FUNCTION
+        case "acos" => FunctionForm.ARC_COSINE
+        case "random" => scala.util.Random.nextInt(2) match {
+          case 0 => FunctionForm.RADIAL_BASIS_FUNCTION
+          case 1 => FunctionForm.ARC_COSINE
+        }
+      }
+      val sv = new SupportVector(vec, form, scale, 0.0f);
+      supportVectors.add(sv);
+    }
   }
 
   def computeGradient(model : KernelModel,
@@ -86,11 +103,8 @@ object KernelTrainer {
   }
 
   def initModel(modelConfig : Config, examples : RDD[Example]) : KernelModel = {
-    val kernel : String = modelConfig.getString("kernel")
-    val scale : Float = modelConfig.getDouble("scale").toFloat
     val minCount : Int = modelConfig.getInt("min_count")
     val rankKey : String = modelConfig.getString("rank_key")
-    val maxSV : Int = modelConfig.getInt("max_vectors")
     
     log.info("Building dictionary")
     val dictionary = new StringDictionary();
@@ -108,10 +122,6 @@ object KernelTrainer {
     }
     val model = new KernelModel()
     model.setDictionary(dictionary)
-    model.setMaxSupportVectors(maxSV)
-    val form = FunctionFormMap.get(kernel).get
-    model.setDefaultScale(scale)
-    model.setDefaultForm(form)
     
     model
   }

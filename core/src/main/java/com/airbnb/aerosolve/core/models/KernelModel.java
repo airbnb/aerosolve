@@ -38,21 +38,9 @@ public class KernelModel extends AbstractModel {
   @Getter @Setter
   List<SupportVector> supportVectors;
 
-  // Capacity limits ... do not add if there are more than max support vectors
-  @Getter @Setter
-  int maxSupportVectors;
-  // Defaults for new support vectors.
-  @Getter @Setter
-  FunctionForm defaultForm;
-  @Getter @Setter
-  float defaultScale;
-
   public KernelModel() {
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
-    maxSupportVectors = 1000;
-    defaultScale = 1.0f;
-    defaultForm = FunctionForm.RADIAL_BASIS_FUNCTION;
   }
 
   @Override
@@ -83,7 +71,6 @@ public class KernelModel extends AbstractModel {
   @Override
   public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
     FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
-    possiblyAddSupportVector(vec, defaultForm, defaultScale, 0.0f);
     float deltaG = - learningRate * grad;
     for (SupportVector sv : supportVectors) {
       float response = sv.evaluateUnweighted(vec);
@@ -123,11 +110,4 @@ public class KernelModel extends AbstractModel {
     }
   }
 
-  // Returns true if we added the support vector.
-  protected boolean possiblyAddSupportVector(FloatVector vec, FunctionForm form, float scale, float weight) {
-    if (supportVectors.size() >= maxSupportVectors) return false;
-    SupportVector sv = new SupportVector(vec, form, scale, weight);
-    supportVectors.add(sv);
-    return true;
-  }
 }

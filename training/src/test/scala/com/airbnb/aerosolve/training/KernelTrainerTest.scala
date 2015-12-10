@@ -55,10 +55,20 @@ class KernelTrainerTest {
      testKernelClassificationTrainer("hinge", "acos", 0.7)
    }
 
-  @Test
-  def testAcosRegression() = {
-    testKernelRegressionTrainer("regression", "acos", 5.0)
-  }
+   @Test
+   def testAcosRegression() = {
+     testKernelRegressionTrainer("regression", "acos", 5.0)
+   }
+
+   @Test
+   def testRandomHinge() = {
+     testKernelClassificationTrainer("hinge", "random", 0.7)
+   }
+
+   @Test
+   def testRandomRegression() = {
+     testKernelRegressionTrainer("regression", "random", 4.0)
+   }
 
   def testKernelClassificationTrainer(loss : String,
                                       kernel : String,
