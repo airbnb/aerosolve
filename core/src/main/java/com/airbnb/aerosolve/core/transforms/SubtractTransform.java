@@ -12,7 +12,7 @@ import java.util.Map.Entry;
 
 /**
  * output = field1 - field2.key
- * If keys are provided, features from field1 are considered, otherwise
+ * If keys are provided, features specified in keys from field1 are considered, otherwise
  * all features in field1 are considered
  */
 public class SubtractTransform extends Transform {

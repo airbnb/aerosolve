@@ -10,7 +10,7 @@ import java.util.Map.Entry;
 
 /**
  * output = field1.keys / (field2.key2 + constant)
- * If keys are provided, features from field1 are considered, otherwise
+ * If keys are provided, features specified in keys from field1 are considered, otherwise
  * all features in field1 are considered
  */
 public class DivideTransform extends Transform {
