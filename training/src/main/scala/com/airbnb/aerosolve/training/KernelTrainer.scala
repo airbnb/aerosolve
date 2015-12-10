@@ -73,9 +73,12 @@ object KernelTrainer {
         }
       }
       case "regression" => {
-        val lossVal = label - prediction
-        if (lossVal > 0.0) {
-           return -label.toFloat
+        val diff = prediction - label
+        if (diff > 1.0) {
+          return 1.0f
+        }
+        if (diff < -1.0) {
+          return -1.0f
         }
       }
     }

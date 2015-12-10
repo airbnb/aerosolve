@@ -28,7 +28,7 @@ class KernelTrainerTest {
       |  kernel : "%s"
       |  rank_threshold : 0.0
       |  num_candidates : 1000
-      |  max_vectors : 30
+      |  max_vectors : 70
       |  min_count : 1
       |  scale : 2.0
       |  learning_rate : 0.1
@@ -45,9 +45,19 @@ class KernelTrainerTest {
     testKernelClassificationTrainer("hinge", "rbf", 0.7)
   }
 
- @Test
-  def testAcosHinge() = {
-    testKernelClassificationTrainer("hinge", "acos", 0.7)
+  @Test
+  def testRBFRegression() = {
+    testKernelRegressionTrainer("regression", "rbf", 4.0)
+  }
+
+  @Test
+   def testAcosHinge() = {
+     testKernelClassificationTrainer("hinge", "acos", 0.7)
+   }
+
+  @Test
+  def testAcosRegression() = {
+    testKernelRegressionTrainer("regression", "acos", 5.0)
   }
 
   def testKernelClassificationTrainer(loss : String,
@@ -103,6 +113,48 @@ class KernelTrainerTest {
    } finally {
       sc.stop
       sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  def testKernelRegressionTrainer(loss : String,
+                                  kernel : String,
+                                  maxError : Double) = {
+    val (examples, label) = TrainingTestHelper.makeRegressionExamples()
+
+    var sc = new SparkContext("local", "testKernelRegressionTrainerTest")
+
+    try {
+      val config = ConfigFactory.parseString(makeConfig(loss, kernel))
+
+      val input = sc.parallelize(examples)
+      val model = KernelTrainer.train(sc, input, config, "model_config")
+
+      for (sv <- model.getSupportVectors().asScala) {
+        log.info(sv.toModelRecord.toString)
+      }
+
+      val labelArr = label.toArray
+      var i : Int = 0
+      var totalError : Double = 0
+
+      for (ex <- examples) {
+        val score = model.scoreItem(ex.example.get(0))
+        val exampleLabel = labelArr(i)
+
+        totalError += math.abs(score - exampleLabel)
+
+        i += 1
+      }
+      log.info("Average absolute error = %f".format(totalError / examples.size.toDouble))
+      // Total error not too high
+      assertTrue(totalError / examples.size.toDouble < maxError)
+
+    } finally {
+      sc.stop
+      sc = null
+
       // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
       System.clearProperty("spark.master.port")
     }
