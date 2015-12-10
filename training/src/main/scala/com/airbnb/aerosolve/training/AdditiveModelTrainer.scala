@@ -345,18 +345,22 @@ object AdditiveModelTrainer {
     val linearFeatureFamilies = params.linearFeatureFamilies
     val priors = params.priors
     val minMax = TrainingUtils
-      .getMinMax(minCount, examples)
+      .getFeatureStatistics(minCount, examples)
       .filter(x => x._1._1 != params.rankKey)
     log.info("Num features = %d".format(minMax.length))
     val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
     val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
     // add splines
-    for (((featureFamily, featureName), (minVal, maxVal)) <- minMaxSpline) {
+    for (((featureFamily, featureName), stats) <- minMaxSpline) {
+      val minVal = stats.min
+      val maxVal = stats.max
       model.addFunction(featureFamily, featureName, FunctionForm.SPLINE,
                         Array(minVal.toFloat, maxVal.toFloat, params.numBins.toFloat), overwrite)
     }
     // add linear
-    for (((featureFamily, featureName), (minVal, maxVal)) <- minMaxLinear) {
+    for (((featureFamily, featureName), stats) <- minMaxLinear) {
+      val minVal = stats.min
+      val maxVal = stats.max
       // set default linear function as f(x) = 0
       model.addFunction(featureFamily, featureName, FunctionForm.LINEAR,
                         Array(minVal.toFloat, maxVal.toFloat), overwrite)

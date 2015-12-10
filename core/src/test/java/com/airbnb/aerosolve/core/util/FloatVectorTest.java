@@ -27,6 +27,12 @@ public class FloatVectorTest {
     assertEquals(1.0f * 3.0f + 2.0f * 4.0f, v1.dot(v2), 0.1f);
   }
 
+  @Test public void testL2Distance2() {
+    FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
+    FloatVector v2 = new FloatVector(new float[]{3.0f, 5.0f});
+    assertEquals(4.0f + 9.0f, v1.l2Distance2(v2), 0.1f);
+  }
+
   @Test
   public void testMultiplyAdd() {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});

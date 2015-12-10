@@ -25,6 +25,7 @@ public final class ModelFactory {
       case "decision_tree": return new DecisionTreeModel();
       case "forest": return new ForestModel();
       case "additive": return new AdditiveModel();
+      case "kernel" : return new KernelModel();
     }
     log.error("Could not create model of type " + name);
     return null;

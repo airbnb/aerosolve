@@ -17,6 +17,7 @@ import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.Spline;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -40,6 +41,7 @@ public class SplineModel extends AbstractModel {
 
     public WeightSpline() {
     }
+
     public WeightSpline(float minVal, float maxVal, int numBins) {
       splineWeights = new float[numBins];
       spline = new Spline(minVal, maxVal, splineWeights);
@@ -176,6 +178,11 @@ public class SplineModel extends AbstractModel {
         updateWeightSpline(val, grad, learningRate,ws);
       }
     }
+  }
+  
+  @Override
+  public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
+    update(grad, learningRate, flatFeatures);
   }
 
   // Adds a new spline
