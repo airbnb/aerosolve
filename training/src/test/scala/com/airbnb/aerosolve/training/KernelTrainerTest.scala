@@ -16,7 +16,7 @@ import scala.collection.JavaConversions
 class KernelTrainerTest {
   val log = LoggerFactory.getLogger("KernelTrainerTest")
 
-  def makeConfig(loss : String, kernel : String, minResponse : Float) : String = {
+  def makeConfig(loss : String, kernel : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -29,7 +29,6 @@ class KernelTrainerTest {
       |  rank_threshold : 0.0
       |  num_candidates : 1000
       |  max_vectors : 30
-      |  min_response : %f
       |  min_count : 1
       |  scale : 2.0
       |  learning_rate : 0.1
@@ -38,29 +37,28 @@ class KernelTrainerTest {
       |  combined_transform : identity_transform
       |}
     """.stripMargin
-       .format(loss, kernel, minResponse)
+       .format(loss, kernel)
   }
 
   @Test
   def testRBFHinge() = {
-    testKernelClassificationTrainer("hinge", "rbf", 0.1f, 0.6)
+    testKernelClassificationTrainer("hinge", "rbf", 0.7)
   }
 
  @Test
   def testAcosHinge() = {
-    testKernelClassificationTrainer("hinge", "acos", 0.5f, 0.6)
+    testKernelClassificationTrainer("hinge", "acos", 0.7)
   }
 
   def testKernelClassificationTrainer(loss : String,
                                       kernel : String,
-                                      minResponse : Float,
                                       expectedCorrect : Double) = {
     val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
 
     var sc = new SparkContext("local", "KernelTrainerTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss, kernel, minResponse))
+      val config = ConfigFactory.parseString(makeConfig(loss, kernel))
 
       val input = sc.parallelize(examples)
       val model = KernelTrainer.train(sc, input, config, "model_config")

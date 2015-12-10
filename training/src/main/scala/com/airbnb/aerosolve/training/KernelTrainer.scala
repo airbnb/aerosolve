@@ -85,7 +85,6 @@ object KernelTrainer {
   def initModel(modelConfig : Config, examples : RDD[Example]) : KernelModel = {
     val kernel : String = modelConfig.getString("kernel")
     val scale : Float = modelConfig.getDouble("scale").toFloat
-    val minResponse : Float = modelConfig.getDouble("min_response").toFloat
     val minCount : Int = modelConfig.getInt("min_count")
     val rankKey : String = modelConfig.getString("rank_key")
     val maxSV : Int = modelConfig.getInt("max_vectors")
@@ -107,7 +106,6 @@ object KernelTrainer {
     val model = new KernelModel()
     model.setDictionary(dictionary)
     model.setMaxSupportVectors(maxSV)
-    model.setMinResponse(minResponse)
     val form = FunctionFormMap.get(kernel).get
     model.setDefaultScale(scale)
     model.setDefaultForm(form)

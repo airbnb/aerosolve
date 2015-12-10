@@ -38,12 +38,9 @@ public class KernelModel extends AbstractModel {
   @Getter @Setter
   List<SupportVector> supportVectors;
 
-  // Capacity limits ... do not add if there are more than max support vectors or L2 distance is closer
-  // than the threshold.
+  // Capacity limits ... do not add if there are more than max support vectors
   @Getter @Setter
   int maxSupportVectors;
-  @Getter @Setter
-  float minResponse;
   // Defaults for new support vectors.
   @Getter @Setter
   FunctionForm defaultForm;
@@ -54,7 +51,6 @@ public class KernelModel extends AbstractModel {
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
     maxSupportVectors = 1000;
-    minResponse = 0.1f;
     defaultScale = 1.0f;
     defaultForm = FunctionForm.RADIAL_BASIS_FUNCTION;
   }
@@ -130,14 +126,6 @@ public class KernelModel extends AbstractModel {
   // Returns true if we added the support vector.
   protected boolean possiblyAddSupportVector(FloatVector vec, FunctionForm form, float scale, float weight) {
     if (supportVectors.size() >= maxSupportVectors) return false;
-    float smallestResponse = 1e10f;
-    if (!supportVectors.isEmpty()) {
-      for (SupportVector sv : supportVectors) {
-        float response = sv.evaluateUnweighted(vec);
-        smallestResponse = Math.min(response, smallestResponse);
-      }
-      if (smallestResponse > minResponse) return false;
-    }
     SupportVector sv = new SupportVector(vec, form, scale, weight);
     supportVectors.add(sv);
     return true;
