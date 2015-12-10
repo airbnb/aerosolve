@@ -13,7 +13,8 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 
 /**
- * A class that maps strings to indices.
+ * A class that maps strings to indices. It can be used to map sparse
+ * features (both sparse string and sparse float) into dense float vectors.
  */
 
 public class StringDictionary implements Serializable {

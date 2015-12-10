@@ -41,6 +41,7 @@ public class SplineModel extends AbstractModel {
 
     public WeightSpline() {
     }
+
     public WeightSpline(float minVal, float maxVal, int numBins) {
       splineWeights = new float[numBins];
       spline = new Spline(minVal, maxVal, splineWeights);

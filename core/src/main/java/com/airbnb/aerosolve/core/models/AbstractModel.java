@@ -51,6 +51,7 @@ public abstract class AbstractModel implements Model, Serializable {
   
   // Optional method implemented by online updatable models e.g. Spline, RBF
   public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
+    assert(false);
   }
 
   // Helper function for FOBOS updates.

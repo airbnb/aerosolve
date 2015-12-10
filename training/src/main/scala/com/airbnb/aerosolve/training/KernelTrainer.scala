@@ -101,8 +101,8 @@ object KernelTrainer {
       val (family, feature) = stat._1
       if (family != rankKey) {
         val mean = stat._2.mean
-        val variance = Math.max(1e-6, stat._2.variance)
-        val scale = Math.sqrt(1.0 / variance)
+        val variance = if (stat._2.variance < 1e-6) 1.0 else stat._2.variance
+        var scale = Math.sqrt(1.0 / variance)
         dictionary.possiblyAdd(family, feature, mean, scale)
       }
     }
