@@ -10,20 +10,24 @@ import java.util.Map.Entry;
 
 /**
  * output = field1.keys / (field2.key2 + constant)
+ * If keys are provided, features specified in keys from field1 are considered, otherwise
+ * all features in field1 are considered
  */
 public class DivideTransform extends Transform {
   private String fieldName1;
   private String fieldName2;
   private List<String> keys;
   private String key2;
-    private String outputName;
+  private String outputName;
   private Double constant;
 
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     fieldName2 = config.getString(key + ".field2");
-    keys = config.getStringList(key + ".keys");
+    if (config.hasPath(key + ".keys")) {
+      keys = config.getStringList(key + ".keys");
+    }
     key2 = config.getString(key + ".key2");
     constant = config.getDouble((key + ".constant"));
     outputName = config.getString(key + ".output");
@@ -55,10 +59,13 @@ public class DivideTransform extends Transform {
 
     Map<String, Double> output = new HashMap<>();
 
-    for (String key : keys) {
-      Double val = feature1.get(key);
-      if (val != null) {
-        output.put(key, val * scale);
+    for (Entry<String, Double> f1 : feature1.entrySet()) {
+      String key = f1.getKey();
+      if (keys == null || keys.contains(key)) {
+        Double val = f1.getValue();
+        if (val != null) {
+          output.put(key + "-d-" + key2, val * scale);
+        }
       }
     }
     floatFeatures.put(outputName, output);
