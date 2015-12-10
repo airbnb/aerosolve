@@ -67,7 +67,7 @@ class KernelTrainerTest {
 
    @Test
    def testRandomRegression() = {
-     testKernelRegressionTrainer("regression", "random", 4.0)
+     testKernelRegressionTrainer("regression", "random", 5.0)
    }
 
   def testKernelClassificationTrainer(loss : String,
