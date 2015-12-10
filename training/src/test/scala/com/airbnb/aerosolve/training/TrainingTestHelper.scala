@@ -18,7 +18,17 @@ object TrainingTestHelper {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
+    item.setStringFeatures(new java.util.HashMap)
     val floatFeatures = item.getFloatFeatures
+    val stringFeatures = item.getStringFeatures
+    // A string feature that is always on.
+    stringFeatures.put("BIAS", new java.util.HashSet)
+    stringFeatures.get("BIAS").add("B")
+    // A string feature that is sometimes on
+    if (x + y < 0) {
+      stringFeatures.put("NEG", new java.util.HashSet)
+      stringFeatures.get("NEG").add("T")
+    }
     floatFeatures.put("$rank", new java.util.HashMap)
     floatFeatures.get("$rank").put("", target)
     floatFeatures.put("loc", new java.util.HashMap)

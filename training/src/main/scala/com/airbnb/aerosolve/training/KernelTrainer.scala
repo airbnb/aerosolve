@@ -108,19 +108,10 @@ object KernelTrainer {
     val rankKey : String = modelConfig.getString("rank_key")
     
     log.info("Building dictionary")
-    val dictionary = new StringDictionary();
     val stats = TrainingUtils.getFeatureStatistics(minCount, examples)
     log.info(s"Dictionary size is ${stats.size}")
+    val dictionary = TrainingUtils.createStringDictionaryFromFeatureStatistics(stats, Set(rankKey))
     
-    for (stat <- stats) {
-      val (family, feature) = stat._1
-      if (family != rankKey) {
-        val mean = stat._2.mean
-        val variance = if (stat._2.variance < 1e-6) 1.0 else stat._2.variance
-        var scale = Math.sqrt(1.0 / variance)
-        dictionary.possiblyAdd(family, feature, mean, scale)
-      }
-    }
     val model = new KernelModel()
     model.setDictionary(dictionary)
     

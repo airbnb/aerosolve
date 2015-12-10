@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.util.StringDictionary
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.transforms.Transformer
@@ -249,6 +250,25 @@ object TrainingUtils {
            variance = (x._2.variance - x._2.mean * x._2.mean / x._2.count) / (x._2.count - 1.0)
            )))
       .collect
+  }
+
+  def createStringDictionaryFromFeatureStatistics(stats : Array[((String, String), FeatureStatistics)],
+                                                  excludedFamilies : Set[String]) : StringDictionary = {
+    val dictionary = new StringDictionary()
+    for (stat <- stats) {
+      val (family, feature) = stat._1
+      if (!excludedFamilies.contains(family)) {
+        if (stat._2.variance < 1e-6) {
+          // Categorical feature, just pass through
+          dictionary.possiblyAdd(family, feature, 0.0f, 1.0f)
+        } else {
+          val mean = stat._2.mean
+          val scale = Math.sqrt(1.0 / stat._2.variance)
+          dictionary.possiblyAdd(family, feature, mean, scale)
+        }
+      }
+    }
+    dictionary
   }
 
 }
