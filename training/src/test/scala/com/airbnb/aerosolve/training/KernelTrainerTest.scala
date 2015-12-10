@@ -57,7 +57,7 @@ class KernelTrainerTest {
 
    @Test
    def testAcosRegression() = {
-     testKernelRegressionTrainer("regression", "acos", 5.0)
+     testKernelRegressionTrainer("regression", "acos", 8.0)
    }
 
    @Test
