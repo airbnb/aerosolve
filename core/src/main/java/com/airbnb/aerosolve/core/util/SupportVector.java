@@ -73,7 +73,7 @@ public class SupportVector implements Serializable {
         if (bot < 1e-6f) {
           bot = 1e-6f;
         }
-        double cos_theta = top / Math.sqrt(bot);
+        double cos_theta = Math.max(0.0, Math.min(1.0, top / Math.sqrt(bot)));
         double theta = Math.acos(cos_theta);
         result = (float) (1.0 - theta / Math.PI);
         break;

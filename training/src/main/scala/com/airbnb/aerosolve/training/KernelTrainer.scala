@@ -4,6 +4,7 @@ import java.util
 
 import com.airbnb.aerosolve.core.models.KernelModel
 import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.FeatureVector
 import com.airbnb.aerosolve.core.FunctionForm
 import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.core.util.StringDictionary
@@ -34,8 +35,10 @@ object KernelTrainer {
             key : String) : KernelModel = {
     val modelConfig = config.getConfig(key)
     val candidateSize : Int = modelConfig.getInt("num_candidates")
+
+    val learningRate : Float = Try(modelConfig.getDouble("learning_rate").toFloat).getOrElse(0.1f)
     val rankKey : String = modelConfig.getString("rank_key")
-    val rankThreshold : Double = modelConfig.getDouble("rank_threshold")
+    val rankThreshold : Double = Try(modelConfig.getDouble("rank_threshold")).getOrElse(0.0f)
 
     val examples = LinearRankerUtils
         .makePointwiseFloat(input, config, key)
@@ -43,20 +46,49 @@ object KernelTrainer {
         
     val loss : String = modelConfig.getString("loss")
         
-    val candidates = examples    
-        .map(x => Util.flattenFeature(x.example(0)))
-        .filter(x => x.contains(rankKey))
-        .take(candidateSize)
+    val candidates = examples.take(candidateSize)
+
+    // Super simple SGD trainer. Mostly to get the unit test to pass
+    for (candidate <- candidates) {
+      val gradient = computeGradient(model, candidate.example(0), loss, rankKey, rankThreshold)
+      if (gradient != 0.0) {
+        val flatFeatures = Util.flattenFeature(candidate.example(0));
+        model.onlineUpdate(gradient, learningRate, flatFeatures)
+      }
+    }
    
     model
   }
 
+  def computeGradient(model : KernelModel,
+                      fv : FeatureVector,
+                      loss : String, rankKey : String, rankThreshold : Double) : Float = {
+    val prediction = model.scoreItem(fv)
+    val label = if (loss == "hinge") TrainingUtils.getLabel(fv, rankKey, rankThreshold) else TrainingUtils.getLabel(fv, rankKey)
+    loss match {
+      case "hinge" => {
+        val lossVal = scala.math.max(0.0, 1.0 - label * prediction)
+        if (lossVal > 0.0) {
+           return -label.toFloat
+        }
+      }
+      case "regression" => {
+        val lossVal = label - prediction
+        if (lossVal > 0.0) {
+           return -label.toFloat
+        }
+      }
+    }
+    return 0.0f;
+  }
+
   def initModel(modelConfig : Config, examples : RDD[Example]) : KernelModel = {
     val kernel : String = modelConfig.getString("kernel")
-    val scale : Double = modelConfig.getDouble("scale")
-    val maxSV : Double = modelConfig.getDouble("max_vectors")
-    val minDistance : Double = modelConfig.getDouble("min_distance")
+    val scale : Float = modelConfig.getDouble("scale").toFloat
+    val minResponse : Float = modelConfig.getDouble("min_response").toFloat
     val minCount : Int = modelConfig.getInt("min_count")
+    val rankKey : String = modelConfig.getString("rank_key")
+    val maxSV : Int = modelConfig.getInt("max_vectors")
     
     log.info("Building dictionary")
     val dictionary = new StringDictionary();
@@ -65,13 +97,20 @@ object KernelTrainer {
     
     for (stat <- stats) {
       val (family, feature) = stat._1
-      val mean = stat._2.mean
-      val variance = Math.max(1e-6, stat._2.variance)
-      val scale = Math.sqrt(1.0 / variance)
-      dictionary.possiblyAdd(family, feature, mean, scale)
+      if (family != rankKey) {
+        val mean = stat._2.mean
+        val variance = Math.max(1e-6, stat._2.variance)
+        val scale = Math.sqrt(1.0 / variance)
+        dictionary.possiblyAdd(family, feature, mean, scale)
+      }
     }
     val model = new KernelModel()
     model.setDictionary(dictionary)
+    model.setMaxSupportVectors(maxSV)
+    model.setMinResponse(minResponse)
+    val form = FunctionFormMap.get(kernel).get
+    model.setDefaultScale(scale)
+    model.setDefaultForm(form)
     
     model
   }
