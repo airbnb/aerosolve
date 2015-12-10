@@ -45,8 +45,7 @@ object AdditiveModelTrainer {
                                    epsilon : Double,       // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: Array[String],
-                                   priors: Array[String],
-                                   repartitionNum: Int)
+                                   priors: Array[String])
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -55,13 +54,7 @@ object AdditiveModelTrainer {
     val trainConfig = config.getConfig(key)
     val iterations : Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
-    val transformed = if (params.repartitionNum > 0) {
-      transformExamples(input, config, key, params)
-        .repartition(params.repartitionNum)
-        .persist(StorageLevel.DISK_ONLY)
-    } else {
-      transformExamples(input, config, key, params)
-    }
+    val transformed = transformExamples(input, config, key, params)
     var model = modelInitialization(transformed, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
@@ -92,16 +85,9 @@ object AdditiveModelTrainer {
                output : String) : AdditiveModel = {
     val modelBC = sc.broadcast(model)
     val paramsBC = sc.broadcast(params)
-    val shuffle = if (params.repartitionNum > 0) {
-      // coalesce without shuffle, since it has been shuffled at the beginning
-      false
-    } else {
-      // coalesce with shuffle
-      true
-    }
     input
       .sample(false, params.subsample)
-      .coalesce(params.numBags, shuffle)
+      .coalesce(params.numBags, true)
       .mapPartitions(partition => sgdPartition(partition, modelBC, paramsBC))
       .groupByKey()
       // Average the feature functions
@@ -131,16 +117,9 @@ object AdditiveModelTrainer {
                          output : String) : AdditiveModel = {
     val modelBC = sc.broadcast(model)
     val paramsBC = sc.broadcast(params)
-    val shuffle = if (params.repartitionNum > 0) {
-      // coalesce without shuffle, since it has been shuffled at the beginning
-      false
-    } else {
-      // coalesce with shuffle
-      true
-    }
     input
       .sample(false, params.subsample)
-      .coalesce(params.numBags, shuffle)
+      .coalesce(params.numBags, true)
       .mapPartitionsWithIndex((index, partition) =>
                                 sgdPartitionMultiscale(index, partition, modelBC, paramsBC))
       .groupByKey()
@@ -485,7 +464,6 @@ object AdditiveModelTrainer {
       .getOrElse(Array[Int]())
 
     val rankMargin : Double = Try(config.getDouble("rank_margin")).getOrElse(0.5)
-    val repartitionNum : Int = Try(config.getInt("repartition_number")).getOrElse(-1)
 
     AdditiveTrainerParams(
       numBins,
@@ -508,8 +486,7 @@ object AdditiveModelTrainer {
       epsilon,
       initModelPath,
       linearFeatureFamilies,
-      priors,
-      repartitionNum)
+      priors)
   }
 
   def trainAndSaveToFile(sc : SparkContext,
