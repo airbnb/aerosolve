@@ -45,6 +45,17 @@ public class DivideTransformTest {
 
   public String makeConfig() {
     return "test_divide {\n" +
+        " transform : divide\n" +
+        " field1 : loc\n" +
+        " field2 : F\n" +
+        " key2 : foo\n" +
+        " constant : 0.1\n" +
+        " output : bar\n" +
+        "}";
+  }
+
+  public String makeConfigWithKeys() {
+    return "test_divide {\n" +
            " transform : divide\n" +
            " field1 : loc\n" +
            " field2 : F\n" +
@@ -77,8 +88,27 @@ public class DivideTransformTest {
     for (Map.Entry<String, Double> entry : out.entrySet()) {
       log.info(entry.getKey() + "=" + entry.getValue());
     }
+    assertTrue(out.size() == 3);
+    assertEquals(37.7 / 1.6, out.get("lat-d-foo"), 0.1);
+    assertEquals(40.0 / 1.6, out.get("long-d-foo"), 0.1);
+    assertEquals(-1.0 / 1.6, out.get("z-d-foo"), 0.1);
+  }
+
+  @Test
+  public void testTransformWithKeys() {
+    Config config = ConfigFactory.parseString(makeConfigWithKeys());
+    Transform transform = TransformFactory.createTransform(config, "test_divide");
+    FeatureVector featureVector = makeFeatureVector();
+    transform.doTransform(featureVector);
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    assertTrue(stringFeatures.size() == 1);
+
+    Map<String, Double> out = featureVector.floatFeatures.get("bar");
+    for (Map.Entry<String, Double> entry : out.entrySet()) {
+      log.info(entry.getKey() + "=" + entry.getValue());
+    }
     assertTrue(out.size() == 2);
-    assertEquals(37.7 / 1.6, out.get("lat"), 0.1);
-    assertEquals(40.0 / 1.6, out.get("long"), 0.1);
+    assertEquals(37.7 / 1.6, out.get("lat-d-foo"), 0.1);
+    assertEquals(40.0 / 1.6, out.get("long-d-foo"), 0.1);
   }
 }

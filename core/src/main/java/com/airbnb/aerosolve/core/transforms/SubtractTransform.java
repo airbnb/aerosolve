@@ -4,6 +4,7 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Map;
@@ -11,10 +12,13 @@ import java.util.Map.Entry;
 
 /**
  * output = field1 - field2.key
+ * If keys are provided, features from field1 are considered, otherwise
+ * all features in field1 are considered
  */
 public class SubtractTransform extends Transform {
   private String fieldName1;
   private String fieldName2;
+  private List<String> keys;
   private String key2;
   private String outputName;
 
@@ -22,7 +26,10 @@ public class SubtractTransform extends Transform {
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     fieldName2 = config.getString(key + ".field2");
-    key2 = config.getString(key + ".key");
+    if (config.hasPath(key + ".keys")) {
+      keys = config.getStringList(key + ".keys");
+    }
+    key2 = config.getString(key + ".key2");
     outputName = config.getString(key + ".output");
   }
 
@@ -51,8 +58,13 @@ public class SubtractTransform extends Transform {
     Map<String, Double> output = new HashMap<>();
 
     for (Entry<String, Double> f1 : feature1.entrySet()) {
-      output.put(f1.getKey() + '-' + key2,
-                 f1.getValue() - sub);
+      String key = f1.getKey();
+      if (keys == null || keys.contains(key)) {
+        Double val = f1.getValue();
+        if (val != null) {
+          output.put(key + '-' + key2, val - sub);
+        }
+      }
     }
     floatFeatures.put(outputName, output);
   }

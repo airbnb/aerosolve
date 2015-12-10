@@ -47,9 +47,20 @@ public class SubtractTransformTest {
            " transform : subtract\n" +
            " field1 : loc\n" +
            " field2 : F\n" +
-           " key : foo\n" +
+           " key2 : foo\n" +
            " output : bar\n" +
            "}";
+  }
+
+  public String makeConfigWithKeys() {
+    return "test_subtract {\n" +
+        " transform : subtract\n" +
+        " field1 : loc\n" +
+        " field2 : F\n" +
+        " keys : [\"lat\"] \n" +
+        " key2 : foo\n" +
+        " output : bar\n" +
+        "}";
   }
   
   @Test
@@ -77,5 +88,22 @@ public class SubtractTransformTest {
     assertTrue(out.size() == 2);
     assertEquals(36.7, out.get("lat-foo"), 0.1);
     assertEquals(39.0, out.get("long-foo"), 0.1);
+  }
+
+  @Test
+  public void testTransformWithKeys() {
+    Config config = ConfigFactory.parseString(makeConfigWithKeys());
+    Transform transform = TransformFactory.createTransform(config, "test_subtract");
+    FeatureVector featureVector = makeFeatureVector();
+    transform.doTransform(featureVector);
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    assertTrue(stringFeatures.size() == 1);
+
+    Map<String, Double> out = featureVector.floatFeatures.get("bar");
+    for (Map.Entry<String, Double> entry : out.entrySet()) {
+      log.info(entry.getKey() + "=" + entry.getValue());
+    }
+    assertTrue(out.size() == 1);
+    assertEquals(36.7, out.get("lat-foo"), 0.1);
   }
 }
