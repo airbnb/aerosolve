@@ -21,7 +21,8 @@ import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
-// The decision tree is meant to be a prior for the spline model / linear model
+// Simple SGD based kernel trainer. Mostly so we can test the kernel model for online use.
+// TODO(hector_yee) : if this gets more heavily used add in regularization and better training.
 object KernelTrainer {
   val log: Logger = LoggerFactory.getLogger("KernelTrainer")
   
