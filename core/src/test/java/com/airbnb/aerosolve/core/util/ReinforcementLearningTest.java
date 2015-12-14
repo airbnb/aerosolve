@@ -98,7 +98,7 @@ public class ReinforcementLearningTest {
   //
    //  Start    CLIFF    Goal
   //   (0,0)    CLIFF    (10, 0)
-  public float runEpisode(AbstractModel model, int epoch, Random rnd) {
+  public float runEpisode(AbstractModel model, int epoch, Random rnd, boolean epsGreedy) {
     float sum = 0.0f;
     double x = 0.0;
     double y = 0.0;
@@ -107,15 +107,22 @@ public class ReinforcementLearningTest {
     FeatureVector currStateAction = null;
     float epsilon = 0.1f;
     float learningRate = 0.1f;
+    float temperature = 10.0f;
     if (epoch > 90) {
-      epsilon = 0.0f;
+      epsilon = 0.00f;
+      temperature = 0.1f;
       learningRate = 0.001f;
     }
     boolean done = false;
     while (!done) {
       ArrayList<FeatureVector> potential = stateActions(x, y);
 
-      int pick = ReinforcementLearning.epsilonGreedyPolicy(model, potential, epsilon, rnd);
+      int pick = 0;
+      if (epsGreedy) {
+        pick = ReinforcementLearning.epsilonGreedyPolicy(model, potential, epsilon, rnd);
+      } else {
+        pick = ReinforcementLearning.softmaxPolicy(model, potential, temperature, rnd);
+      }
       currStateAction = potential.get(pick);
       switch (pick) {
         case 0: y = y + 1; break;
@@ -168,14 +175,27 @@ public class ReinforcementLearningTest {
   }
 
   @Test
-  public void testSARSA() {
+  public void testSARSAGreedy() {
     AbstractModel model = makeModel();
     Random rnd = new Random(1234);
     float sum = 0.0f;
     for (int i = 0; i < 120; i++) {
-       sum = runEpisode(model, i, rnd);
+       sum = runEpisode(model, i, rnd, true);
        log.info("Episode " + i + " score " + sum);
     }
     assertTrue(sum > -10.0f);
   }
+
+  @Test
+  public void testSARSASoftmax() {
+    AbstractModel model = makeModel();
+    Random rnd = new Random(1234);
+    float sum = 0.0f;
+    for (int i = 0; i < 120; i++) {
+       sum = runEpisode(model, i, rnd, false);
+       log.info("Episode " + i + " score " + sum);
+    }
+    assertTrue(sum > -10.0f);
+  }
+
 }

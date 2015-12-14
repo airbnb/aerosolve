@@ -27,7 +27,7 @@ public class ReinforcementLearning implements Serializable {
                                  float reward,
                                  FeatureVector nextStateAction,
                                  float learningRate,
-                                 float decay) {
+                                 float discountRate) {
     Map<String, Map<String, Double>> flatSA = Util.flattenFeature(stateAction);
     float nextQ = 0.0f;
     if (nextStateAction != null) {
@@ -35,7 +35,7 @@ public class ReinforcementLearning implements Serializable {
     }
    
     float currentQ = model.scoreItem(stateAction);
-    float expectedQ = reward + decay * nextQ;
+    float expectedQ = reward + discountRate * nextQ;
     float grad = currentQ - expectedQ;
     model.onlineUpdate(grad, learningRate, flatSA);
   }
@@ -57,4 +57,32 @@ public class ReinforcementLearning implements Serializable {
     }
     return bestAction;
   }
+
+ // Uses softmax to determine the action.
+ // As temperature approaches zero the action approaches the greedy action.
+ public static int softmaxPolicy(AbstractModel model, ArrayList<FeatureVector> stateAction, float temperature, Random rnd) {
+   int count = stateAction.size();
+   float[] scores = new float[count];
+   float[] cumScores = new float[count];
+   float maxVal = -1e10f;
+   for (int i = 0; i < count; i++) {
+     FeatureVector sa = stateAction.get(i);
+     scores[i] = model.scoreItem(sa);
+     maxVal = Math.max(maxVal, scores[i]);
+   }
+   for (int i = 0; i < count; i ++) {
+     scores[i] = (float) Math.exp((scores[i] - maxVal) / temperature);
+     cumScores[i] = scores[i];
+     if (i > 0) {
+       cumScores[i] += cumScores[i - 1];
+     }
+   }
+   float threshold = rnd.nextFloat() * cumScores[count - 1];
+   for (int i = 0; i < count; i++) {
+     if (threshold <= cumScores[i]) {
+       return i;
+     }
+   }
+   return 0;
+ }
 }
