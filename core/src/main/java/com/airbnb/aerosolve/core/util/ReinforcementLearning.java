@@ -39,14 +39,15 @@ public class ReinforcementLearning implements Serializable {
     float grad = currentQ - expectedQ;
     model.onlineUpdate(grad, learningRate, flatSA);
   }
+
   // Picks a random action with probability epsilon.
   public static int epsilonGreedyPolicy(AbstractModel model, ArrayList<FeatureVector> stateAction, float epsilon, Random rnd) {
-    if (rnd.nextFloat() < epsilon) {
+    if (rnd.nextFloat() <= epsilon) {
       return rnd.nextInt(stateAction.size());
     }
     int bestAction = 0;
-    float bestScore = -1e10f;
-    for (int i = 0; i < stateAction.size(); i++) {
+    float bestScore = model.scoreItem(stateAction.get(0));
+    for (int i = 1; i < stateAction.size(); i++) {
       FeatureVector sa = stateAction.get(i);
       float score = model.scoreItem(sa);
       if (score > bestScore) {
