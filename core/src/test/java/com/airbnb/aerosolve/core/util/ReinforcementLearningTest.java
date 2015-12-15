@@ -33,21 +33,21 @@ public class ReinforcementLearningTest {
   }
   
   public HashMap makeState(double x, double y) {
-    HashMap stateFeatures = new HashMap<Double, String>();
+    HashMap stateFeatures = new HashMap<String, Double>();
     stateFeatures.put("x", x);
     stateFeatures.put("y", y);
     return stateFeatures;
   }
   
   public HashMap makeAction(double dx, double dy) {
-    HashMap actionFeatures = new HashMap<Double, String>();
+    HashMap actionFeatures = new HashMap<String, Double>();
     actionFeatures.put("dx", dx);
     actionFeatures.put("dy", dy);
     return actionFeatures;
   }
 
   public FeatureVector makeFeatureVector(HashMap state, HashMap action) {
-    HashMap floatFeatures = new HashMap<Double, HashMap<Double, String>>();
+    HashMap floatFeatures = new HashMap<String, HashMap<String, Double>>();
     floatFeatures.put("S", state);
     floatFeatures.put("A", action);
     FeatureVector featureVector = new FeatureVector();
