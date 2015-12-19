@@ -136,6 +136,10 @@ public class TransformFactory {
         result = new DayOfMonthTransform();
         break;
       }
+      case "day_of_week" : {
+        result = new DayOfWeekTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
