@@ -148,6 +148,10 @@ public class TransformFactory {
         result = new YearOfDateTransform();
         break;
       }
+      case "month_of_date" : {
+        result = new MonthOfDateTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
