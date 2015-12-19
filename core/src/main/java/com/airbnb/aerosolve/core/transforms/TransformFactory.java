@@ -144,6 +144,10 @@ public class TransformFactory {
         result = new DayOfYearTransform();
         break;
       }
+      case "year_of_date" : {
+        result = new YearOfDateTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
