@@ -132,6 +132,10 @@ public class TransformFactory {
         result = new DateDiffTransform();
         break;
       }
+      case "day_of_date" : {
+        result = new DayOfDateTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
