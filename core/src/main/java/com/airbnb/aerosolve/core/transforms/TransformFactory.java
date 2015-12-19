@@ -140,6 +140,10 @@ public class TransformFactory {
         result = new DayOfWeekTransform();
         break;
       }
+      case "day_of_year" : {
+        result = new DayOfYearTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
