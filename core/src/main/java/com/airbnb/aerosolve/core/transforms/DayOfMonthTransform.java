@@ -8,9 +8,9 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
- * Return (year, month, dayofmonth, dayofweek) of a date
+ * Get day of month from date
  */
-public class DateDetailsTransform extends Transform {
+public class DayOfMonthTransform extends Transform {
   private String fieldName1;
   private String outputName;
   private final static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
@@ -40,15 +40,8 @@ public class DateDetailsTransform extends Transform {
         Date date = format.parse(dateStr);
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
-        output.put(dateStr + "-year", (double)cal.get(Calendar.YEAR));
-        // First month of the year is 1
-        output.put(dateStr + "-month", (double)cal.get(Calendar.MONTH) + 1);
-        // First day of month has value 1
-        output.put(dateStr + "-dayofmonth", (double)cal.get(Calendar.DAY_OF_MONTH));
-        /*
-         SUNDAY - SATURDAY : 1 - 7,
-        */
-        output.put(dateStr + "-dayofweek", (double)cal.get(Calendar.DAY_OF_WEEK));
+        // First day of the month is 1
+        output.put(dateStr, (double)cal.get(Calendar.DAY_OF_MONTH));
       }
     } catch (ParseException e) {
       e.printStackTrace();
