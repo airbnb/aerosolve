@@ -8,8 +8,6 @@ import static org.junit.Assert.assertTrue;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
