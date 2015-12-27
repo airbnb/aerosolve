@@ -18,7 +18,8 @@ public class DateTransform extends Transform {
   protected String outputName;
   protected final static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
   @Override
-  public void configure(Config config, String key) { fieldName1 = config.getString(key + ".field1");
+  public void configure(Config config, String key) {
+    fieldName1 = config.getString(key + ".field1");
     dateType = config.getString(key + ".field2");
     outputName = config.getString(key + ".output");
   }
