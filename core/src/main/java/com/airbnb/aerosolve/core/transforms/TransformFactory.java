@@ -132,24 +132,8 @@ public class TransformFactory {
         result = new DateDiffTransform();
         break;
       }
-      case "day_of_month" : {
-        result = new DayOfMonthTransform();
-        break;
-      }
-      case "day_of_week" : {
-        result = new DayOfWeekTransform();
-        break;
-      }
-      case "day_of_year" : {
-        result = new DayOfYearTransform();
-        break;
-      }
-      case "year_of_date" : {
-        result = new YearOfDateTransform();
-        break;
-      }
-      case "month_of_date" : {
-        result = new MonthOfDateTransform();
+      case "date_val" : {
+        result = new DateTransform();
         break;
       }
     }

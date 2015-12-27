@@ -19,10 +19,11 @@ import java.util.Set;
  * Created by seckcoder on 12/20/15.
  */
 public class DateTransformTest {
-  public String makeConfig(String transformName) {
-    return "test_" + transformName + " {\n" +
-            " transform: " + transformName + "\n" +
+  public String makeConfig(String dateType) {
+    return "test_date {\n" +
+            " transform: date_val\n" +
             " field1: dates\n" +
+            " field2: " + dateType + "\n" +
             " output: bar\n" +
             "}";
   }
@@ -44,7 +45,7 @@ public class DateTransformTest {
   @Test
   public void testDayOfMonthTransform() {
   Config config = ConfigFactory.parseString(makeConfig("day_of_month"));
-    Transform transform = TransformFactory.createTransform(config, "test_day_of_month");
+    Transform transform = TransformFactory.createTransform(config, "test_date");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
 
@@ -60,7 +61,7 @@ public class DateTransformTest {
   @Test
   public void testDayOfWeekTransform() {
     Config config = ConfigFactory.parseString(makeConfig("day_of_week"));
-    Transform transform = TransformFactory.createTransform(config, "test_day_of_week");
+    Transform transform = TransformFactory.createTransform(config, "test_date");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
 
@@ -76,7 +77,7 @@ public class DateTransformTest {
   @Test
   public void testDayOfYearTransform() {
     Config config = ConfigFactory.parseString(makeConfig("day_of_year"));
-    Transform transform = TransformFactory.createTransform(config, "test_day_of_year");
+    Transform transform = TransformFactory.createTransform(config, "test_date");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
 
@@ -91,8 +92,8 @@ public class DateTransformTest {
 
   @Test
   public void testYearOfDateTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("year_of_date"));
-    Transform transform = TransformFactory.createTransform(config, "test_year_of_date");
+    Config config = ConfigFactory.parseString(makeConfig("year"));
+    Transform transform = TransformFactory.createTransform(config, "test_date");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
 
@@ -107,8 +108,8 @@ public class DateTransformTest {
 
   @Test
   public void testMonthOfDateTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("month_of_date"));
-    Transform transform = TransformFactory.createTransform(config, "test_month_of_date");
+    Config config = ConfigFactory.parseString(makeConfig("month"));
+    Transform transform = TransformFactory.createTransform(config, "test_date");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
 

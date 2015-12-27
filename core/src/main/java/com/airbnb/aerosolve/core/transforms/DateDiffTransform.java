@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * output = date_diff(field1, field2)
+ * get the date difference between dates in features of key "field1" and
+ * dates in features of key "field2"
  */
 public class DateDiffTransform extends Transform {
   private String fieldName1;
