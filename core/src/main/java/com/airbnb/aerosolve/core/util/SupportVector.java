@@ -27,6 +27,10 @@ public class SupportVector implements Serializable {
   // Weight of the kernel
   @Getter @Setter
   float weight;
+  
+  // Secondary weight of the kernel e.g. when it is the nearest neighbor.
+  @Getter @Setter
+  float secondaryWeight;
 
   public SupportVector(FloatVector fv, FunctionForm f, float s, float wt) {
     floatVector = fv;
@@ -39,6 +43,7 @@ public class SupportVector implements Serializable {
     scale = (float) rec.scale;
     form = rec.getFunctionForm();
     weight = (float) rec.getFeatureWeight();
+    secondaryWeight = (float) rec.getThreshold();
     int size = rec.weightVector.size();
     floatVector = new FloatVector(size);
     for (int i = 0; i < size; i++) {
@@ -56,6 +61,7 @@ public class SupportVector implements Serializable {
     }
     rec.setWeightVector(weightVector);
     rec.setFeatureWeight(weight);
+    rec.setThreshold(secondaryWeight);
     return rec;
   }
   
