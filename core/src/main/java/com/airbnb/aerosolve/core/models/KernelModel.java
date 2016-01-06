@@ -48,9 +48,20 @@ public class KernelModel extends AbstractModel {
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
     float sum = 0.0f;
+    float bestResponse = -1e10f;
+    int bestResponseIdx = -1;
     for (int i = 0; i < supportVectors.size(); i++) {
       SupportVector sv = supportVectors.get(i);
-      sum += sv.evaluate(vec);
+      float response = sv.evaluateUnweighted(vec);
+      if (bestResponseIdx < 0 || bestResponse < response) {
+        bestResponseIdx = i;
+        bestResponse = response;
+      }
+      sum += sv.getWeight() * response;
+    }
+    // Piecewise constant nearest neighbor response.
+    if (bestResponseIdx >= 0) {
+      sum += supportVectors.get(bestResponseIdx).getSecondaryWeight();
     }
     return sum;
   }
@@ -72,10 +83,21 @@ public class KernelModel extends AbstractModel {
   public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
     FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
     float deltaG = - learningRate * grad;
-    for (SupportVector sv : supportVectors) {
+    float bestResponse = -1e10f;
+    int bestResponseIdx = -1;
+    for (int i = 0; i < supportVectors.size(); i++) {
+      SupportVector sv = supportVectors.get(i);
       float response = sv.evaluateUnweighted(vec);
       float deltaW = deltaG * response;
+      if (bestResponseIdx < 0 || bestResponse < response) {
+        bestResponseIdx = i;
+        bestResponse = response;
+      }
       sv.setWeight(sv.getWeight() + deltaW);
+    }
+    if (bestResponseIdx >= 0) {
+      SupportVector sv = supportVectors.get(bestResponseIdx);
+      sv.setSecondaryWeight(sv.getSecondaryWeight() + deltaG);
     }
   }
 

@@ -42,7 +42,7 @@ class KernelTrainerTest {
 
   @Test
   def testRBFHinge() = {
-    testKernelClassificationTrainer("hinge", "rbf", 0.7)
+    testKernelClassificationTrainer("hinge", "rbf", 0.9)
   }
 
   @Test
@@ -52,7 +52,7 @@ class KernelTrainerTest {
 
   @Test
    def testAcosHinge() = {
-     testKernelClassificationTrainer("hinge", "acos", 0.7)
+     testKernelClassificationTrainer("hinge", "acos", 0.65)
    }
 
    @Test
