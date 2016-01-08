@@ -1,6 +1,7 @@
 language: java
 os : osx
-
+jdk:
+  - oraclejdk8
 before_install:
   - brew update
   - brew install thrift
