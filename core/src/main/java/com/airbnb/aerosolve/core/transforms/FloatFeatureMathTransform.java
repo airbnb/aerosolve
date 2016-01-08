@@ -58,7 +58,10 @@ public class FloatFeatureMathTransform extends Transform {
     for (String key : keys) {
       Double v = feature1.get(key);
       if (v != null) {
-        output.put(key, func.get().apply(v));
+        Double result = func.get().apply(v);
+        if (!result.isNaN() && !result.isInfinite()) {
+          output.put(key, result);
+        }
       }
     }
     floatFeatures.put(outputName, output);
