@@ -59,7 +59,7 @@ public class FloatFeatureMathTransformTest {
     assertEquals(Math.log10(37.7), feat2.get("lat"), 0.1);
     assertEquals(Math.log10(40.0), feat2.get("long"), 0.1);
     // for negative value, it should return the original value
-    assertEquals(-20.0, feat2.get("z"), 0.1);
+    assertEquals(Math.log10(-20), feat2.get("z"), 0.1);
 
     // test an undefined function
     Config config2 = ConfigFactory.parseString(makeConfig("tan"));
