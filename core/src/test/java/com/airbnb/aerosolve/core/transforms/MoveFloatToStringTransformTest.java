@@ -17,26 +17,6 @@ import static org.junit.Assert.assertTrue;
 public class MoveFloatToStringTransformTest {
   private static final Logger log = LoggerFactory.getLogger(MoveFloatToStringTransformTest.class);
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
-  }
-
   public String makeConfig() {
     return "test_quantize {\n" +
            " transform : move_float_to_string\n" +
@@ -60,7 +40,7 @@ public class MoveFloatToStringTransformTest {
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(config, "test_quantize");
-    FeatureVector featureVector = makeFeatureVector();
+    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
     transform.doTransform(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     assertTrue(stringFeatures.size() == 2);
