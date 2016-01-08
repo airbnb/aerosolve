@@ -1,7 +1,9 @@
 language: java
 os : osx
-jdk: oraclejdk8
 before_install:
   - brew update
   - brew install thrift
   - brew install gradle
+  - brew tap caskroom/cask
+  - brew install brew-cask
+  - brew cask install java
