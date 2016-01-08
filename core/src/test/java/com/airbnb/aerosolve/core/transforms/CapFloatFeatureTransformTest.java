@@ -17,28 +17,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class CapFloatFeatureTransformTest {
   private static final Logger log = LoggerFactory.getLogger(CapFloatFeatureTransformTest.class);
-
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    map.put("z", -20.0);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
-  }
-
+  
   public String makeConfig() {
     return "test_cap {\n" +
            " transform : cap_float\n" +
@@ -62,7 +41,7 @@ public class CapFloatFeatureTransformTest {
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(config, "test_cap");
-    FeatureVector featureVector = makeFeatureVector();
+    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
     transform.doTransform(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     assertTrue(stringFeatures.size() == 1);

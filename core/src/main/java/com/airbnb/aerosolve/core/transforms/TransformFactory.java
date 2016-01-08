@@ -136,6 +136,10 @@ public class TransformFactory {
         result = new DateTransform();
         break;
       }
+      case "math_float" : {
+        result = new FloatFeatureMathTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
