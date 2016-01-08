@@ -42,6 +42,18 @@ struct Example {
   2: optional FeatureVector context;
 }
 
+struct DictionaryEntry {
+  1: optional i32 index;
+  2: optional double mean;
+  3: optional double scale; 
+}
+
+struct DictionaryRecord {
+  1: optional map<string, map<string, DictionaryEntry>> dictionary;
+  2: optional i32 entryCount
+}
+
+
 // The model file would contain a header
 // followed by multiple model records.
 // The header contains information for the factory
@@ -103,13 +115,4 @@ struct DebugScoreDiffRecord {
   7: optional double featureWeightDiff;
 }
 
-struct DictionaryEntry {
-  1: optional i32 index;
-  2: optional double mean;
-  3: optional double scale; 
-}
 
-struct DictionaryRecord {
-  1: optional map<string, map<string, DictionaryEntry>> dictionary;
-  2: optional i32 entryCount
-}

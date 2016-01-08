@@ -128,6 +128,14 @@ public class TransformFactory {
         result = new DecisionTreeTransform();
         break;
       }
+      case "date_diff" : {
+        result = new DateDiffTransform();
+        break;
+      }
+      case "date_val" : {
+        result = new DateTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
