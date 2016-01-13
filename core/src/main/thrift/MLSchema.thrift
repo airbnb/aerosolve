@@ -53,6 +53,10 @@ struct DictionaryRecord {
   2: optional i32 entryCount
 }
 
+struct LabelDictionaryEntry {
+  1: optional string label;
+  2: optional i32 count;
+}
 
 // The model file would contain a header
 // followed by multiple model records.
@@ -69,6 +73,8 @@ struct ModelHeader {
   4: optional double slope;
   5: optional double offset;
   6: optional DictionaryRecord dictionary;
+  // Multiclass labels.
+  7: optional list<LabelDictionaryEntry> labelDictionary;
 }
 
 struct ModelRecord {
@@ -113,6 +119,16 @@ struct DebugScoreDiffRecord {
   5: optional double featureWeight1;
   6: optional double featureWeight2;
   7: optional double featureWeightDiff;
+}
+
+struct MulticlassScoringOptions {
+  // Return the top maxItems labels.
+  1: optional i32 maxItems = 1000;
+}
+
+struct MulticlassScoringResult {
+  1: optional string label;
+  2: optional double score;
 }
 
 
