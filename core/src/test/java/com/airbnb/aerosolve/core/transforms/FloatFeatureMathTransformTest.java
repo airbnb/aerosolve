@@ -24,7 +24,7 @@ public class FloatFeatureMathTransformTest {
         " transform : math_float\n" +
         " field1 : loc\n" +
         " keys : [lat,long,z]\n" +
-        " output : new_loc\n" +
+        " output : bar\n" +
         " function : " + functionName +
         "}";
   }
@@ -54,12 +54,14 @@ public class FloatFeatureMathTransformTest {
     assertEquals(40.0, feat1.get("long"), 0.1);
     assertEquals(-20.0, feat1.get("z"), 0.1);
 
-    Map<String, Double> feat2 = featureVector.getFloatFeatures().get("new_loc");
-    assertEquals(2, feat2.size());
+    Map<String, Double> feat2 = featureVector.getFloatFeatures().get("bar");
+    assertEquals(3, feat2.size());
     assertEquals(Math.log10(37.7), feat2.get("lat"), 0.1);
     assertEquals(Math.log10(40.0), feat2.get("long"), 0.1);
     // for negative value, it would be a missing feature
     assertTrue(!feat2.containsKey("z"));
+    // existing feature in 'bar' should not change
+    assertEquals(1.0, feat2.get("bar_fv"), 0.1);
 
     // test an undefined function
     Config config2 = ConfigFactory.parseString(makeConfig("tan"));
@@ -67,12 +69,14 @@ public class FloatFeatureMathTransformTest {
     FeatureVector featureVector2 = TransformTestingHelper.makeFeatureVector();
     transform2.doTransform(featureVector2);
     // the original features are unchanged
-    assertEquals(3, featureVector2.getFloatFeatures().get("loc").size());
-    Map<String, Double> feat3 = featureVector.getFloatFeatures().get("loc");
+    Map<String, Double> feat3 = featureVector2.getFloatFeatures().get("loc");
+    assertEquals(3, feat3.size());
     assertEquals(37.7, feat3.get("lat"), 0.1);
     assertEquals(40.0, feat3.get("long"), 0.1);
     assertEquals(-20.0, feat3.get("z"), 0.1);
     // new features should not exist
-    assertTrue(!featureVector2.getFloatFeatures().containsKey("new_loc"));
+    Map<String, Double> feat4 = featureVector2.getFloatFeatures().get("bar");
+    assertEquals(1, feat4.size());
+    assertEquals(1.0, feat4.get("bar_fv"), 0.1);
   }
 }

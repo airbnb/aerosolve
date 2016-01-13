@@ -69,10 +69,9 @@ public class KDTreeTransform extends Transform {
       return;
     }
 
-    Set<String> output = new HashSet<>();
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     ArrayList<Integer> result = modelOptional.get().query(v1, v2);
     int count = Math.min(result.size(), maxCount);

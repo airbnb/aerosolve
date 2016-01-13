@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
@@ -61,12 +63,7 @@ public class StuffIdIntoFeatureTransform extends Transform {
       return;
     }
 
-    Map<String, Double> output = floatFeatures.get(outputName);
-
-    if (output == null) {
-      output = new HashMap<>();
-      floatFeatures.put(outputName, output);
-    }
+    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
     String newname = key2 + '@' + v1.longValue();
     output.put(newname, v2);

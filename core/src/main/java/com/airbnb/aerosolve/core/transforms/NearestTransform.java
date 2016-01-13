@@ -48,8 +48,9 @@ public class NearestTransform extends Transform {
     if (sub == null) {
       return;
     }
-
-    Set<String> output = new HashSet<>();
+    
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
     String nearest = "nothing";
     double bestDist = 1e10;
 
@@ -63,7 +64,5 @@ public class NearestTransform extends Transform {
     output.add(key2 + "~=" + nearest);
 
     Util.optionallyCreateStringFeatures(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
   }
 }
