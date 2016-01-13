@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
@@ -12,7 +14,7 @@ public class CapFloatFeatureTransform extends Transform {
   private List<String> keys;
   private double lowerBound;
   private double upperBound;
-  private String output; // output family name, if not specified, output to fieldName1
+  private String outputName; // output family name, if not specified, output to fieldName1
 
   @Override
   public void configure(Config config, String key) {
@@ -21,9 +23,9 @@ public class CapFloatFeatureTransform extends Transform {
     lowerBound = config.getDouble(key + ".lower_bound");
     upperBound = config.getDouble(key + ".upper_bound");
     if (config.hasPath(key + ".output")) {
-      output = config.getString(key + ".output");
+      outputName = config.getString(key + ".output");
     } else {
-      output = fieldName1;
+      outputName = fieldName1;
     }
   }
 
@@ -38,16 +40,7 @@ public class CapFloatFeatureTransform extends Transform {
     if (feature1 == null) {
       return;
     }
-    Map<String, Double> feature2;
-    if (output.equals(fieldName1)) {
-      feature2 = feature1;
-    } else if (floatFeatures.containsKey(output)) {
-      feature2 = floatFeatures.get(output);
-    } else {
-      feature2 = new HashMap<>();
-      floatFeatures.put(output, feature2);
-    }
-
+    Map<String, Double> feature2 = Util.getOrCreateFloatFeature(outputName, floatFeatures);
     for (String key : keys) {
       Double v = feature1.get(key);
       if (v != null) {
