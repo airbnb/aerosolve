@@ -11,7 +11,6 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.LabelDictionaryEntry;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.MulticlassScoringOptions;
 import com.airbnb.aerosolve.core.MulticlassScoringResult;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.FloatVector;
@@ -41,7 +40,8 @@ public class FullRankLinearModel extends AbstractModel {
   @Override
   public float scoreItem(FeatureVector combinedItem) {
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    return 0.0f;
+    FloatVector sum = scoreFlatFeature(flatFeatures);
+    return sum.values[0];
   }
 
   @Override
@@ -58,10 +58,37 @@ public class FullRankLinearModel extends AbstractModel {
     return scoreRecordsList;
   }
   
-  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem, MulticlassScoringOptions options) {
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
     ArrayList<MulticlassScoringResult> results = new ArrayList<>();
+    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
+    FloatVector sum = scoreFlatFeature(flatFeatures);
     
+    for (int i = 0; i < labelDictionary.size(); i++) {
+      MulticlassScoringResult result = new MulticlassScoringResult();
+      result.setLabel(labelDictionary.get(i).getLabel());
+      result.setScore(sum.values[i]);
+      results.add(result);
+    }
+
     return results;
+  }
+
+  private FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
+    int dim = labelDictionary.size();
+    FloatVector sum = new FloatVector(dim);
+
+    for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
+      Map<String, FloatVector> family = weightVector.get(entry.getKey());
+      if (family != null) {
+        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
+          FloatVector vec = family.get(feature.getKey());
+          if (vec != null) {
+            sum.multiplyAdd(feature.getValue().floatValue(), vec);
+          }
+        }
+      }
+    }
+    return sum;
   }
 
   public void save(BufferedWriter writer) throws IOException {

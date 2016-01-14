@@ -11,7 +11,6 @@ import java.util.Map;
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
-import com.airbnb.aerosolve.core.MulticlassScoringOptions;
 import com.airbnb.aerosolve.core.MulticlassScoringResult;
 
 import lombok.Getter;
@@ -53,8 +52,7 @@ public abstract class AbstractModel implements Model, Serializable {
   }
   
   // Optional method for multi-class classifiers.
-  // Returns class scores sorted in descending order.
-  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem, MulticlassScoringOptions options) {
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
     assert(false);
     return new ArrayList<MulticlassScoringResult>();
   }

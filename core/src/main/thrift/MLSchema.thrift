@@ -121,11 +121,6 @@ struct DebugScoreDiffRecord {
   7: optional double featureWeightDiff;
 }
 
-struct MulticlassScoringOptions {
-  // Return the top maxItems labels.
-  1: optional i32 maxItems = 1000;
-}
-
 struct MulticlassScoringResult {
   1: optional string label;
   2: optional double score;
