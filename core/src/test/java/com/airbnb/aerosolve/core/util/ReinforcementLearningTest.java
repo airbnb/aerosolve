@@ -2,9 +2,12 @@ package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ForestModelOptions;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.models.AbstractModel;
 import com.airbnb.aerosolve.core.models.KernelModel;
+import com.airbnb.aerosolve.core.models.ForestModel;
+
 
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -70,7 +73,15 @@ public class ReinforcementLearningTest {
     return potential;
   }
 
-  AbstractModel makeModel() {
+  AbstractModel makeModel(String modelType) {
+    switch (modelType) {
+      case "kernel" : return makeKernelModel();
+      case "forest" : return makeForestModel();
+    }
+    return null;
+  }
+  
+  AbstractModel makeKernelModel() {
     KernelModel model = new KernelModel();
     StringDictionary dict = makeDictionary();
     model.setDictionary(dict);
@@ -88,6 +99,18 @@ public class ReinforcementLearningTest {
     }
     return model;
   }
+  
+  AbstractModel makeForestModel() {
+    ForestModel model = new ForestModel();
+    ForestModelOptions options = new ForestModelOptions();
+    options.setSampleSize(100);
+    options.setMaxDepth(8);
+    options.setMinItemCount(10);
+    options.setNumTries(10);
+    model.setOptions(options);
+    return model;
+  }
+
 
   // In the cliffworld scenario, the agent starts at (0,0)
   // There is a cliff in the region (2.0, 0.0) to (8.0, 2.0) if the agent steps in the cliff it gets a reward of -100 and teleports back to the start.
@@ -114,6 +137,7 @@ public class ReinforcementLearningTest {
       learningRate = 0.001f;
     }
     boolean done = false;
+    int steps = 0;
     while (!done) {
       ArrayList<FeatureVector> potential = stateActions(x, y);
 
@@ -151,8 +175,10 @@ public class ReinforcementLearningTest {
       }
       // The cliff teleports back to the start.
       if (x >= 2.0 && x <= 8.0 && y <= 2.0) {
+        log.info("CLIFF");
         x = y = 0.0;
         reward = -100.0f;
+        done = true;
       }
       // Goal
       if (x >= 9.0f && y <= 1.0f) {
@@ -162,40 +188,53 @@ public class ReinforcementLearningTest {
       }
       if (prevStateAction != null) {
         if (done) {
-          ReinforcementLearning.updateSARSA(model, currStateAction, reward, null, learningRate, 1.0f);
+          ReinforcementLearning.updateSARSA(model, currStateAction, reward, null, learningRate, 0.99f);
         } else {
-          ReinforcementLearning.updateSARSA(model, prevStateAction, prevReward, currStateAction, learningRate, 1.0f);
+          ReinforcementLearning.updateSARSA(model, prevStateAction, prevReward, currStateAction, learningRate, 0.99f);
         }
       }
       prevStateAction = currStateAction;
       sum += reward;
       prevReward = reward;
+      steps++;
+      if (steps > 1000) {
+        log.info("Over 1000 steps");
+        done = true;
+      }
     }
     return sum;
   }
-
-  @Test
-  public void testSARSAGreedy() {
-    AbstractModel model = makeModel();
+  
+  public void testRL(boolean epsGreedy, String modelType, double threshold) {
+    AbstractModel model = makeModel(modelType);
     Random rnd = new Random(1234);
     float sum = 0.0f;
     for (int i = 0; i < 120; i++) {
        sum = runEpisode(model, i, rnd, true);
        log.info("Episode " + i + " score " + sum);
     }
-    assertTrue(sum > -10.0f);
+    assertTrue(sum > threshold);
   }
 
   @Test
-  public void testSARSASoftmax() {
-    AbstractModel model = makeModel();
-    Random rnd = new Random(1234);
-    float sum = 0.0f;
-    for (int i = 0; i < 120; i++) {
-       sum = runEpisode(model, i, rnd, false);
-       log.info("Episode " + i + " score " + sum);
-    }
-    assertTrue(sum > -10.0f);
+  public void testKernelSARSAGreedy() {
+    testRL(true, "kernel", -10.0);
   }
+
+  @Test
+  public void testKernelSARSASoftmax() {
+    testRL(false, "kernel", -10.0);
+  }
+  
+  @Test
+  public void testForestSARSAGreedy() {
+    testRL(true, "forest", -10.0);
+  }
+
+  @Test
+  public void testForestSARSASoftmax() {
+    testRL(false, "forest", -10.0);
+  }
+
 
 }
