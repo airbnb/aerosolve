@@ -1,16 +1,18 @@
 package com.airbnb.aerosolve.training
 
-import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
+import java.io.{BufferedReader, BufferedWriter, StringReader, StringWriter}
 
+import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
 import com.airbnb.aerosolve.core.models.{ModelFactory, SplineModel}
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
+import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
 import org.slf4j.LoggerFactory
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import scala.collection.JavaConverters._
+
+import scala.collection.mutable.ArrayBuffer
 
 class SplineTrainerTest {
   val log = LoggerFactory.getLogger("SplineTrainerTest")
@@ -102,7 +104,7 @@ class SplineTrainerTest {
   def testSplineTrainerHinge : Unit = {
     testSplineTrainer("hinge", 0.0, "")
   }
-  
+
   @Test
   def testSplineTrainerLogisticWithDropout : Unit = {
     testSplineTrainer("logistic", 0.2, "")
@@ -112,27 +114,33 @@ class SplineTrainerTest {
   def testSplineTrainerHingeWithDropout : Unit = {
     testSplineTrainer("hinge", 0.2, "")
   }
-  
+
   @Test
   def testSplineTrainerHingeWithMargin : Unit = {
     testSplineTrainer("hinge", 0.0, "margin : 0.5")
   }
-  
-  
+
   @Test
   def testSplineTrainerLogisticMultiscale : Unit = {
     testSplineTrainer("logistic", 0.0, "multiscale : [5, 7, 16]")
   }
-  
+
   @Test
   def testSplineTrainerHingeMultiscale : Unit = {
     testSplineTrainer("hinge", 0.0, "multiscale : [ 5, 7, 16]")
   }
-  
-  
+
   @Test
   def testSplineTrainerHingeMultiscaleLessBags : Unit = {
     testSplineTrainer("hinge", 0.2, "multiscale : [ 7, 16]")
+  }
+
+  private def getClassificationModel(
+      sc: SparkContext, loss : String, dropout : Double, extraArgs : String,
+      examples: ArrayBuffer[Example]) = {
+    SplineTrainer.train(
+      sc, sc.parallelize(examples),
+      ConfigFactory.parseString(makeConfig(loss, dropout, extraArgs)), "model_config")
   }
 
   def testSplineTrainer(loss : String, dropout : Double, extraArgs : String) = {
@@ -141,10 +149,7 @@ class SplineTrainerTest {
     var sc = new SparkContext("local", "SplineTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss, dropout, extraArgs))
-
-      val input = sc.parallelize(examples)
-      val model = SplineTrainer.train(sc, input, config, "model_config")
+      val model = getClassificationModel(sc, loss, dropout, extraArgs, examples)
 
       TrainingTestHelper.printSpline(model)
 
@@ -160,7 +165,7 @@ class SplineTrainerTest {
       }
       val fracCorrect : Double = numCorrect * 1.0 / examples.length
       log.info("Num correct = %d, frac correct = %f, num pos = %d, num neg = %d"
-                 .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
+        .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
       assertTrue(fracCorrect > 0.6)
 
       val swriter = new StringWriter()
@@ -183,7 +188,7 @@ class SplineTrainerTest {
         assertEquals(score, score2, 0.01f)
       }
 
-   } finally {
+    } finally {
       sc.stop
       sc = null
       // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
@@ -267,6 +272,63 @@ class SplineTrainerTest {
       val testError = testTotalError / testingExample.size.toDouble
       log.info("Testing: Average absolute error = %f".format(testError))
       assertTrue(testError < 3.0)
+    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  private def getPosCases(
+     model : SplineModel, examples : ArrayBuffer[Example], labels : ArrayBuffer[Double]) : Int = {
+    val trainLabelArr = labels.toArray
+    var numCorrect : Int = 0
+    var i = 0
+    // compute training error
+    for (ex <- examples) {
+      val score = model.scoreItem(ex.example.get(0))
+      val label = trainLabelArr(i)
+      if (score * label > 0) numCorrect += 1
+      i += 1
+    }
+    numCorrect
+  }
+
+  @Test
+  def testRegressionVSClassification() : Unit = {
+    testRegressionVSClassification("logistic", 0.2, "", "logistic_vs_R")
+    testRegressionVSClassification("hinge", 0.2, "", "hinge1_vs_R")
+    testRegressionVSClassification("hinge", 0.0, "margin : 0.5", "hinge2_vs_R")
+    testRegressionVSClassification("hinge", 0.0, "multiscale : [ 5, 7, 16]", "hinge3_vs_R")
+    testRegressionVSClassification("hinge", 0.2, "multiscale : [ 7, 16]", "hinge4_vs_R")
+  }
+
+  private def testRegressionVSClassification(
+      loss : String, dropout : Double, extraArgs : String, name : String): Unit = {
+    val (regressionExamples, regressionLabels, classificationExamples, classificationLabels, numPos)
+      = TrainingTestHelper.makeRegressionAndClassificationExamples(200)
+    var sc = new SparkContext("local", "RegressionVSClassificationTest")
+    try {
+      val classificationModel = getClassificationModel(
+        sc, loss, dropout, extraArgs, classificationExamples)
+      val regressionModel = SplineTrainer.train(
+        sc, sc.parallelize(regressionExamples),
+        ConfigFactory.parseString(makeRegressionConfig), "model_config")
+      TrainingTestHelper.printSpline(classificationModel)
+      TrainingTestHelper.printSpline(regressionModel)
+      log.info("%s: %d vs %d : %d".format(name, getPosCases(
+        regressionModel, regressionExamples, regressionLabels),
+        getPosCases(classificationModel, classificationExamples, classificationLabels), numPos))
+
+      val (regressionTestExamples, regressionTestLabels,
+        classificationTestExamples, classificationTestLabels, numPosTest)
+        = TrainingTestHelper.makeRegressionAndClassificationExamples(200, 25)
+
+      log.info("%s %d vs %d : %d".format(name, getPosCases(
+        regressionModel, regressionTestExamples, regressionTestLabels),
+        getPosCases(
+          classificationModel, classificationTestExamples, classificationTestLabels), numPosTest))
     } finally {
       sc.stop
       sc = null
