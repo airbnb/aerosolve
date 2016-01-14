@@ -35,10 +35,9 @@ public class MultiscaleQuantizeTransform extends Transform {
       return;
     }
 
-    Set<String> output = new HashSet<>();
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     for (Entry<String, Double> feature : feature1.entrySet()) {
       transformAndAddFeature(buckets,

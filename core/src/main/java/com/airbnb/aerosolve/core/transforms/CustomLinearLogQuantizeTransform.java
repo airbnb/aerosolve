@@ -105,11 +105,7 @@ public class CustomLinearLogQuantizeTransform extends Transform {
 
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Set<String> output = stringFeatures.get(outputName);
-    if (output == null) {
-      output = new HashSet<>();
-      stringFeatures.put(outputName, output);
-    }
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     StringBuilder sb = new StringBuilder();
     for (Entry<String, Double> feature : feature1.entrySet()) {

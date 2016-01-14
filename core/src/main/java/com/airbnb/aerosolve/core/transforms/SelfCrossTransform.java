@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,11 +30,7 @@ public class SelfCrossTransform extends Transform {
     Set<String> set1 = stringFeatures.get(fieldName1);
     if (set1 == null) return;
 
-    Set<String> output = stringFeatures.get(outputName);
-    if (output == null) {
-      output = new HashSet<>();
-      stringFeatures.put(outputName, output);
-    }
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     selfCross(set1, output);
   }

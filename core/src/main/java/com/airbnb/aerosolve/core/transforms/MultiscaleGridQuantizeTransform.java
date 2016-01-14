@@ -46,11 +46,9 @@ public class MultiscaleGridQuantizeTransform extends Transform {
       return;
     }
 
-    Set<String> output = new HashSet<>();
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
-
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
     transformFeature(v1, v2, buckets, output);
   }
 

@@ -23,6 +23,14 @@ public class TransformTestingHelper {
     map.put("z", -20.0);
     floatFeatures.put("loc", map);
 
+    Map<String, Double> map2 = new HashMap<>();
+    map2.put("foo", 1.5);
+    floatFeatures.put("F", map2);
+
+    Map<String, Double> map3 = new HashMap<>();
+    map3.put("bar_fv", 1.0);
+    floatFeatures.put("bar", map3);
+
     FeatureVector featureVector = new FeatureVector();
     featureVector.setStringFeatures(stringFeatures);
     featureVector.setFloatFeatures(floatFeatures);

@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
@@ -54,7 +56,8 @@ public class FloatFeatureMathTransform extends Transform {
     if (feature1 == null) {
       return;
     }
-    Map<String, Double> output = new HashMap<>();
+
+    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
     for (String key : keys) {
       Double v = feature1.get(key);
       if (v != null) {
@@ -64,7 +67,6 @@ public class FloatFeatureMathTransform extends Transform {
         }
       }
     }
-    floatFeatures.put(outputName, output);
   }
 
   private Optional<DoubleFunction<Double>> getFunction() {

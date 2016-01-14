@@ -46,10 +46,7 @@ public class MoveFloatToStringTransform extends Transform {
 
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (!stringFeatures.containsKey(outputName)) {
-      stringFeatures.put(outputName, new HashSet<String>());
-    }
-    Set<String> output = stringFeatures.get(outputName);
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     for (String key : keys) {
       if (feature1.containsKey(key)) {

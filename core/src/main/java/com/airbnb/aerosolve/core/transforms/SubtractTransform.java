@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
@@ -55,7 +57,7 @@ public class SubtractTransform extends Transform {
       return;
     }
 
-    Map<String, Double> output = new HashMap<>();
+    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
     for (Entry<String, Double> f1 : feature1.entrySet()) {
       String key = f1.getKey();
@@ -66,6 +68,5 @@ public class SubtractTransform extends Transform {
         }
       }
     }
-    floatFeatures.put(outputName, output);
   }
 }

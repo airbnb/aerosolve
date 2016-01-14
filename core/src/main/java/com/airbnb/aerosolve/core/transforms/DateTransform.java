@@ -1,6 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.Util;
+
 import com.typesafe.config.Config;
 
 import java.text.SimpleDateFormat;
@@ -37,7 +39,7 @@ public class DateTransform extends Transform {
       return ;
     }
 
-    Map<String, Double> output = new HashMap<>();
+    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
     for (String dateStr: feature1) {
       try {
@@ -70,7 +72,5 @@ public class DateTransform extends Transform {
         continue ;
       }
     }
-
-    floatFeatures.put(outputName, output);
   }
 }

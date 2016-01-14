@@ -133,10 +133,9 @@ public class LinearLogQuantizeTransform extends Transform {
       return;
     }
 
-    Set<String> output = new HashSet<>();
     Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
+    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
     for (Entry<String, Double> feature : feature1.entrySet()) {
       output.add(logQuantize(feature.getKey(), feature.getValue()));
