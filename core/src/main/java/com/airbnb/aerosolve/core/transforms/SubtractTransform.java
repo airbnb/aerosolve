@@ -58,11 +58,11 @@ public class SubtractTransform extends Transform {
     }
 
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
+    Set<String> allKeys = feature1.keySet();
 
-    for (Entry<String, Double> f1 : feature1.entrySet()) {
-      String key = f1.getKey();
+    for (String key : allKeys) {
       if (keys == null || keys.contains(key)) {
-        Double val = f1.getValue();
+        Double val = feature1.get(key);
         if (val != null) {
           output.put(key + '-' + key2, val - sub);
         }
