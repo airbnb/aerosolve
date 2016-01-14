@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * output = field1.keys / (field2.key2 + constant)
@@ -60,10 +61,11 @@ public class DivideTransform extends Transform {
     Double scale = 1.0 / (constant + div);
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
-    for (Entry<String, Double> f1 : feature1.entrySet()) {
-      String key = f1.getKey();
+    Set<String> allKeys = feature1.keySet();
+
+    for (String key : allKeys) {
       if (keys == null || keys.contains(key)) {
-        Double val = f1.getValue();
+        Double val = feature1.get(key);
         if (val != null) {
           output.put(key + "-d-" + key2, val * scale);
         }
