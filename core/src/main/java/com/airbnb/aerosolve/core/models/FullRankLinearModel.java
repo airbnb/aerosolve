@@ -34,6 +34,8 @@ public class FullRankLinearModel extends AbstractModel {
   private ArrayList<LabelDictionaryEntry> labelDictionary;
 
   public FullRankLinearModel() {
+    weightVector = new HashMap<>();
+    labelDictionary = new ArrayList<>();
   }
 
   // In the binary case this is just the score for class 0.

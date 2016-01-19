@@ -4,8 +4,9 @@ import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.util.concurrent.ConcurrentHashMap
 
-import com.airbnb.aerosolve.core.{ModelRecord, ModelHeader, FeatureVector, Example}
+import com.airbnb.aerosolve.core.{ModelRecord, ModelHeader, FeatureVector, Example, LabelDictionaryEntry}
 import com.airbnb.aerosolve.core.models.FullRankLinearModel
+import com.airbnb.aerosolve.core.util.FloatVector
 import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.slf4j.{LoggerFactory, Logger}
@@ -38,7 +39,8 @@ object FullRankLinearTrainer {
                                           learningRate : Double,
                                           subsample : Double,
                                           lambda : Double,
-                                          lambda2 : Double)
+                                          lambda2 : Double,
+                                          minCount : Int)
   
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
  
@@ -49,10 +51,50 @@ object FullRankLinearTrainer {
         learningRate = config.getDouble("learning_rate"),
         subsample = config.getDouble("subsample"),
         lambda = config.getDouble("lambda"),
-        lambda2 = config.getDouble("lambda2")       
+        lambda2 = config.getDouble("lambda2"),
+        minCount = config.getInt("min_count")
     )    
   }
   
+  def setupModel(options : FullRankLinearTrainerOptions, pointwise : RDD[Example]) : FullRankLinearModel = {
+    val stats = TrainingUtils.getFeatureStatistics(options.minCount, pointwise)
+    val model = new FullRankLinearModel()
+    val weights = model.getWeightVector()
+    val dict = model.getLabelDictionary()
+
+    for (kv <- stats) {
+      val (family, feature) = kv._1
+      if (family == options.rankKey) {
+        val entry = new LabelDictionaryEntry()
+        entry.setLabel(feature)
+        entry.setCount(kv._2.count.toInt)
+        dict.add(entry)
+      } else {
+        if (!weights.containsKey(family)) {
+          weights.put(family, new java.util.HashMap[java.lang.String, FloatVector]())
+        }
+        val familyMap = weights.get(family)
+        if (!familyMap.containsKey(feature)) {
+          // Dummy entry until we know the number of labels.
+          familyMap.put(feature, null)
+        }
+      }
+    }
+
+    val dim = dict.size()
+    log.info(s"Total number of labels is $dim")
+
+    // Now fill all the feature vectors with length dim.
+    for (family <- weights) {
+      val keys = family._2.keySet()
+      for (key <- keys) {
+        family._2.put(key, new FloatVector(dim))
+      }
+    }
+
+    model
+  }
+
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
@@ -62,11 +104,11 @@ object FullRankLinearTrainer {
     val pointwise : RDD[Example] =
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
-        .cache()
-        
-    val model = new FullRankLinearModel()
+
+    val model = setupModel(options, pointwise)
     model
   }
+
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
