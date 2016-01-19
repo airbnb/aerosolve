@@ -30,8 +30,6 @@ import org.apache.hadoop.fs.Path
 
 object FullRankLinearTrainer {
   private final val log: Logger = LoggerFactory.getLogger("FullRankLinearTrainer")
-  private final val lossKey = ("$loss", "$loss")
-  val MAX_WEIGHTS : Int = 1000000
   
   case class FullRankLinearTrainerOptions(loss : String,
                                           iterations : Int,
@@ -42,6 +40,28 @@ object FullRankLinearTrainer {
                                           lambda2 : Double,
                                           minCount : Int)
   
+  def train(sc : SparkContext,
+            input : RDD[Example],
+            config : Config,
+            key : String) : FullRankLinearModel = {
+    val options = parseTrainingOptions(config.getConfig(key))
+
+    val pointwise : RDD[Example] =
+      LinearRankerUtils
+        .makePointwiseFloat(input, config, key)
+
+    val model = setupModel(options, pointwise)
+    model
+  }
+
+  def trainAndSaveToFile(sc : SparkContext,
+                         input : RDD[Example],
+                         config : Config,
+                         key : String) = {
+    val model = train(sc, input, config, key)
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
+
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
  
     FullRankLinearTrainerOptions(
@@ -85,35 +105,16 @@ object FullRankLinearTrainer {
     log.info(s"Total number of labels is $dim")
 
     // Now fill all the feature vectors with length dim.
+    var count : Int = 0
     for (family <- weights) {
       val keys = family._2.keySet()
       for (key <- keys) {
+        count = count + 1
         family._2.put(key, new FloatVector(dim))
       }
     }
+    log.info(s"Total number of features is $count")
 
     model
-  }
-
-  def train(sc : SparkContext,
-            input : RDD[Example],
-            config : Config,
-            key : String) : FullRankLinearModel = {
-    val options = parseTrainingOptions(config.getConfig(key))
-
-    val pointwise : RDD[Example] =
-      LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
-
-    val model = setupModel(options, pointwise)
-    model
-  }
-
-  def trainAndSaveToFile(sc : SparkContext,
-                         input : RDD[Example],
-                         config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
-    TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }
