@@ -33,6 +33,9 @@ public class FullRankLinearModel extends AbstractModel {
   @Getter @Setter
   private ArrayList<LabelDictionaryEntry> labelDictionary;
 
+  @Getter @Setter
+  private Map<String, Integer> labelToIndex;
+
   public FullRankLinearModel() {
     weightVector = new HashMap<>();
     labelDictionary = new ArrayList<>();
@@ -75,7 +78,7 @@ public class FullRankLinearModel extends AbstractModel {
     return results;
   }
 
-  private FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
+  public FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
     int dim = labelDictionary.size();
     FloatVector sum = new FloatVector(dim);
 
@@ -91,6 +94,13 @@ public class FullRankLinearModel extends AbstractModel {
       }
     }
     return sum;
+  }
+
+  public void buildLabelToIndex() {
+    labelToIndex = new HashMap<>();
+    for (int i = 0; i < labelDictionary.size(); i++) {
+      labelToIndex.put(labelDictionary.get(i).label, i);
+    }
   }
 
   public void save(BufferedWriter writer) throws IOException {
@@ -132,6 +142,7 @@ public class FullRankLinearModel extends AbstractModel {
     for (LabelDictionaryEntry entry : header.getLabelDictionary()) {
       labelDictionary.add(entry);
     }
+    buildLabelToIndex();
     weightVector = new HashMap<>();
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();

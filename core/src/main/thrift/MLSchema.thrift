@@ -124,6 +124,7 @@ struct DebugScoreDiffRecord {
 struct MulticlassScoringResult {
   1: optional string label;
   2: optional double score;
+  3: optional double probability;
 }
 
 

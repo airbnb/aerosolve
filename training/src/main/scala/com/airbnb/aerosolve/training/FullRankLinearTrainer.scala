@@ -39,7 +39,7 @@ object FullRankLinearTrainer {
                                           lambda : Double,
                                           lambda2 : Double,
                                           minCount : Int)
-  
+
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
@@ -51,6 +51,11 @@ object FullRankLinearTrainer {
         .makePointwiseFloat(input, config, key)
 
     val model = setupModel(options, pointwise)
+
+    for (iter <- 0 until options.iterations) {
+      log.info(s"Iteration $iter")
+      modelIteration(sc, options, model, pointwise)
+    }
     model
   }
 
@@ -60,6 +65,66 @@ object FullRankLinearTrainer {
                          key : String) = {
     val model = train(sc, input, config, key)
     TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
+  
+  def modelIteration(sc : SparkContext,
+                     options : FullRankLinearTrainerOptions,
+                     model : FullRankLinearModel,
+                     pointwise : RDD[Example]) = {
+    val gradient : Array[((String, String), FloatVector)] = options.loss match {
+      case "softmax" => softmaxGradient(sc, options, model, pointwise)
+      case _ : String => softmaxGradient(sc, options, model, pointwise)
+    }
+  }
+  
+  def softmaxGradient(sc : SparkContext,
+                      options : FullRankLinearTrainerOptions,
+                      model : FullRankLinearModel,
+                      pointwise : RDD[Example]) : Array[((String, String), FloatVector)] = {
+    val modelBC = sc.broadcast(model)
+    
+    pointwise
+    .mapPartitions(partition => {
+      val model = modelBC.value
+      val labelToIdx = model.getLabelToIndex()
+      val dim = model.getLabelDictionary.size()
+      val gradient = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+      val weightVector = model.getWeightVector()
+
+      partition.foreach(examples => {
+        val flatFeatures = Util.flattenFeature(examples.example.get(0))
+        val labels = flatFeatures.get(options.rankKey)
+        if (labels != null) {
+          val posLabels = labels.keySet().asScala
+          val scores = model.scoreFlatFeature(flatFeatures)
+          // Convert to multinomial using softmax.
+          scores.softmax()
+          // The importance is prob - 1 for positive labels, prob otherwise.
+          for (posLabel <- posLabels) {
+            val posIdx = labelToIdx.get(posLabel)
+            if (posIdx != null) {
+              scores.values(posIdx) -= 1
+            }
+          }
+          // Gradient is importance * feature value
+          for (family <- flatFeatures) {
+            for (feature <- family._2) {
+              val key = (family._1, feature._1)
+              // We only care about features in the model.
+              if (weightVector.containsKey(key._1) && weightVector.get(key._1).containsKey(key._2)) {
+                val featureVal = feature._2
+                val grad = gradient.getOrElse(key, new FloatVector(dim))
+                grad.multiplyAdd(featureVal.toFloat, scores)
+                gradient.put(key, grad)
+              }
+            }
+          }
+        }
+      })
+      gradient.iterator
+    })
+    .reduceByKey((a, b) => {a.add(b); a})
+    .collect
   }
 
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
@@ -114,6 +179,7 @@ object FullRankLinearTrainer {
       }
     }
     log.info(s"Total number of features is $count")
+    model.buildLabelToIndex();
 
     model
   }

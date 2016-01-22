@@ -91,6 +91,24 @@ public class FloatVector implements Serializable {
     }
   }
 
+  public void softmax() {
+    float maxVal = values[0];
+    for (int i = 1; i < values.length; i++) {
+      maxVal = Math.max(maxVal, values[i]);
+    }
+    float sum = 0.0f;
+    for (int i = 0; i < values.length; i++) {
+      values[i] = (float) Math.exp(values[i] - maxVal);
+      sum += values[i];
+    }
+    if (sum <= 1e-10f) {
+      sum = 1e-10f;
+    }
+    for (int i = 0; i < values.length; i++) {
+      values[i] /= sum;
+    }
+  }
+
   public String toString() {
     return java.util.Arrays.toString(values);
   }
