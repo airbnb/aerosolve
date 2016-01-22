@@ -104,6 +104,10 @@ public class TransformFactory {
         result = new CapFloatFeatureTransform();
         break;
       }
+      case "cut_float" : {
+        result = new CutFloatFeatureTransform();
+        break;
+      }
       case "stuff_id" : {
         result = new StuffIdIntoFeatureTransform();
         break;
