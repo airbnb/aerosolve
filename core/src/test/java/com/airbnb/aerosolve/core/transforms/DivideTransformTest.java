@@ -18,17 +18,6 @@ import static org.junit.Assert.assertTrue;
 public class DivideTransformTest {
   private static final Logger log = LoggerFactory.getLogger(DivideTransformTest.class);
 
-  public String makeConfig() {
-    return "test_divide {\n" +
-        " transform : divide\n" +
-        " field1 : loc\n" +
-        " field2 : F\n" +
-        " key2 : foo\n" +
-        " constant : 0.1\n" +
-        " output : bar\n" +
-        "}";
-  }
-
   public String makeConfigWithKeys() {
     return "test_divide {\n" +
            " transform : divide\n" +
@@ -43,31 +32,11 @@ public class DivideTransformTest {
   
   @Test
   public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
+    Config config = ConfigFactory.parseString(makeConfigWithKeys());
     Transform transform = TransformFactory.createTransform(config, "test_divide");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
     assertTrue(featureVector.getStringFeatures() == null);
-  }
-
-  @Test
-  public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_divide");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
-
-    Map<String, Double> out = featureVector.floatFeatures.get("bar");
-    for (Map.Entry<String, Double> entry : out.entrySet()) {
-      log.info(entry.getKey() + "=" + entry.getValue());
-    }
-    assertTrue(out.size() == 4);
-    assertEquals(37.7 / 1.6, out.get("lat-d-foo"), 0.1);
-    assertEquals(40.0 / 1.6, out.get("long-d-foo"), 0.1);
-    assertEquals(-20.0 / 1.6, out.get("z-d-foo"), 0.1);
-    assertEquals(1.0, out.get("bar_fv"), 0.1);
   }
 
   @Test
