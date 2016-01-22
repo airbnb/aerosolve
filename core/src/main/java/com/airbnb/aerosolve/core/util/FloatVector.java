@@ -58,6 +58,12 @@ public class FloatVector implements Serializable {
     return sum;
   }
 
+  public void scale(float scale) {
+    for (int i  = 0; i < values.length; i++) {
+      values[i] *= scale;
+    }
+  }
+
   // Squared euclidean distance
   public float l2Distance2(FloatVector other) {
     assert(values.length == other.values.length);

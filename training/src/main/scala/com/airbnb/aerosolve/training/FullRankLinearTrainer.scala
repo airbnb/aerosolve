@@ -34,11 +34,15 @@ object FullRankLinearTrainer {
   case class FullRankLinearTrainerOptions(loss : String,
                                           iterations : Int,
                                           rankKey : String,
-                                          learningRate : Double,
-                                          subsample : Double,
                                           lambda : Double,
-                                          lambda2 : Double,
                                           minCount : Int)
+
+  case class GradientContainer(grad : FloatVector, featureSquaredSum : Double)
+
+  def sumGradients(a : GradientContainer, b : GradientContainer) : GradientContainer = {
+    a.grad.add(b.grad)
+    GradientContainer(a.grad, a.featureSquaredSum + b.featureSquaredSum)
+  }
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -49,6 +53,7 @@ object FullRankLinearTrainer {
     val pointwise : RDD[Example] =
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
+        .cache()
 
     val model = setupModel(options, pointwise)
 
@@ -71,16 +76,44 @@ object FullRankLinearTrainer {
                      options : FullRankLinearTrainerOptions,
                      model : FullRankLinearModel,
                      pointwise : RDD[Example]) = {
-    val gradient : Array[((String, String), FloatVector)] = options.loss match {
+    val gradients : Array[((String, String), GradientContainer)] = options.loss match {
       case "softmax" => softmaxGradient(sc, options, model, pointwise)
       case _ : String => softmaxGradient(sc, options, model, pointwise)
     }
+    val weightVector = model.getWeightVector()
+    val dim = model.getLabelDictionary.size()
+    var gradientNorm = 0.0
+    var featureCount = 0
+    // Gradient update rule from "boosting with structural sparsity Duchi et al 2009"
+    gradients.foreach(kv => {
+      val (key, gradient) = kv
+      val featureMap = weightVector.get(key._1)
+      if (featureMap != null) {
+        val weight = featureMap.get(key._2)
+        if (weight != null) {
+          // Just a proxy measure for convergence.
+          gradientNorm = gradientNorm + gradient.grad.dot(gradient.grad)
+          val scale = 2.0 / math.max(1e-6, gradient.featureSquaredSum)
+          weight.multiplyAdd(-scale.toFloat, gradient.grad)
+          val hingeScale = 1.0 - options.lambda * scale / math.sqrt(weight.dot(weight))
+          if (hingeScale <= 0.0f) {
+            // This entire weight got regularized away.
+            featureMap.remove(key._2)
+          } else {
+            featureCount = featureCount + 1
+            weight.scale(hingeScale.toFloat)
+          }
+        }
+      }
+    })
+    log.info("Sum of Gradient L2 norms = " + gradientNorm)
+    log.info("Num active features = " + featureCount)
   }
   
   def softmaxGradient(sc : SparkContext,
                       options : FullRankLinearTrainerOptions,
                       model : FullRankLinearModel,
-                      pointwise : RDD[Example]) : Array[((String, String), FloatVector)] = {
+                      pointwise : RDD[Example]) : Array[((String, String), GradientContainer)] = {
     val modelBC = sc.broadcast(model)
     
     pointwise
@@ -88,7 +121,7 @@ object FullRankLinearTrainer {
       val model = modelBC.value
       val labelToIdx = model.getLabelToIndex()
       val dim = model.getLabelDictionary.size()
-      val gradient = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+      val gradient = scala.collection.mutable.HashMap[(String, String), GradientContainer]()
       val weightVector = model.getWeightVector()
 
       partition.foreach(examples => {
@@ -113,9 +146,13 @@ object FullRankLinearTrainer {
               // We only care about features in the model.
               if (weightVector.containsKey(key._1) && weightVector.get(key._1).containsKey(key._2)) {
                 val featureVal = feature._2
-                val grad = gradient.getOrElse(key, new FloatVector(dim))
-                grad.multiplyAdd(featureVal.toFloat, scores)
-                gradient.put(key, grad)
+                val gradContainer = gradient.getOrElse(key,
+                                                       GradientContainer(new FloatVector(dim), 0.0))
+                gradContainer.grad.multiplyAdd(featureVal.toFloat, scores)
+                gradient.put(key,
+                             GradientContainer(gradContainer.grad,
+                             gradContainer.featureSquaredSum + featureVal * featureVal
+                ))
               }
             }
           }
@@ -123,7 +160,7 @@ object FullRankLinearTrainer {
       })
       gradient.iterator
     })
-    .reduceByKey((a, b) => {a.add(b); a})
+    .reduceByKey((a, b) => sumGradients(a,b))
     .collect
   }
 
@@ -133,10 +170,7 @@ object FullRankLinearTrainer {
         loss = config.getString("loss"),
         iterations = config.getInt("iterations"),
         rankKey = config.getString("rank_key"),
-        learningRate = config.getDouble("learning_rate"),
-        subsample = config.getDouble("subsample"),
         lambda = config.getDouble("lambda"),
-        lambda2 = config.getDouble("lambda2"),
         minCount = config.getInt("min_count")
     )    
   }

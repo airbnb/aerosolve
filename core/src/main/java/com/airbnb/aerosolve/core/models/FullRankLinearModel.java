@@ -154,7 +154,7 @@ public class FullRankLinearModel extends AbstractModel {
         inner = new HashMap<>();
         weightVector.put(family, inner);
       }
-      FloatVector vec = new FloatVector();
+      FloatVector vec = new FloatVector(record.getWeightVector().size());
       for (int j = 0; j < record.getWeightVector().size(); j++) {
         vec.values[j] = record.getWeightVector().get(j).floatValue();
       }
