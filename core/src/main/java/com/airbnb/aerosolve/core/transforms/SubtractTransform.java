@@ -14,8 +14,6 @@ import java.util.Map.Entry;
 
 /**
  * output = field1 - field2.key
- * If keys are provided, features specified in keys from field1 are considered, otherwise
- * all features in field1 are considered
  */
 public class SubtractTransform extends Transform {
   private String fieldName1;
@@ -56,7 +54,6 @@ public class SubtractTransform extends Transform {
     }
 
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
-    Set<String> allKeys = feature1.keySet();
 
     for (String key : keys) {
       if (feature1.containsKey(key)) {
