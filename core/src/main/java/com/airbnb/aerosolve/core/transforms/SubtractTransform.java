@@ -14,8 +14,6 @@ import java.util.Map.Entry;
 
 /**
  * output = field1 - field2.key
- * If keys are provided, features specified in keys from field1 are considered, otherwise
- * all features in field1 are considered
  */
 public class SubtractTransform extends Transform {
   private String fieldName1;
@@ -28,9 +26,7 @@ public class SubtractTransform extends Transform {
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     fieldName2 = config.getString(key + ".field2");
-    if (config.hasPath(key + ".keys")) {
-      keys = config.getStringList(key + ".keys");
-    }
+    keys = config.getStringList(key + ".keys");
     key2 = config.getString(key + ".key2");
     outputName = config.getString(key + ".output");
   }
@@ -58,10 +54,9 @@ public class SubtractTransform extends Transform {
     }
 
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
-    Set<String> allKeys = feature1.keySet();
 
-    for (String key : allKeys) {
-      if (keys == null || keys.contains(key)) {
+    for (String key : keys) {
+      if (feature1.containsKey(key)) {
         Double val = feature1.get(key);
         if (val != null) {
           output.put(key + '-' + key2, val - sub);
