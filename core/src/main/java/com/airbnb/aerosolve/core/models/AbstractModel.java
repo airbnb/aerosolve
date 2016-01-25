@@ -4,12 +4,15 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.util.FloatVector;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -49,6 +52,25 @@ public abstract class AbstractModel implements Model, Serializable {
     return 1.0 / (1.0 + Math.exp(-(offset + slope * score)));
   }
   
+  // Optional method for multi-class classifiers.
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
+    assert(false);
+    return new ArrayList<MulticlassScoringResult>();
+  }
+  
+  // Populates a multiclass result probability using softmax over the scores by default.
+  // Some models might override this if their scores are already probabilities e.g. random forests.
+  public void scoreToProbability(ArrayList<MulticlassScoringResult> results) {
+    FloatVector vec = new FloatVector(results.size());
+    for (int i = 0; i < results.size(); i++) {
+      vec.values[i] = (float) results.get(i).score;
+    }
+    vec.softmax();
+    for (int i = 0; i < results.size(); i++) {
+      results.get(i).probability = vec.values[i];
+    }
+  }
+
   // Optional method implemented by online updatable models e.g. Spline, RBF
   public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
     assert(false);

@@ -58,6 +58,12 @@ public class FloatVector implements Serializable {
     return sum;
   }
 
+  public void scale(float scale) {
+    for (int i  = 0; i < values.length; i++) {
+      values[i] *= scale;
+    }
+  }
+
   // Squared euclidean distance
   public float l2Distance2(FloatVector other) {
     assert(values.length == other.values.length);
@@ -88,6 +94,24 @@ public class FloatVector implements Serializable {
       if (values[i] < 0) {
         values[i] = 0.0f;
       }
+    }
+  }
+
+  public void softmax() {
+    float maxVal = values[0];
+    for (int i = 1; i < values.length; i++) {
+      maxVal = Math.max(maxVal, values[i]);
+    }
+    float sum = 0.0f;
+    for (int i = 0; i < values.length; i++) {
+      values[i] = (float) Math.exp(values[i] - maxVal);
+      sum += values[i];
+    }
+    if (sum <= 1e-10f) {
+      sum = 1e-10f;
+    }
+    for (int i = 0; i < values.length; i++) {
+      values[i] /= sum;
     }
   }
 

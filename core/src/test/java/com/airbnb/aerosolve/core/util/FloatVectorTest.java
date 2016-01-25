@@ -51,6 +51,16 @@ public class FloatVectorTest {
   }
 
   @Test
+  public void testSoftmax() {
+    FloatVector v1 = new FloatVector(new float[]{1.0f, -2.0f});
+    v1.softmax();
+    float a = (float) Math.exp(1.0f);
+    float b = (float) Math.exp(-2.0f);
+    assertEquals(a / (a + b), v1.values[0], 0.01f);
+    assertEquals(b / (a + b), v1.values[1], 0.01f);
+  }
+
+  @Test
   public void testHadamard() {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});
     FloatVector v2 = new FloatVector(new float[]{3.0f, 4.0f});

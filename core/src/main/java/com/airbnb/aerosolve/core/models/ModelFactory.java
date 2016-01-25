@@ -26,6 +26,7 @@ public final class ModelFactory {
       case "forest": return new ForestModel();
       case "additive": return new AdditiveModel();
       case "kernel" : return new KernelModel();
+      case "full_rank_linear" : return new FullRankLinearModel();
     }
     log.error("Could not create model of type " + name);
     return null;

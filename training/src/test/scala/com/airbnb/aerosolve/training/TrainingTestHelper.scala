@@ -60,6 +60,67 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
+  def makeMulticlassExample(x : Double,
+                            y : Double,
+                            z : Double,
+                            label : String) : Example = {
+    val example = new Example
+    val item: FeatureVector = new FeatureVector
+    item.setFloatFeatures(new java.util.HashMap)
+    item.setStringFeatures(new java.util.HashMap)
+    val floatFeatures = item.getFloatFeatures
+    val stringFeatures = item.getStringFeatures
+    // A string feature that is always on.
+    stringFeatures.put("BIAS", new java.util.HashSet)
+    stringFeatures.get("BIAS").add("B")
+    floatFeatures.put("$rank", new java.util.HashMap)
+    floatFeatures.get("$rank").put(label, 1.0)
+    floatFeatures.put("loc", new java.util.HashMap)
+    val loc = floatFeatures.get("loc")
+    loc.put("x", x)
+    loc.put("y", y)
+    loc.put("z", z)
+    example.addToExample(item)
+    example
+  }
+
+  def makeSimpleMulticlassClassificationExamples = {
+    val examples = ArrayBuffer[Example]()
+    val labels = ArrayBuffer[String]()
+    val rnd = new java.util.Random(1234)
+    for (i <- 0 until 200) {
+      var x = 2.0 * rnd.nextDouble() - 1.0
+      var y = 2.0 * rnd.nextDouble() - 1.0
+      val z = 2.0 * rnd.nextDouble() - 1.0
+      var label : String = ""
+      rnd.nextInt(4) match {
+        case 0 => {
+          label = "top_left"
+          x = x - 10.0
+          y = y + 10.0
+        }
+        case 1 => {
+          label = "top_right"
+          x = x + 10.0
+          y = y + 10.0
+        }
+        case 2 => {
+          label = "bot_left"
+          x = x - 10.0
+          y = y - 10.0
+        }
+        case 3 => {
+          label = "bot_right"
+          x = x + 10.0
+          y = y - 10.0
+        }
+      }
+      labels += label
+      examples += makeMulticlassExample(x, y, z, label)
+    }
+    (examples, labels)
+  }
+
   def makeHybridExample(x : Double,
                         y : Double,
                         target : Double) : Example = {
