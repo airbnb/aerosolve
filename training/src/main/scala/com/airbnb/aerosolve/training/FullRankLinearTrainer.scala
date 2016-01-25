@@ -35,6 +35,7 @@ object FullRankLinearTrainer {
                                           iterations : Int,
                                           rankKey : String,
                                           lambda : Double,
+                                          subsample : Double,
                                           minCount : Int)
 
   case class GradientContainer(grad : FloatVector, featureSquaredSum : Double)
@@ -53,7 +54,6 @@ object FullRankLinearTrainer {
     val pointwise : RDD[Example] =
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
-        .cache()
 
     val model = setupModel(options, pointwise)
 
@@ -76,9 +76,10 @@ object FullRankLinearTrainer {
                      options : FullRankLinearTrainerOptions,
                      model : FullRankLinearModel,
                      pointwise : RDD[Example]) = {
+    val sample = pointwise.sample(false, options.subsample)
     val gradients : Array[((String, String), GradientContainer)] = options.loss match {
-      case "softmax" => softmaxGradient(sc, options, model, pointwise)
-      case _ : String => softmaxGradient(sc, options, model, pointwise)
+      case "softmax" => softmaxGradient(sc, options, model, sample)
+      case _ : String => softmaxGradient(sc, options, model, sample)
     }
     val weightVector = model.getWeightVector()
     val dim = model.getLabelDictionary.size()
@@ -171,6 +172,7 @@ object FullRankLinearTrainer {
         iterations = config.getInt("iterations"),
         rankKey = config.getString("rank_key"),
         lambda = config.getDouble("lambda"),
+        subsample = config.getDouble("subsample"),
         minCount = config.getInt("min_count")
     )    
   }

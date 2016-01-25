@@ -25,6 +25,7 @@ class FullRankLinearModelTest {
       |model_config {
       |  rank_key : "$rank"
       |  loss : "%s"
+      |  subsample : 0.5
       |  iterations : 10
       |  lambda : 10.0
       |  min_count : 0

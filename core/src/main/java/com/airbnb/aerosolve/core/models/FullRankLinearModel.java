@@ -21,8 +21,10 @@ import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// A full rank linear model that supports multi-class classificaiton.
+// A full rank linear model that supports multi-class classification.
 // The class vector Y = W' X where X is the feature vector.
+// It is full rank because the matrix W is num-features by num-labels in dimension.
+// Use a low rank model if you want better generalization.
 public class FullRankLinearModel extends AbstractModel {
 
   private static final long serialVersionUID = -849900702679383420L;
@@ -42,8 +44,11 @@ public class FullRankLinearModel extends AbstractModel {
   }
 
   // In the binary case this is just the score for class 0.
+  // Ideally use a binary model for binary classification.
   @Override
   public float scoreItem(FeatureVector combinedItem) {
+    // Not supported.
+    assert(false);
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     FloatVector sum = scoreFlatFeature(flatFeatures);
     return sum.values[0];
