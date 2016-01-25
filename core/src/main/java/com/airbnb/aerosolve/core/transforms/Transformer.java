@@ -70,22 +70,46 @@ public class Transformer implements Serializable {
   // Adds the context to items and applies the combined transform
   public void addContextToItemsAndTransform(Example examples) {
     Map<String, Set<String>> contextStringFeatures = null;
-    if (examples.context != null &&
-        examples.context.stringFeatures != null) {
-      contextStringFeatures = examples.context.getStringFeatures();
+    Map<String, Map<String, Double>> contextFloatFeatures = null;
+    Map<String, List<Double>> contextDenseFeatures = null;
+    if (examples.context != null) {
+      if (examples.context.stringFeatures != null) {
+        contextStringFeatures = examples.context.getStringFeatures();
+      }
+      if (examples.context.floatFeatures != null) {
+        contextFloatFeatures = examples.context.getFloatFeatures();
+      }
+      if (examples.context.denseFeatures != null) {
+        contextDenseFeatures = examples.context.getDenseFeatures();
+      }
     }
     for (FeatureVector item : examples.example) {
-      addContextToItemAndTransform(contextStringFeatures, item);
+      addContextToItemAndTransform(
+          contextStringFeatures, contextFloatFeatures, contextDenseFeatures, item);
     }
   }
 
   public void addContextToItemAndTransform(Map<String, Set<String>> contextStringFeatures,
+                                           Map<String, Map<String, Double>> contextFloatFeatures,
+                                           Map<String, List<Double>> contextDenseFeatures,
                                            FeatureVector item) {
     Map<String, Set<String>> itemStringFeatures = item.getStringFeatures();
+    Map<String, Map<String, Double>> itemFloatFeatures = item.getFloatFeatures();
+    Map<String, List<Double>> itemDenseFeatures = item.getDenseFeatures();
     if (item.getStringFeatures() == null) {
       item.setStringFeatures(contextStringFeatures);
     } else if (contextStringFeatures != null) {
       itemStringFeatures.putAll(contextStringFeatures);
+    }
+    if (item.getFloatFeatures() == null) {
+      item.setFloatFeatures(contextFloatFeatures);
+    } else if (contextFloatFeatures != null) {
+      itemFloatFeatures.putAll(contextFloatFeatures);
+    }
+    if (item.getDenseFeatures() == null) {
+      item.setDenseFeatures(contextDenseFeatures);
+    } else if (contextDenseFeatures != null) {
+      itemDenseFeatures.putAll(contextDenseFeatures);
     }
     transformCombined(item);
   }
