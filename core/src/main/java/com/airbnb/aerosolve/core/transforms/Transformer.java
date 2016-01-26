@@ -5,6 +5,8 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.typesafe.config.Config;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -104,12 +106,19 @@ public class Transformer implements Serializable {
     if (item.getFloatFeatures() == null) {
       item.setFloatFeatures(contextFloatFeatures);
     } else if (contextFloatFeatures != null) {
-      itemFloatFeatures.putAll(contextFloatFeatures);
+      for (Map.Entry<String, Map<String, Double>> floatFeature : contextFloatFeatures.entrySet()) {
+        Map<String, Double> floatFeatureValueCopy = new HashMap<>();
+        floatFeatureValueCopy.putAll(floatFeature.getValue());
+        itemFloatFeatures.put(floatFeature.getKey(), floatFeatureValueCopy);
+      }
     }
     if (item.getDenseFeatures() == null) {
       item.setDenseFeatures(contextDenseFeatures);
     } else if (contextDenseFeatures != null) {
-      itemDenseFeatures.putAll(contextDenseFeatures);
+      for (Map.Entry<String, List<Double>> denseFeature : contextDenseFeatures.entrySet()) {
+        List<Double> denseFeatureValueCopy = new ArrayList<>(denseFeature.getValue());
+        itemDenseFeatures.put(denseFeature.getKey(), denseFeatureValueCopy);
+      }
     }
     transformCombined(item);
   }

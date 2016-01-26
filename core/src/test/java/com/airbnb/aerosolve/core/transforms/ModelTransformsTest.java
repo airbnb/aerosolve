@@ -8,6 +8,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -22,14 +24,21 @@ public class ModelTransformsTest {
                                          Double lat,
                                          Double lng) {
     Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+    Map<String, List<Double>> denseFeatures = new HashMap<>();
 
     Map<String, Double> map = new HashMap<>();
     map.put("lat", lat);
     map.put("long", lng);
     floatFeatures.put(familyName, map);
 
+    List<Double> list = new ArrayList<>();
+    list.add(lat);
+    list.add(lng);
+    denseFeatures.put(familyName, list);
+
     FeatureVector featureVector = new FeatureVector();
     featureVector.setFloatFeatures(floatFeatures);
+    featureVector.setDenseFeatures(denseFeatures);
     return featureVector;
   }
 
@@ -96,6 +105,14 @@ public class ModelTransformsTest {
     assertTrue(ex.stringFeatures.get("gxh_loc").contains("long=20^lat=31"));
     assertTrue(ex.stringFeatures.get("gxh_loc").contains("lat=10^long=42"));
     assertTrue(ex.stringFeatures.get("gxh_loc").contains("long=20^long=42"));
+    assertTrue(ex.floatFeatures.get("guest_loc").get("lat") == 1.0);
+    assertTrue(ex.floatFeatures.get("guest_loc").get("long") == 2.0);
+    assertTrue(ex.floatFeatures.get("host_loc").get("lat") == 3.1);
+    assertTrue(ex.floatFeatures.get("host_loc").get("long") == 4.2);
+    assertTrue(ex.denseFeatures.get("guest_loc").contains(1.0));
+    assertTrue(ex.denseFeatures.get("guest_loc").contains(2.0));
+    assertTrue(ex.denseFeatures.get("host_loc").contains(3.1));
+    assertTrue(ex.denseFeatures.get("host_loc").contains(4.2));
     log.info(example.toString());
   }
 }
