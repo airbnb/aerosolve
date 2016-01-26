@@ -144,6 +144,10 @@ public class TransformFactory {
         result = new FloatFeatureMathTransform();
         break;
       }
+      case "string_tokenizer" : {
+        result = new StringTokenizerTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
