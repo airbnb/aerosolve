@@ -10,6 +10,8 @@ import org.junit.Assert.assertTrue
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class EvaluationTest {
   val log = LoggerFactory.getLogger("EvaluationTest")
@@ -79,6 +81,32 @@ class EvaluationTest {
     recs
   }
 
+  def generateMulticlassDataPerfect(positionOfLabel : Int) = {
+    val recs = ArrayBuffer[EvaluationRecord]()
+    val rnd = new Random(0xDEADBEEF)
+    for (i <- 0 to 10) {
+      for (is_training <- Array(true, false)) {
+        val sample = new EvaluationRecord()
+        sample.setIs_training(is_training)
+
+        val scores = new java.util.HashMap[java.lang.String, java.lang.Double]()
+        val labels = new java.util.HashMap[java.lang.String, java.lang.Double]()
+
+        scores.put("A", rnd.nextDouble())
+        scores.put("B", rnd.nextDouble())
+        scores.put("C", rnd.nextDouble())
+
+        val sorted = scores.toBuffer.sortWith((a, b) => a._2 > b._2)
+        labels.put(sorted(positionOfLabel)._1, 1.0)
+
+        sample.setScores(scores)
+        sample.setLabels(labels)
+
+        recs.append(sample)
+      }
+    }
+    recs
+  }
 
   // The test data is perfectly correlated with the labels
   @Test def evaluationCorrectTest: Unit = {
@@ -183,6 +211,40 @@ class EvaluationTest {
       // To avoid Akka rebinding to the same port,
       // since it doesn't unbind immediately on shutdown
       System.clearProperty("spark.master.port")
+    }
+  }
+
+  @Test def evaluationMulticlassTest: Unit = {
+    for (posOfLabel <- 0 until 3) {
+      log.info("Labels at position " + posOfLabel)
+      val recs = generateMulticlassDataPerfect(posOfLabel)
+      recs.foreach(x => log.info(x.toString))
+      var sc = new SparkContext("local", "EvaluationTest")
+
+      try {
+        val results = Evaluation.evaluateMulticlassClassification(sc.parallelize(recs)).toMap
+        results.foreach(res => log.info("%s = %f".format(res._1, res._2)))
+        val expectedP1 = if (posOfLabel == 0) 1.0 else 0.0
+        val expectedP2 = if (posOfLabel <= 1) 1.0 else 0.0
+
+        assertEquals(expectedP1, results.getOrElse("TRAIN_PRECISION@1", 0.0), 0.1)
+        assertEquals(expectedP2, results.getOrElse("TRAIN_PRECISION@2", 0.0), 0.1)
+        assertEquals(1.0, results.getOrElse("TRAIN_PRECISION@3", 0.0), 0.1)
+        assertEquals(expectedP1, results.getOrElse("HOLD_PRECISION@1", 0.0), 0.1)
+        assertEquals(expectedP2, results.getOrElse("HOLD_PRECISION@2", 0.0), 0.1)
+        assertEquals(1.0, results.getOrElse("HOLD_PRECISION@3", 0.0), 0.1)
+        assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("TRAIN_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
+        assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("HOLD_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
+        assertTrue(results.getOrElse("TRAIN_ALL_PAIRS_HINGE_LOSS", 0.0) > posOfLabel)
+        assertTrue(results.getOrElse("HOLD_ALL_PAIRS_HINGE_LOSS", 0.0) > posOfLabel)
+      }
+      finally {
+        sc.stop
+        sc = null
+        // To avoid Akka rebinding to the same port,
+        // since it doesn't unbind immediately on shutdown
+        System.clearProperty("spark.master.port")
+      }
     }
   }
 }
