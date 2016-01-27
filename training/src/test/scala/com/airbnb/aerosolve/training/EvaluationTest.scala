@@ -235,6 +235,8 @@ class EvaluationTest {
         assertEquals(1.0, results.getOrElse("HOLD_PRECISION@3", 0.0), 0.1)
         assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("TRAIN_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
         assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("HOLD_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
+        assertTrue(results.getOrElse("TRAIN_ALL_PAIRS_HINGE_LOSS", 0.0) > posOfLabel)
+        assertTrue(results.getOrElse("HOLD_ALL_PAIRS_HINGE_LOSS", 0.0) > posOfLabel)
       }
       finally {
         sc.stop

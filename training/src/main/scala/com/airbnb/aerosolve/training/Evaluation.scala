@@ -65,6 +65,27 @@ object Evaluation {
         val prefix = if (rec.is_training) "TRAIN_" else "HOLD_"
         // Order by top scores.
         val sorted = rec.scores.asScala.toBuffer.sortWith((a, b) => a._2 > b._2)
+        // All pairs hinge loss
+        val count = sorted.size
+        var hingeLoss = 0.0
+        for (i <- 0 until count) {
+          for (j <- i + 1 until count) {
+            val scorei = sorted(i)._2
+            val scorej = sorted(j)._2
+            var truei = rec.labels.get(sorted(i)._1)
+            if (truei == null) truei = 0.0
+            var truej = rec.labels.get(sorted(j)._1)
+            if (truej == null) truej = 0.0
+            if (truei > truej) {
+              val margin = truei - truej
+              hingeLoss = hingeLoss + math.max(0.0, margin - scorei + scorej)
+            } else if (truei < truej) {
+              val margin = truej - truei
+              hingeLoss = hingeLoss + math.max(0.0, margin - scorej + scorei)
+            }
+          }
+        }
+        metrics.append((prefix + "ALL_PAIRS_HINGE_LOSS", (hingeLoss, 1.0)))
         var inTopK = false
         for (i <- 0 until sorted.size) {
           if (rec.labels.containsKey(sorted(i)._1)) {
