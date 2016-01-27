@@ -34,7 +34,8 @@ public class ModelTransformsTest {
     List<Double> list = new ArrayList<>();
     list.add(lat);
     list.add(lng);
-    denseFeatures.put(familyName, list);
+    String denseFamilyName = familyName + "_dense";
+    denseFeatures.put(denseFamilyName, list);
 
     FeatureVector featureVector = new FeatureVector();
     featureVector.setFloatFeatures(floatFeatures);
@@ -109,10 +110,10 @@ public class ModelTransformsTest {
     assertTrue(ex.floatFeatures.get("guest_loc").get("long") == 2.0);
     assertTrue(ex.floatFeatures.get("host_loc").get("lat") == 3.1);
     assertTrue(ex.floatFeatures.get("host_loc").get("long") == 4.2);
-    assertTrue(ex.denseFeatures.get("guest_loc").contains(1.0));
-    assertTrue(ex.denseFeatures.get("guest_loc").contains(2.0));
-    assertTrue(ex.denseFeatures.get("host_loc").contains(3.1));
-    assertTrue(ex.denseFeatures.get("host_loc").contains(4.2));
+    assertTrue(ex.denseFeatures.get("guest_loc_dense").contains(1.0));
+    assertTrue(ex.denseFeatures.get("guest_loc_dense").contains(2.0));
+    assertTrue(ex.denseFeatures.get("host_loc_dense").contains(3.1));
+    assertTrue(ex.denseFeatures.get("host_loc_dense").contains(4.2));
     log.info(example.toString());
   }
 }

@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -95,26 +96,31 @@ public class Transformer implements Serializable {
                                            Map<String, Map<String, Double>> contextFloatFeatures,
                                            Map<String, List<Double>> contextDenseFeatures,
                                            FeatureVector item) {
-    Map<String, Set<String>> itemStringFeatures = item.getStringFeatures();
-    Map<String, Map<String, Double>> itemFloatFeatures = item.getFloatFeatures();
-    Map<String, List<Double>> itemDenseFeatures = item.getDenseFeatures();
-    if (item.getStringFeatures() == null) {
-      item.setStringFeatures(contextStringFeatures);
-    } else if (contextStringFeatures != null) {
-      itemStringFeatures.putAll(contextStringFeatures);
+    if (contextStringFeatures != null) {
+      if (item.getStringFeatures() == null) {
+        item.setStringFeatures(new HashMap<>());
+      }
+      Map<String, Set<String>> itemStringFeatures = item.getStringFeatures();
+      for (Map.Entry<String, Set<String>> stringFeature : contextStringFeatures.entrySet()) {
+        Set<String> stringFeatureValueCopy = new HashSet<>(stringFeature.getValue());
+        itemStringFeatures.put(stringFeature.getKey(), stringFeatureValueCopy);
+      }
     }
-    if (item.getFloatFeatures() == null) {
-      item.setFloatFeatures(contextFloatFeatures);
-    } else if (contextFloatFeatures != null) {
+    if (contextFloatFeatures != null) {
+      if (item.getFloatFeatures() == null) {
+        item.setFloatFeatures(new HashMap<>());
+      }
+      Map<String, Map<String, Double>> itemFloatFeatures = item.getFloatFeatures();
       for (Map.Entry<String, Map<String, Double>> floatFeature : contextFloatFeatures.entrySet()) {
-        Map<String, Double> floatFeatureValueCopy = new HashMap<>();
-        floatFeatureValueCopy.putAll(floatFeature.getValue());
+        Map<String, Double> floatFeatureValueCopy = new HashMap<>(floatFeature.getValue());
         itemFloatFeatures.put(floatFeature.getKey(), floatFeatureValueCopy);
       }
     }
-    if (item.getDenseFeatures() == null) {
-      item.setDenseFeatures(contextDenseFeatures);
-    } else if (contextDenseFeatures != null) {
+    if (contextDenseFeatures != null) {
+      if (item.getDenseFeatures() == null) {
+        item.setDenseFeatures(new HashMap<>());
+      }
+      Map<String, List<Double>> itemDenseFeatures = item.getDenseFeatures();
       for (Map.Entry<String, List<Double>> denseFeature : contextDenseFeatures.entrySet()) {
         List<Double> denseFeatureValueCopy = new ArrayList<>(denseFeature.getValue());
         itemDenseFeatures.put(denseFeature.getKey(), denseFeatureValueCopy);
