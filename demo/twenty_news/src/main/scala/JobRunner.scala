@@ -37,6 +37,8 @@ object JobRunner {
             .debugExampleRun(sc, config.getConfig("debug_example"))
           case "MakeTraining" => TwentyNewsPipeline
             .makeExampleRun(sc, config.getConfig("make_training"))
+          case "DebugTransform" => TwentyNewsPipeline
+            .debugTransformRun(sc, config, config.getConfig("debug_transform"))
           case "TrainModel" => TwentyNewsPipeline
             .trainModel(sc, config)
           case "EvalModel" => TwentyNewsPipeline

@@ -4,7 +4,7 @@ import com.airbnb.aerosolve.core.{EvaluationRecord, Example, ModelRecord, Featur
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.transforms.Transformer
-import com.airbnb.aerosolve.training.{Evaluation, TrainingUtils}
+import com.airbnb.aerosolve.training.{Evaluation, TrainingUtils, LinearRankerUtils}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 import org.slf4j.{LoggerFactory, Logger}
@@ -36,6 +36,21 @@ object TwentyNewsPipeline {
       .map(x => x.get)
       .map(Util.encode)
       .saveAsTextFile(outputFile, classOf[GzipCodec])
+  }
+
+  def debugTransformRun(sc : SparkContext, baseConfig : Config, config : Config) = {
+    val inputFile : String = config.getString("input")
+    val count : Int = config.getInt("count")
+    val key = config.getString("model_key")
+    val example = sc.textFile(inputFile)
+      .map(lineToExample)
+      .filter(x => x != None)
+      .map(x => x.get)
+
+    LinearRankerUtils
+      .makePointwiseFloat(example, baseConfig, key)
+      .take(count)
+      .foreach(x => log.info(x.toString))
   }
 
   def lineToExample(line: String) : Option[Example] = {
