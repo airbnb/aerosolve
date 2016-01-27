@@ -49,28 +49,15 @@ You can then see if the data was read properly using
 
 `sh job_runner.sh DebugExample`
 
-Then make the training data
+and also debug the transforms using
+
+`sh job_runner.sh DebugTransform`
+
+which should tokenize the sentences and delete the original sentence.
+
+Then, make the training data for the models
 ```
 sh job_runner.sh MakeTraining
-```
-
-You can view what is in the examples using spark-shell:
-
-```
-spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar 
-scala> import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.core.util.Util
-scala> val examples = sc.textFile("output/training_data").map(Util.decodeExample).take(10).foreach(println)
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Not-in-family, White, United-States, Male, Adm-clerical, Bachelors, State-gov, Never-married]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=2174.0, age=39.0, fnlwgt=77516.0, edu-num=13.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Husband, White, United-States, Exec-managerial, Male, Married-civ-spouse, Bachelors, Self-emp-not-inc]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=13.0, capital-gain=0.0, age=50.0, fnlwgt=83311.0, edu-num=13.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Not-in-family, White, Divorced, United-States, Handlers-cleaners, Male, Private, HS-grad]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=0.0, age=38.0, fnlwgt=215646.0, edu-num=9.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Husband, 11th, United-States, Handlers-cleaners, Male, Private, Married-civ-spouse, Black]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=0.0, age=53.0, fnlwgt=234721.0, edu-num=7.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Cuba, Prof-specialty, Wife, Female, Private, Married-civ-spouse, Black, Bachelors]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=0.0, age=28.0, fnlwgt=338409.0, edu-num=13.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Masters, White, United-States, Wife, Exec-managerial, Female, Private, Married-civ-spouse]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=0.0, age=37.0, fnlwgt=284582.0, edu-num=14.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Not-in-family, Married-spouse-absent, Female, Private, Other-service, Black, Jamaica, 9th]}, floatFeatures:{$rank={=-1.0}, F={capital-loss=0.0, hours=16.0, capital-gain=0.0, age=49.0, fnlwgt=160187.0, edu-num=5.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Husband, White, United-States, Exec-managerial, Male, Married-civ-spouse, HS-grad, Self-emp-not-inc]}, floatFeatures:{$rank={=1.0}, F={capital-loss=0.0, hours=45.0, capital-gain=0.0, age=52.0, fnlwgt=209642.0, edu-num=9.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Masters, Not-in-family, White, United-States, Prof-specialty, Female, Private, Never-married]}, floatFeatures:{$rank={=1.0}, F={capital-loss=0.0, hours=50.0, capital-gain=14084.0, age=31.0, fnlwgt=45781.0, edu-num=14.0}})])
-Example(example:[FeatureVector(stringFeatures:{BIAS=[B], S=[Husband, White, United-States, Exec-managerial, Male, Private, Married-civ-spouse, Bachelors]}, floatFeatures:{$rank={=1.0}, F={capital-loss=0.0, hours=40.0, capital-gain=5178.0, age=42.0, fnlwgt=159449.0, edu-num=13.0}})])
 ```
 
 Then you can train the model on the training data by running
