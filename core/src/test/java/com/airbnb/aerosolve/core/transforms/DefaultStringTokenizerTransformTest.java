@@ -23,12 +23,11 @@ public class DefaultStringTokenizerTransformTest {
   private static final Logger log = LoggerFactory.getLogger(
       DefaultStringTokenizerTransformTest.class);
 
-  public String makeConfig(String regex, boolean deleteField1) {
+  public String makeConfig(String regex) {
     return "test_tokenizer {\n" +
         " transform: default_string_tokenizer\n" +
         " field1: strFeature1\n" +
-        " field2: " + regex + "\n" +
-        " field3: " + Boolean.toString(deleteField1) + "\n" +
+        " regex: " + regex + "\n" +
         " output: bar\n" +
         "}";
   }
@@ -50,7 +49,7 @@ public class DefaultStringTokenizerTransformTest {
 
   @Test
   public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig("regex", false));
+    Config config = ConfigFactory.parseString(makeConfig("regex"));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
@@ -61,14 +60,14 @@ public class DefaultStringTokenizerTransformTest {
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", true));
+    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\""));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
 
-    assertEquals(0, stringFeatures.size());
+    assertEquals(1, stringFeatures.size());
     assertEquals(1, floatFeatures.size());
 
     Map<String, Double> output = floatFeatures.get("bar");

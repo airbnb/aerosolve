@@ -22,15 +22,14 @@ public class DateTransform extends Transform {
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
-    dateType = config.getString(key + ".field2");
+    dateType = config.getString(key + ".dateType");
     outputName = config.getString(key + ".output");
   }
 
   @Override
   public void doTransform(FeatureVector featureVector) {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-    if (stringFeatures == null || floatFeatures == null) {
+    if (stringFeatures == null) {
       return ;
     }
 
@@ -39,6 +38,8 @@ public class DateTransform extends Transform {
       return ;
     }
 
+    Util.optionallyCreateFloatFeatures(featureVector);
+    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
     for (String dateStr: feature1) {
