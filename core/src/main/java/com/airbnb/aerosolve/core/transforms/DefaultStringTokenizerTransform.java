@@ -14,7 +14,6 @@ import com.typesafe.config.Config;
  * Tokenizes strings using a regex
  * "field1" specifies the key of the feature
  * "regex" specifies the regex used to tokenize
- * "field3" specifies whether field1 should be deleted or not
  */
 public class DefaultStringTokenizerTransform extends Transform {
   private String fieldName1;

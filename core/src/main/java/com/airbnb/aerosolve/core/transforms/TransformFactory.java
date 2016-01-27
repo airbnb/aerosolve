@@ -148,6 +148,10 @@ public class TransformFactory {
         result = new DefaultStringTokenizerTransform();
         break;
       }
+      case "delete_string_feature_column" : {
+        result = new DeleteStringFeatureColumnTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);

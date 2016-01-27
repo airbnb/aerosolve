@@ -23,7 +23,7 @@ public class DateTransformTest {
     return "test_date {\n" +
             " transform: date_val\n" +
             " field1: dates\n" +
-            " dateType: " + dateType + "\n" +
+            " date_type: " + dateType + "\n" +
             " output: bar\n" +
             "}";
   }
