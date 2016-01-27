@@ -6,6 +6,8 @@ import com.airbnb.aerosolve.core.EvaluationRecord
 import org.apache.spark.SparkContext._
 import scala.collection.{mutable, Map}
 import scala.collection.mutable.{ArrayBuffer, Buffer}
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /*
 * Given an RDD of EvaluationRecord return standard evaluation metrics
@@ -53,6 +55,35 @@ object Evaluation {
     metrics
       .sortWith((a, b) => a._1 < b._1)
       .toArray
+  }
+
+  def evaluateMulticlassClassification(records : RDD[EvaluationRecord]) : Array[(String, Double)] = {
+    records.flatMap(rec => {
+      // Metric, value, count
+      val metrics = scala.collection.mutable.ArrayBuffer[(String, (Double, Double))]()
+      if (rec.scores != null && rec.labels != null) {
+        val prefix = if (rec.is_training) "TRAIN_" else "HOLD_"
+        // Order by top scores.
+        val sorted = rec.scores.asScala.toBuffer.sortWith((a, b) => a._2 > b._2)
+        var inTopK = false
+        for (i <- 0 until sorted.size) {
+          if (rec.labels.containsKey(sorted(i)._1)) {
+            inTopK = true
+            metrics.append((prefix + "MEAN_RECIPROCAL_RANK", (1.0 / (i + 1), 1.0)))
+          }
+          metrics.append((prefix + "PRECISION@" + (i + 1), (if (inTopK) 1.0 else 0.0, 1.0)))
+        }
+      }
+      metrics
+    })
+      // Sum all the doubles
+    .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
+      // Average the values
+    .map(x => (x._1, x._2._1 / x._2._2))
+    .collect
+    .toBuffer
+    .sortWith((a, b) => a._1 < b._1)
+    .toArray
   }
 
   private def evaluateBinaryClassificationAtThreshold(records : RDD[EvaluationRecord],

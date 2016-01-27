@@ -102,6 +102,8 @@ struct EvaluationRecord {
   1: optional double score;
   2: optional double label;
   3: optional bool is_training;
+  4: optional map<string, double> scores;
+  5: optional map<string, double> labels;
 }
 
 struct DebugScoreRecord {
