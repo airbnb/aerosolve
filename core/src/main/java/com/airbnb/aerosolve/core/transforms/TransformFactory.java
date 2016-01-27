@@ -144,8 +144,8 @@ public class TransformFactory {
         result = new FloatFeatureMathTransform();
         break;
       }
-      case "string_tokenizer" : {
-        result = new StringTokenizerTransform();
+      case "default_string_tokenizer" : {
+        result = new DefaultStringTokenizerTransform();
         break;
       }
     }
