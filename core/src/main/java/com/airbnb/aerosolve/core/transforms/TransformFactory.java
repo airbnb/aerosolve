@@ -144,6 +144,14 @@ public class TransformFactory {
         result = new FloatFeatureMathTransform();
         break;
       }
+      case "default_string_tokenizer" : {
+        result = new DefaultStringTokenizerTransform();
+        break;
+      }
+      case "delete_string_feature_column" : {
+        result = new DeleteStringFeatureColumnTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
