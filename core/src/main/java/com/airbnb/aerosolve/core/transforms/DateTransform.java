@@ -22,7 +22,7 @@ public class DateTransform extends Transform {
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
-    dateType = config.getString(key + ".dateType");
+    dateType = config.getString(key + ".date_type");
     outputName = config.getString(key + ".output");
   }
 
