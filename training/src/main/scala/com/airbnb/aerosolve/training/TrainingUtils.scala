@@ -182,6 +182,7 @@ object TrainingUtils {
       case "boosted_forest" => BoostedForestTrainer.trainAndSaveToFile(sc, input, config, key)
       case "additive" => AdditiveModelTrainer.trainAndSaveToFile(sc, input, config, key)
       case "kernel" => KernelTrainer.trainAndSaveToFile(sc, input, config, key)
+      case "full_rank_linear" => FullRankLinearTrainer.trainAndSaveToFile(sc, input, config, key)
     }
   }
   

@@ -87,7 +87,7 @@ object TwentyNewsPipeline {
   def trainModel(sc : SparkContext, config : Config) = {
     val trainConfig = config.getConfig("train_model")
     val trainingDataName = trainConfig.getString("input")
-    val modelKey = trainConfig.getString("modelKey")
+    val modelKey = trainConfig.getString("model_key")
     log.info("Training on %s".format(trainingDataName))
     val input = sc.textFile(trainingDataName).map(Util.decodeExample)
     TrainingUtils.trainAndSaveToFile(sc, input, config, modelKey)
@@ -100,7 +100,7 @@ object TwentyNewsPipeline {
       log.error("Could not load the model")
       System.exit(-1)
     }
-    val modelKey = testConfig.getString("modelKey")
+    val modelKey = testConfig.getString("model_key")
     val transformer = new Transformer(config, modelKey)
     val input : String = testConfig.getString("input")
     val subsample : Double = testConfig.getDouble("subsample")
