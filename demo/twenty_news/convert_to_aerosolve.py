@@ -21,6 +21,6 @@ for dir in directory:
     
     for line in file:
       if not exclude.match(line):
-        lines = lines + line.strip('\n') + " "
+        lines = lines + line.strip('\n').replace('\t', ' ') + " "
     output.write(dir + "\t" + lines + "\n")
 output.close

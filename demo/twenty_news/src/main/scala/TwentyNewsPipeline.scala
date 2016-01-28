@@ -10,6 +10,8 @@ import org.apache.spark.SparkContext
 import org.slf4j.{LoggerFactory, Logger}
 import com.typesafe.config.Config
 import org.apache.hadoop.io.compress.GzipCodec
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions
 
 object TwentyNewsPipeline {
   val log: Logger = LoggerFactory.getLogger(this.getClass)
@@ -84,12 +86,17 @@ object TwentyNewsPipeline {
     Some(example)
   }
 
+  def isTraining(example : Example) : Boolean = {
+    val code : Int = math.abs(example.hashCode()) % 100
+    return code < 90
+  }
+
   def trainModel(sc : SparkContext, config : Config) = {
     val trainConfig = config.getConfig("train_model")
     val trainingDataName = trainConfig.getString("input")
     val modelKey = trainConfig.getString("model_key")
     log.info("Training on %s".format(trainingDataName))
-    val input = sc.textFile(trainingDataName).map(Util.decodeExample)
+    val input = sc.textFile(trainingDataName).map(Util.decodeExample).filter(x => isTraining(x))
     TrainingUtils.trainAndSaveToFile(sc, input, config, modelKey)
   }
 
@@ -103,32 +110,21 @@ object TwentyNewsPipeline {
     val modelKey = testConfig.getString("model_key")
     val transformer = new Transformer(config, modelKey)
     val input : String = testConfig.getString("input")
-    val subsample : Double = testConfig.getDouble("subsample")
-    val bins : Int = testConfig.getInt("bins")
-    val isTraining : Boolean = testConfig.getBoolean("is_training")
 
-    val metrics = evalModelInternal(sc, transformer, modelOpt.get, input, Some(subsample), bins, isTraining)
+    val metrics = evalModelInternal(sc, transformer, modelOpt.get, input)
     metrics.foreach(x => log.info(x.toString))
   }
 
   private def evalModelInternal(sc: SparkContext,
                                 transformer: Transformer,
                                 modelOpt: AbstractModel,
-                                inputPattern: String,
-                                subSample: Option[Double],
-                                bins : Int,
-                                isTraining : Boolean) : Array[(String, Double)] = {
-    val examples =
-      if (subSample != None) {
-        getExamples(sc, inputPattern).sample(false, subSample.get)
-      } else {
-        getExamples(sc, inputPattern)
-      }
+                                inputPattern: String) : Array[(String, Double)] = {
+    val examples = getExamples(sc, inputPattern)
 
-    val records = scoreExamplesForEvaluation(sc, transformer, modelOpt, examples, isTraining).cache()
+    val records = scoreExamplesForEvaluation(sc, transformer, modelOpt, examples)
+    records.take(10).foreach(x => log.info(x.toString))
 
-    // Find the best F1
-    Evaluation.evaluateBinaryClassification(records, bins, "!HOLD_F1")
+    Evaluation.evaluateMulticlassClassification(records)
   }
 
   private def getExamples(sc : SparkContext, inputPattern : String) : RDD[Example] = {
@@ -141,20 +137,26 @@ object TwentyNewsPipeline {
   private def scoreExamplesForEvaluation(sc: SparkContext,
                                          transformer: Transformer,
                                          modelOpt: AbstractModel,
-                                         examples : RDD[Example],
-                                         isTraining : Boolean) : RDD[EvaluationRecord] = {
+                                         examples : RDD[Example]) : RDD[EvaluationRecord] = {
     val modelBC = sc.broadcast(modelOpt)
     val transformerBC = sc.broadcast(transformer)
 
     examples.map(example => {
       val result = new EvaluationRecord
-      result.setIs_training(isTraining)
+      result.setIs_training(isTraining(example))
       transformerBC.value.combineContextAndItems(example)
-      val score = modelBC.value.scoreItem(example.example.get(0))
-      val prob = modelBC.value.scoreProbability(score)
-      val rank = example.example.get(0).floatFeatures.get("$rank").get("")
-      result.setScore(prob)
-      result.setLabel(rank)
+      val score = modelBC.value.scoreItemMulticlass(example.example.get(0)).asScala
+      val label = example.example.get(0).floatFeatures.get("LABEL").asScala
+      val evalScores = new java.util.HashMap[java.lang.String, java.lang.Double]()
+      val evalLabels = new java.util.HashMap[java.lang.String, java.lang.Double]()
+      result.setScores(evalScores)
+      result.setLabels(evalLabels)
+      for (s <- score) {
+        evalScores.put(s.label, s.score)
+      }
+      for (l <- label) {
+        evalLabels.put(l._1, l._2)
+      }
       result
     })
   }
