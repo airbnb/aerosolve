@@ -152,6 +152,10 @@ public class TransformFactory {
         result = new DeleteStringFeatureColumnTransform();
         break;
       }
+      case "normalize_float" : {
+        result = new NormalizeFloatFeatureTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
