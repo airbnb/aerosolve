@@ -48,7 +48,24 @@ public class KDTreeModelTest {
   }
 
   @Test
-  public void queryTest() {
+  public void testLeaf() {
+    KDTreeModel tree = new KDTreeModel(getTestNodes());
+
+    int leaf = tree.leaf(-1.0, -1.0);
+    assertEquals(1, leaf);
+
+    leaf = tree.leaf(1.1, 0.0);
+    assertEquals(3, leaf);
+
+    leaf = tree.leaf(1.0, 2.0);
+    assertEquals(4, leaf);
+
+    leaf = tree.leaf(0.99, 2.1);
+    assertEquals(1, leaf);
+  }
+
+  @Test
+  public void testQuery() {
     KDTreeModel tree = new KDTreeModel(getTestNodes());
 
     ArrayList<Integer> res1 = tree.query(-1.0, -1.0);
@@ -82,7 +99,8 @@ public class KDTreeModelTest {
     return set;
   }
 
-  public void queryBoxTest() {
+  @Test
+  public void testQueryBox() {
     KDTreeModel tree = new KDTreeModel(getTestNodes());
 
     // This box covers all nodes

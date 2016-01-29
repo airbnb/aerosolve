@@ -1,14 +1,12 @@
 package com.airbnb.aerosolve.core.models;
 
 import com.airbnb.aerosolve.core.KDTreeNode;
-import com.airbnb.aerosolve.core.KDTreeNodeType;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
 import lombok.Getter;
+import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.apache.commons.codec.binary.Base64;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -26,6 +24,42 @@ public class KDTreeModel implements Serializable {
 
   public KDTreeModel(KDTreeNode[] node) {
     nodes = node;
+  }
+
+  // Returns the indice of leaf containing the point.
+  public int leaf(double x, double y) {
+    if (nodes == null) return -1;
+
+    int currIdx = 0;
+
+    while (currIdx >= 0) {
+      KDTreeNode node = nodes[currIdx];
+      switch(node.nodeType) {
+        case X_SPLIT: {
+          if (x < node.splitValue) {
+            currIdx = node.leftChild;
+          } else {
+            currIdx = node.rightChild;
+          }
+        }
+        break;
+        case Y_SPLIT: {
+          if (y < node.splitValue) {
+            currIdx = node.leftChild;
+          } else {
+            currIdx = node.rightChild;
+          }
+        }
+        break;
+        case LEAF: {
+          return currIdx;
+        }
+        default:
+          assert (false);
+      }
+    }
+    assert (false);
+    return -1;
   }
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
