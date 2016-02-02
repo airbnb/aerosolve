@@ -72,8 +72,7 @@ public class DefaultStringTokenizerTransformTest {
 
     Map<String, Double> output = floatFeatures.get("bar");
 
-    assertEquals(12, output.size());
-    assertEquals(6.0, output.get(""), 0.0);
+    assertEquals(11, output.size());
     assertEquals(1.0, output.get("apple"), 0.0);
     assertEquals(1.0, output.get("blueberry"), 0.0);
     assertEquals(2.0, output.get("blue"), 0.0);
