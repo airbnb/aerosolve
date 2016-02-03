@@ -29,6 +29,7 @@ class FullRankLinearModelTest {
       |  iterations : 10
       |  lambda : 10.0
       |  min_count : 0
+      |  cache : "memory"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform

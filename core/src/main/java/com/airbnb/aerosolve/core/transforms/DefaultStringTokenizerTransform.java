@@ -46,6 +46,7 @@ public class DefaultStringTokenizerTransform extends Transform {
     for (String rawString : feature1) {
       String[] tokenizedString = rawString.split(regex);
       for (String token : tokenizedString) {
+        if (token.length() == 0) continue;
         if (output.containsKey(token)) {
           double count = output.get(token);
           output.put(token, (count + 1.0));
