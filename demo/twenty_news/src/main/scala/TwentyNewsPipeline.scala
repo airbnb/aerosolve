@@ -21,7 +21,7 @@ object TwentyNewsPipeline {
     val count : Int = config.getInt("count")
     val example = sc.textFile(inputFile)
       .map(lineToExample)
-      .filter(x => x !=	None)
+      .filter(x => x != None)
       .map(x => x.get)
       .take(count)
       .foreach(x => log.info(x.toString))
@@ -62,7 +62,7 @@ object TwentyNewsPipeline {
     // set string features
     val stringFeatures = new java.util.HashMap[String, java.util.Set[java.lang.String]]()
     featureVector.setStringFeatures(stringFeatures)
-    val strFv = new java.util.HashSet[java.lang.String]() // education features
+    val strFv = new java.util.HashSet[java.lang.String]()
     val bias = new java.util.HashSet[java.lang.String]()
     bias.add("B")
     stringFeatures.put("S", strFv)
