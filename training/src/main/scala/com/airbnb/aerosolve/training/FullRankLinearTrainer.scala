@@ -36,7 +36,8 @@ object FullRankLinearTrainer {
                                           rankKey : String,
                                           lambda : Double,
                                           subsample : Double,
-                                          minCount : Int)
+                                          minCount : Int,
+                                          cache : String)
 
   case class GradientContainer(grad : FloatVector, featureSquaredSum : Double)
 
@@ -51,15 +52,24 @@ object FullRankLinearTrainer {
             key : String) : FullRankLinearModel = {
     val options = parseTrainingOptions(config.getConfig(key))
 
-    val pointwise : RDD[Example] =
+    val raw : RDD[Example] =
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
+
+    val pointwise = options.cache match {
+      case "memory" => raw.cache()
+      case _ : String => raw
+    }
 
     val model = setupModel(options, pointwise)
 
     for (iter <- 0 until options.iterations) {
       log.info(s"Iteration $iter")
       modelIteration(sc, options, model, pointwise)
+    }
+
+    options.cache match {
+      case "memory" => pointwise.unpersist()
     }
     model
   }
@@ -173,8 +183,9 @@ object FullRankLinearTrainer {
         rankKey = config.getString("rank_key"),
         lambda = config.getDouble("lambda"),
         subsample = config.getDouble("subsample"),
-        minCount = config.getInt("min_count")
-    )    
+        minCount = config.getInt("min_count"),
+        cache = config.getString("cache")
+    )
   }
   
   def setupModel(options : FullRankLinearTrainerOptions, pointwise : RDD[Example]) : FullRankLinearModel = {
