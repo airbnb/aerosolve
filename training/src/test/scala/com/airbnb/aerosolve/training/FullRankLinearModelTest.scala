@@ -43,6 +43,11 @@ class FullRankLinearModelTest {
     testFullRankLinear("softmax", 0.8)
   }
 
+  @Test
+  def testFullRankLinearHinge() = {
+    testFullRankLinear("hinge", 0.8)
+  }
+
   def testFullRankLinear(loss : String,
                          expectedCorrect : Double) = {
     val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples
