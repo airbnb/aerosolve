@@ -200,7 +200,7 @@ object FullRankLinearTrainer {
             val posLabelRnd = rnd.nextInt(posLabels.size)
             val (posLabel, posMargin) = posLabels(posLabelRnd)
             val posIdx = labelToIdx.get(posLabel)
-            // Pick a random other label
+            // Pick a random other label. This can be a negative or a positive with a smaller margin.
             var negIdx = rnd.nextInt(dim)
             while (negIdx == posIdx) {
               negIdx = rnd.nextInt(dim)
