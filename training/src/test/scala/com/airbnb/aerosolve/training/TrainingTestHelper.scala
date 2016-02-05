@@ -63,7 +63,8 @@ object TrainingTestHelper {
   def makeMulticlassExample(x : Double,
                             y : Double,
                             z : Double,
-                            label : String) : Example = {
+                            label : (String, Double),
+                            label2 : Option[(String, Double)]) : Example = {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
@@ -74,7 +75,10 @@ object TrainingTestHelper {
     stringFeatures.put("BIAS", new java.util.HashSet)
     stringFeatures.get("BIAS").add("B")
     floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put(label, 1.0)
+    floatFeatures.get("$rank").put(label._1, label._2)
+    if (label2.isDefined) {
+      floatFeatures.get("$rank").put(label2.get._1, label2.get._2)
+    }
     floatFeatures.put("loc", new java.util.HashMap)
     val loc = floatFeatures.get("loc")
     loc.put("x", x)
@@ -84,7 +88,7 @@ object TrainingTestHelper {
     example
   }
 
-  def makeSimpleMulticlassClassificationExamples = {
+  def makeSimpleMulticlassClassificationExamples(multiLabel : Boolean) = {
     val examples = ArrayBuffer[Example]()
     val labels = ArrayBuffer[String]()
     val rnd = new java.util.Random(1234)
@@ -116,7 +120,12 @@ object TrainingTestHelper {
         }
       }
       labels += label
-      examples += makeMulticlassExample(x, y, z, label)
+      if (multiLabel) {
+        val label2 = if (x > 0) "right" else "left"
+        examples += makeMulticlassExample(x, y, z, (label, 1.0), Some((label2, 0.1)))
+      } else {
+        examples += makeMulticlassExample(x, y, z, (label, 1.0), None)
+      }
     }
     (examples, labels)
   }

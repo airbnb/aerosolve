@@ -40,12 +40,23 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearSoftmax() = {
-    testFullRankLinear("softmax", 0.8)
+    testFullRankLinear("softmax", false, 0.9)
+  }
+
+  @Test
+  def testFullRankLinearHinge() = {
+    testFullRankLinear("hinge", false, 0.9)
+  }
+
+  @Test
+  def testFullRankLinearHingeMultilabel() = {
+    testFullRankLinear("hinge", true, 0.9)
   }
 
   def testFullRankLinear(loss : String,
+                         multiLabel : Boolean,
                          expectedCorrect : Double) = {
-    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples
+    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(multiLabel)
 
     var sc = new SparkContext("local", "FullRankLinearTest")
 
@@ -85,13 +96,14 @@ class FullRankLinearModelTest {
       val model2Opt = ModelFactory.createFromReader(reader)
       assertTrue(model2Opt.isPresent())
       val model2 = model2Opt.get()
+      val labelCount = if (multiLabel) 6 else 4
 
       for (ex <- examples) {
         val score = model.scoreItemMulticlass(ex.example.get(0))
         val score2 = model2.scoreItemMulticlass(ex.example.get(0))
-        assertEquals(score.size, 4)
+        assertEquals(score.size, labelCount)
         assertEquals(score.size, score2.size)
-        for (i <- 0 until 4) {
+        for (i <- 0 until labelCount) {
           assertEquals(score.get(i).score, score2.get(i).score, 0.1f)
         }
       }

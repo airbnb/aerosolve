@@ -89,6 +89,7 @@ object FullRankLinearTrainer {
     val sample = pointwise.sample(false, options.subsample)
     val gradients : Array[((String, String), GradientContainer)] = options.loss match {
       case "softmax" => softmaxGradient(sc, options, model, sample)
+      case "hinge" => hingeGradient(sc, options ,model, sample)
       case _ : String => softmaxGradient(sc, options, model, sample)
     }
     val weightVector = model.getWeightVector()
@@ -173,6 +174,73 @@ object FullRankLinearTrainer {
     })
     .reduceByKey((a, b) => sumGradients(a,b))
     .collect
+  }
+
+  def hingeGradient(sc : SparkContext,
+                    options : FullRankLinearTrainerOptions,
+                    model : FullRankLinearModel,
+                    pointwise : RDD[Example]) : Array[((String, String), GradientContainer)] = {
+    val modelBC = sc.broadcast(model)
+
+    pointwise
+      .mapPartitions(partition => {
+        val model = modelBC.value
+        val labelToIdx = model.getLabelToIndex()
+        val dim = model.getLabelDictionary.size()
+        val gradient = scala.collection.mutable.HashMap[(String, String), GradientContainer]()
+        val weightVector = model.getWeightVector()
+        val rnd = new Random()
+
+        partition.foreach(examples => {
+          val flatFeatures = Util.flattenFeature(examples.example.get(0))
+          val labels = flatFeatures.get(options.rankKey)
+          if (labels != null && labels.size() > 0) {
+            val posLabels = labels.toArray
+            // Pick a random positive label
+            val posLabelRnd = rnd.nextInt(posLabels.size)
+            val (posLabel, posMargin) = posLabels(posLabelRnd)
+            val posIdx = labelToIdx.get(posLabel)
+            // Pick a random other label. This can be a negative or a positive with a smaller margin.
+            var negIdx = rnd.nextInt(dim)
+            while (negIdx == posIdx) {
+              negIdx = rnd.nextInt(dim)
+            }
+            val negLabel = model.getLabelDictionary.get(negIdx).label
+            val negMargin : Double = if (labels.containsKey(negLabel)) labels.get(negLabel) else 0.0
+
+            if (posMargin > negMargin) {
+              val scores = model.scoreFlatFeature(flatFeatures)
+              val posScore = scores.values(posIdx)
+              val negScore = scores.values(negIdx)
+              val loss = (posMargin - negMargin) - (negScore - posScore)
+              if (loss > 0.0) {
+                val grad = new FloatVector(dim)
+                grad.values(posIdx) = -1.0f
+                grad.values(negIdx) = 1.0f
+                for (family <- flatFeatures) {
+                  for (feature <- family._2) {
+                    val key = (family._1, feature._1)
+                    // We only care about features in the model.
+                    if (weightVector.containsKey(key._1) && weightVector.get(key._1).containsKey(key._2)) {
+                      val featureVal = feature._2
+                      val gradContainer = gradient.getOrElse(key,
+                                                             GradientContainer(new FloatVector(dim), 0.0))
+                      gradContainer.grad.multiplyAdd(featureVal.toFloat, grad)
+                      gradient.put(key,
+                                   GradientContainer(gradContainer.grad,
+                                                     gradContainer.featureSquaredSum + featureVal * featureVal
+                                   ))
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+        gradient.iterator
+      })
+      .reduceByKey((a, b) => sumGradients(a,b))
+      .collect
   }
 
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
