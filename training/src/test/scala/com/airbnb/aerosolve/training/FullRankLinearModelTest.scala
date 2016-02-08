@@ -54,12 +54,12 @@ class FullRankLinearModelTest {
   }
 
   @Test
-  def testFullRankLinearHinge() = {
+  def testFullRankLinearSquaredHinge() = {
     testFullRankLinear("squared_hinge", false, 0.9)
   }
 
   @Test
-  def testFullRankLinearHingeMultilabel() = {
+  def testFullRankLinearSquaredHingeMultilabel() = {
     testFullRankLinear("squared_hinge", true, 0.9)
   }
 
