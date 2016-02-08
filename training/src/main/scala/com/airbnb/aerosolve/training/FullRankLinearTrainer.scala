@@ -221,8 +221,8 @@ object FullRankLinearTrainer {
                   grad.values(posIdx) = -1.0f
                   grad.values(negIdx) = 1.0f
                 } else {
-                  grad.values(posIdx) = (-2.0 * loss).toFloat
-                  grad.values(negIdx) = (2.0f * loss).toFloat
+                  grad.values(posIdx) = loss.toFloat
+                  grad.values(negIdx) = loss.toFloat
                 }
 
                 for (family <- flatFeatures) {
