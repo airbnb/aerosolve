@@ -8,6 +8,7 @@ import com.airbnb.aerosolve.core.{ModelRecord, ModelHeader, FeatureVector, Examp
 import com.airbnb.aerosolve.core.models.FullRankLinearModel
 import com.airbnb.aerosolve.core.util.FloatVector
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.training.GradientUtils._
 import com.typesafe.config.Config
 import org.slf4j.{LoggerFactory, Logger}
 import org.apache.spark.SparkContext
@@ -16,12 +17,7 @@ import org.apache.spark.rdd.RDD
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.util.Try
-import scala.util.Random
-import scala.math.abs
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import scala.util.{Try, Random}
 
 /*
  * A trainer that generates a full rank linear model.
@@ -30,21 +26,15 @@ import org.apache.hadoop.fs.Path
 
 object FullRankLinearTrainer {
   private final val log: Logger = LoggerFactory.getLogger("FullRankLinearTrainer")
-  
+
   case class FullRankLinearTrainerOptions(loss : String,
                                           iterations : Int,
                                           rankKey : String,
                                           lambda : Double,
                                           subsample : Double,
                                           minCount : Int,
-                                          cache : String)
-
-  case class GradientContainer(grad : FloatVector, featureSquaredSum : Double)
-
-  def sumGradients(a : GradientContainer, b : GradientContainer) : GradientContainer = {
-    a.grad.add(b.grad)
-    GradientContainer(a.grad, a.featureSquaredSum + b.featureSquaredSum)
-  }
+                                          cache : String,
+                                          solver : String)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -63,10 +53,7 @@ object FullRankLinearTrainer {
 
     val model = setupModel(options, pointwise)
 
-    for (iter <- 0 until options.iterations) {
-      log.info(s"Iteration $iter")
-      modelIteration(sc, options, model, pointwise)
-    }
+    modelIteration(sc, options, model, pointwise)
 
     options.cache match {
       case "memory" => pointwise.unpersist()
@@ -86,47 +73,34 @@ object FullRankLinearTrainer {
                      options : FullRankLinearTrainerOptions,
                      model : FullRankLinearModel,
                      pointwise : RDD[Example]) = {
-    val sample = pointwise.sample(false, options.subsample)
-    val gradients : Array[((String, String), GradientContainer)] = options.loss match {
-      case "softmax" => softmaxGradient(sc, options, model, sample)
-      case "hinge" => hingeGradient(sc, options ,model, sample, "l1")
-      case "squared_hinge" => hingeGradient(sc, options, model, sample, "l2")
-      case _ : String => softmaxGradient(sc, options, model, sample)
-    }
-    val weightVector = model.getWeightVector()
-    val dim = model.getLabelDictionary.size()
-    var gradientNorm = 0.0
-    var featureCount = 0
-    // Gradient update rule from "boosting with structural sparsity Duchi et al 2009"
-    gradients.foreach(kv => {
-      val (key, gradient) = kv
-      val featureMap = weightVector.get(key._1)
-      if (featureMap != null) {
-        val weight = featureMap.get(key._2)
-        if (weight != null) {
-          // Just a proxy measure for convergence.
-          gradientNorm = gradientNorm + gradient.grad.dot(gradient.grad)
-          val scale = 2.0 / math.max(1e-6, gradient.featureSquaredSum)
-          weight.multiplyAdd(-scale.toFloat, gradient.grad)
-          val hingeScale = 1.0 - options.lambda * scale / math.sqrt(weight.dot(weight))
-          if (hingeScale <= 0.0f) {
-            // This entire weight got regularized away.
-            featureMap.remove(key._2)
-          } else {
-            featureCount = featureCount + 1
-            weight.scale(hingeScale.toFloat)
-          }
+    var prevGradients : Map[(String, String), GradientContainer] = Map()
+    val step = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+    for (iter <- 0 until options.iterations) {
+      log.info(s"Iteration $iter")
+      val sample = pointwise.sample(false, options.subsample)
+      val gradients: Map[(String, String), GradientContainer] = options.loss match {
+        case "softmax" => softmaxGradient(sc, options, model, sample)
+        case "hinge" => hingeGradient(sc, options ,model, sample, "l1")
+        case "squared_hinge" => hingeGradient(sc, options, model, sample, "l2")
+        case _: String => softmaxGradient(sc, options, model, sample)
+      }
+      val weightVector = model.getWeightVector()
+      val dim = model.getLabelDictionary.size()
+      options.solver match {
+        case "sparse_boost" => GradientUtils
+          .sparseBoost(gradients, weightVector, dim, options.lambda)
+        case "rprop" => {
+          GradientUtils.rprop(gradients, prevGradients, step, weightVector, dim, options.lambda)
+          prevGradients = gradients
         }
       }
-    })
-    log.info("Sum of Gradient L2 norms = " + gradientNorm)
-    log.info("Num active features = " + featureCount)
+    }
   }
   
   def softmaxGradient(sc : SparkContext,
                       options : FullRankLinearTrainerOptions,
                       model : FullRankLinearModel,
-                      pointwise : RDD[Example]) : Array[((String, String), GradientContainer)] = {
+                      pointwise : RDD[Example]) : Map[(String, String), GradientContainer] = {
     val modelBC = sc.broadcast(model)
     
     pointwise
@@ -174,14 +148,19 @@ object FullRankLinearTrainer {
       gradient.iterator
     })
     .reduceByKey((a, b) => sumGradients(a,b))
-    .collect
+    .collectAsMap
+    .toMap
   }
 
   def hingeGradient(sc : SparkContext,
                     options : FullRankLinearTrainerOptions,
                     model : FullRankLinearModel,
+<<<<<<< HEAD
                     pointwise : RDD[Example],
                     lossType : String) : Array[((String, String), GradientContainer)] = {
+=======
+                    pointwise : RDD[Example]) : Map[(String, String), GradientContainer] = {
+>>>>>>> Add in rprop solver
     val modelBC = sc.broadcast(model)
 
     pointwise
@@ -248,7 +227,8 @@ object FullRankLinearTrainer {
         gradient.iterator
       })
       .reduceByKey((a, b) => sumGradients(a,b))
-      .collect
+      .collectAsMap
+      .toMap
   }
 
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
@@ -260,7 +240,8 @@ object FullRankLinearTrainer {
         lambda = config.getDouble("lambda"),
         subsample = config.getDouble("subsample"),
         minCount = config.getInt("min_count"),
-        cache = config.getString("cache")
+        cache = config.getString("cache"),
+        solver = Try(config.getString("solver")).getOrElse("sparse_boost")
     )
   }
   
@@ -302,7 +283,7 @@ object FullRankLinearTrainer {
       }
     }
     log.info(s"Total number of features is $count")
-    model.buildLabelToIndex();
+    model.buildLabelToIndex()
 
     model
   }

@@ -16,7 +16,7 @@ import scala.collection.JavaConversions
 class FullRankLinearModelTest {
   val log = LoggerFactory.getLogger("FullRankLinearModelTest")
 
-  def makeConfig(loss : String) : String = {
+  def makeConfig(loss : String, lambda : Double, solver : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -27,30 +27,36 @@ class FullRankLinearModelTest {
       |  loss : "%s"
       |  subsample : 0.5
       |  iterations : 10
-      |  lambda : 10.0
+      |  lambda : %f
       |  min_count : 0
       |  cache : "memory"
+      |  solver : "%s"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
     """.stripMargin
-       .format(loss)
+       .format(loss, lambda, solver)
   }
 
   @Test
   def testFullRankLinearSoftmax() = {
-    testFullRankLinear("softmax", false, 0.9)
+    testFullRankLinear("softmax", 10.0, "sparse_boost", false, 0.9)
   }
 
   @Test
   def testFullRankLinearHinge() = {
-    testFullRankLinear("hinge", false, 0.9)
+    testFullRankLinear("hinge", 10.0, "sparse_boost", false, 0.9)
+  }
+
+  @Test
+  def testFullRankLinearHingeRprop() = {
+    testFullRankLinear("hinge", 0.1, "rprop", false, 0.9)
   }
 
   @Test
   def testFullRankLinearHingeMultilabel() = {
-    testFullRankLinear("hinge", true, 0.9)
+    testFullRankLinear("hinge", 10.0, "sparse_boost", true, 0.9)
   }
 
   @Test
@@ -64,6 +70,8 @@ class FullRankLinearModelTest {
   }
 
   def testFullRankLinear(loss : String,
+                         lambda : Double,
+                         solver : String,
                          multiLabel : Boolean,
                          expectedCorrect : Double) = {
     val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(multiLabel)
@@ -71,7 +79,7 @@ class FullRankLinearModelTest {
     var sc = new SparkContext("local", "FullRankLinearTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss))
+      val config = ConfigFactory.parseString(makeConfig(loss, lambda, solver))
 
       val input = sc.parallelize(examples)
       val model = FullRankLinearTrainer.train(sc, input, config, "model_config")
