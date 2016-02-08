@@ -221,7 +221,7 @@ object FullRankLinearTrainer {
                   grad.values(posIdx) = -1.0f
                   grad.values(negIdx) = 1.0f
                 } else {
-                  grad.values(posIdx) = loss.toFloat
+                  grad.values(posIdx) = -loss.toFloat
                   grad.values(negIdx) = loss.toFloat
                 }
 
