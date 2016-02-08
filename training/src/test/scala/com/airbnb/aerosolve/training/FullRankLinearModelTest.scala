@@ -53,6 +53,16 @@ class FullRankLinearModelTest {
     testFullRankLinear("hinge", true, 0.9)
   }
 
+  @Test
+  def testFullRankLinearHinge() = {
+    testFullRankLinear("squared_hinge", false, 0.9)
+  }
+
+  @Test
+  def testFullRankLinearHingeMultilabel() = {
+    testFullRankLinear("squared_hinge", true, 0.9)
+  }
+
   def testFullRankLinear(loss : String,
                          multiLabel : Boolean,
                          expectedCorrect : Double) = {
