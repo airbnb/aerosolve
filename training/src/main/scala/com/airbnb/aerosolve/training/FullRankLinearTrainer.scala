@@ -89,7 +89,8 @@ object FullRankLinearTrainer {
     val sample = pointwise.sample(false, options.subsample)
     val gradients : Array[((String, String), GradientContainer)] = options.loss match {
       case "softmax" => softmaxGradient(sc, options, model, sample)
-      case "hinge" => hingeGradient(sc, options ,model, sample)
+      case "hinge" => hingeGradient(sc, options ,model, sample, "l1")
+      case "squared_hinge" => hingeGradient(sc, options, model, sample, "l2")
       case _ : String => softmaxGradient(sc, options, model, sample)
     }
     val weightVector = model.getWeightVector()
@@ -179,7 +180,8 @@ object FullRankLinearTrainer {
   def hingeGradient(sc : SparkContext,
                     options : FullRankLinearTrainerOptions,
                     model : FullRankLinearModel,
-                    pointwise : RDD[Example]) : Array[((String, String), GradientContainer)] = {
+                    pointwise : RDD[Example],
+                    lossType : String) : Array[((String, String), GradientContainer)] = {
     val modelBC = sc.broadcast(model)
 
     pointwise
@@ -212,11 +214,17 @@ object FullRankLinearTrainer {
               val scores = model.scoreFlatFeature(flatFeatures)
               val posScore = scores.values(posIdx)
               val negScore = scores.values(negIdx)
-              val loss = (posMargin - negMargin) - (negScore - posScore)
+              val loss = (posMargin - negMargin) + (negScore - posScore)
               if (loss > 0.0) {
                 val grad = new FloatVector(dim)
-                grad.values(posIdx) = -1.0f
-                grad.values(negIdx) = 1.0f
+                if (lossType == "l1" ) {
+                  grad.values(posIdx) = -1.0f
+                  grad.values(negIdx) = 1.0f
+                } else {
+                  grad.values(posIdx) = -loss.toFloat
+                  grad.values(negIdx) = loss.toFloat
+                }
+
                 for (family <- flatFeatures) {
                   for (feature <- family._2) {
                     val key = (family._1, feature._1)
@@ -244,7 +252,7 @@ object FullRankLinearTrainer {
   }
 
   def parseTrainingOptions(config : Config) : FullRankLinearTrainerOptions = {
- 
+
     FullRankLinearTrainerOptions(
         loss = config.getString("loss"),
         iterations = config.getInt("iterations"),
