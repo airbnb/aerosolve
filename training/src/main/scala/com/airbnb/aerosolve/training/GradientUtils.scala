@@ -66,7 +66,7 @@ object GradientUtils {
     // Some fixed parameters for rprop, they don't matter much as the algorithm adapts them
     // so just keep them fixed here.
     // Step size parameters
-    val deltaInitial = 0.1f
+    val deltaInitial = 0.01f
     val deltaMax = 50.0f
     val deltaMin = 1e-6f
     // Change in step size parameters
@@ -80,7 +80,7 @@ object GradientUtils {
         val weight = featureMap.get(key._2)
         if (weight != null) {
           val prev = prevGradients.get(key)
-          val prevGrad = if (prevGradients.isEmpty) new FloatVector(dim) else prev.get.grad
+          val prevGrad = if (prev.isEmpty) new FloatVector(dim) else prev.get.grad
           val currOpt = step.get(key)
           // Create a new step vector if we don't have one.
           if (currOpt.isEmpty) {

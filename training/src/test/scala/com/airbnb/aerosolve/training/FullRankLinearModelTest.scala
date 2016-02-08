@@ -61,12 +61,12 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearSquaredHinge() = {
-    testFullRankLinear("squared_hinge", false, 0.9)
+    testFullRankLinear("squared_hinge", 10.0, "sparse_boost", false, 0.9)
   }
 
   @Test
   def testFullRankLinearSquaredHingeMultilabel() = {
-    testFullRankLinear("squared_hinge", true, 0.9)
+    testFullRankLinear("squared_hinge", 10.0, "sparse_boost", true, 0.9)
   }
 
   def testFullRankLinear(loss : String,

@@ -155,12 +155,8 @@ object FullRankLinearTrainer {
   def hingeGradient(sc : SparkContext,
                     options : FullRankLinearTrainerOptions,
                     model : FullRankLinearModel,
-<<<<<<< HEAD
                     pointwise : RDD[Example],
-                    lossType : String) : Array[((String, String), GradientContainer)] = {
-=======
-                    pointwise : RDD[Example]) : Map[(String, String), GradientContainer] = {
->>>>>>> Add in rprop solver
+                    lossType : String) : Map[(String, String), GradientContainer] = {
     val modelBC = sc.broadcast(model)
 
     pointwise
@@ -193,6 +189,9 @@ object FullRankLinearTrainer {
               val scores = model.scoreFlatFeature(flatFeatures)
               val posScore = scores.values(posIdx)
               val negScore = scores.values(negIdx)
+              // loss = max(0, margin + w(-) x - w(+) * pos)
+              // so dloss / dw(-) = x and dloss / dw(+) = -x for hinge loss
+              // and dloss / dw(-) = regular hinge loss * x for squared hinge loss
               val loss = (posMargin - negMargin) + (negScore - posScore)
               if (loss > 0.0) {
                 val grad = new FloatVector(dim)
