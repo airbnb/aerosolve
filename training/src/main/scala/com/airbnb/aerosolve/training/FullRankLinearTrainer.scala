@@ -165,7 +165,7 @@ object FullRankLinearTrainer {
       })
       gradient.iterator
     })
-    .reduceByKey((a, b) => sumGradients(a,b))
+    .reduceByKey((a, b) => GradientUtils.sumGradients(a,b))
     .collectAsMap
     .toMap
   }
@@ -207,9 +207,9 @@ object FullRankLinearTrainer {
               val scores = model.scoreFlatFeature(flatFeatures)
               val posScore = scores.values(posIdx)
               val negScore = scores.values(negIdx)
-              // loss = max(0, margin + w(-) x - w(+) * pos)
+              // loss = max(0, margin + w(-) * x - w(+) * x)
               // so dloss / dw(-) = x and dloss / dw(+) = -x for hinge loss
-              // and dloss / dw(-) = regular hinge loss * x for squared hinge loss
+              // and dloss / dw(-) = loss * x for squared hinge loss
               val loss = (posMargin - negMargin) + (negScore - posScore)
               if (loss > 0.0) {
                 val grad = new FloatVector(dim)
@@ -244,7 +244,7 @@ object FullRankLinearTrainer {
         })
         gradient.iterator
       })
-      .reduceByKey((a, b) => sumGradients(a,b))
+      .reduceByKey((a, b) => GradientUtils.sumGradients(a,b))
       .collectAsMap
       .toMap
   }
