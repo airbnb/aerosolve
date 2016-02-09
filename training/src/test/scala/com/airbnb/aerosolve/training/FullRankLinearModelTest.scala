@@ -41,12 +41,12 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearSoftmax() = {
-    testFullRankLinear("softmax", 1.0, "sparse_boost", false, 0.9)
+    testFullRankLinear("softmax", 0.1, "sparse_boost", false, 0.9)
   }
 
   @Test
   def testFullRankLinearHinge() = {
-    testFullRankLinear("hinge", 1.0, "sparse_boost", false, 0.9)
+    testFullRankLinear("hinge", 0.1, "sparse_boost", false, 0.9)
   }
 
   @Test
@@ -56,17 +56,17 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearHingeMultilabel() = {
-    testFullRankLinear("hinge", 1.0, "sparse_boost", true, 0.9)
+    testFullRankLinear("hinge", 0.1, "sparse_boost", true, 0.9)
   }
 
   @Test
   def testFullRankLinearSquaredHinge() = {
-    testFullRankLinear("squared_hinge", 1.0, "sparse_boost", false, 0.9)
+    testFullRankLinear("squared_hinge", 0.1, "sparse_boost", false, 0.9)
   }
 
   @Test
   def testFullRankLinearSquaredHingeMultilabel() = {
-    testFullRankLinear("squared_hinge", 1.0, "sparse_boost", true, 0.9)
+    testFullRankLinear("squared_hinge", 0.1, "sparse_boost", true, 0.9)
   }
 
   def testFullRankLinear(loss : String,
