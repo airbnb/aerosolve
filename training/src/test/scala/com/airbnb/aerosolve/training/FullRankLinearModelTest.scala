@@ -56,7 +56,7 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearHingeMultilabel() = {
-    testFullRankLinear("hinge", 0.1, "sparse_boost", true, 0.9)
+    testFullRankLinear("hinge", 0.1, "rprop", true, 0.9)
   }
 
   @Test
