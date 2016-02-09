@@ -55,6 +55,8 @@ object FullRankLinearTrainer {
 
     modelIteration(sc, options, model, pointwise)
 
+    filterZeros(model)
+
     options.cache match {
       case "memory" => pointwise.unpersist()
     }
@@ -93,6 +95,21 @@ object FullRankLinearTrainer {
           GradientUtils.rprop(gradients, prevGradients, step, weightVector, dim, options.lambda)
           prevGradients = gradients
         }
+      }
+    }
+  }
+
+  def filterZeros(model : FullRankLinearModel) = {
+    val weightVector = model.getWeightVector()
+    for (family <- weightVector) {
+      val toDelete = scala.collection.mutable.ArrayBuffer[String]()
+      for (feature <- family._2) {
+        if (feature._2.dot(feature._2) < 1e-6) {
+          toDelete.add(feature._1)
+        }
+      }
+      for (deleteFeature <- toDelete) {
+        family._2.remove(deleteFeature)
       }
     }
   }
@@ -136,9 +153,10 @@ object FullRankLinearTrainer {
                 val gradContainer = gradient.getOrElse(key,
                                                        GradientContainer(new FloatVector(dim), 0.0))
                 gradContainer.grad.multiplyAdd(featureVal.toFloat, scores)
+                val norm = math.max(featureVal * featureVal, 1.0)
                 gradient.put(key,
                              GradientContainer(gradContainer.grad,
-                             gradContainer.featureSquaredSum + featureVal * featureVal
+                             gradContainer.featureSquaredSum + norm
                 ))
               }
             }
@@ -212,9 +230,10 @@ object FullRankLinearTrainer {
                       val gradContainer = gradient.getOrElse(key,
                                                              GradientContainer(new FloatVector(dim), 0.0))
                       gradContainer.grad.multiplyAdd(featureVal.toFloat, grad)
+                      val norm = math.max(featureVal * featureVal, 1.0)
                       gradient.put(key,
                                    GradientContainer(gradContainer.grad,
-                                                     gradContainer.featureSquaredSum + featureVal * featureVal
+                                                     gradContainer.featureSquaredSum + norm
                                    ))
                     }
                   }

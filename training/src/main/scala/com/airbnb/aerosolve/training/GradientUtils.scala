@@ -41,8 +41,8 @@ object GradientUtils {
           weight.multiplyAdd(-scale.toFloat, gradient.grad)
           val hingeScale = 1.0 - lambda * scale / math.sqrt(weight.dot(weight))
           if (hingeScale <= 0.0f) {
-            // This entire weight got regularized away.
-            featureMap.remove(key._2)
+            // Weights may get re-activated ... filter at the end.
+            weight.setZero(dim)
           } else {
             featureCount = featureCount + 1
             weight.scale(hingeScale.toFloat)
