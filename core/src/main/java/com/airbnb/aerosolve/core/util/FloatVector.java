@@ -42,6 +42,12 @@ public class FloatVector implements Serializable {
     values = new float[num];
   }
 
+  public void setConstant(float c) {
+    for (int i = 0; i < values.length; i++) {
+      values[i] = c;
+    }
+  }
+
   public void setRandom(int num, float scale) {
     setZero(num);
     for (int i = 0; i < values.length; i++) {
