@@ -90,6 +90,9 @@ object GradientUtils {
           }
           val currStep = step.get(key).get
           for (i <- 0 until dim) {
+            // L2 regularization term
+            gradient.grad.values(i) = gradient.grad.values(i) + lambda.toFloat * weight.values(i)
+
             val prod = prevGrad.values(i) * gradient.grad.values(i)
             if (prod > 0) {
               currStep.values(i) = math.min(currStep.values(i) * etaPlus, deltaMax)
@@ -99,7 +102,7 @@ object GradientUtils {
             }
             val sign = if (gradient.grad.values(i) > 0) 1.0f else -1.0f
             weight.values(i) = weight.values(i) - sign * currStep.values(i)
-                               - lambda.toFloat * weight.values(i) // Regularization term.
+
           }
         }
       }
