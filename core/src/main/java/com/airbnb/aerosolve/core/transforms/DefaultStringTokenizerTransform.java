@@ -3,28 +3,33 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 
-import java.text.Normalizer;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
 import com.typesafe.config.Config;
 
 /**
- * Tokenizes strings using a regex
+ * Tokenizes and counts strings using a regex and optionally generates bigrams from the tokens
  * "field1" specifies the key of the feature
  * "regex" specifies the regex used to tokenize
+ * "generateBigrams" specifies whether bigrams should also be generated
  */
 public class DefaultStringTokenizerTransform extends Transform {
   private String fieldName1;
   private String regex;
   private String outputName;
+  private boolean generateBigrams;
+  private String bigramsOutputName;
 
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     regex = config.getString(key + ".regex");
     outputName = config.getString(key + ".output");
+    generateBigrams = config.getBoolean(key + ".generate_bigrams");
+    if (generateBigrams) {
+      bigramsOutputName = config.getString(key + ".bigrams_output");
+    }
   }
 
   @Override
@@ -42,18 +47,43 @@ public class DefaultStringTokenizerTransform extends Transform {
     Util.optionallyCreateFloatFeatures(featureVector);
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
+    Map<String, Double> bigramOutput = null;
+    if (generateBigrams) {
+      bigramOutput = Util.getOrCreateFloatFeature(bigramsOutputName, floatFeatures);
+    }
 
     for (String rawString : feature1) {
+      if (rawString == null) continue;
       String[] tokenizedString = rawString.split(regex);
       for (String token : tokenizedString) {
         if (token.length() == 0) continue;
-        if (output.containsKey(token)) {
-          double count = output.get(token);
-          output.put(token, (count + 1.0));
-        } else {
-          output.put(token, 1.0);
+        incrementOutput(token, output);
+      }
+      if (generateBigrams) {
+        String previousToken = null;
+        for (String token : tokenizedString) {
+          if (token.length() == 0) continue;
+          if (previousToken == null) {
+            previousToken = token;
+          } else {
+            String bigram = previousToken + " " + token;
+            incrementOutput(bigram, bigramOutput);
+            previousToken = token;
+          }
         }
       }
+    }
+  }
+
+  private static void incrementOutput(String key, Map<String, Double> output) {
+    if (key == null || output == null) {
+      return;
+    }
+    if (output.containsKey(key)) {
+      double count = output.get(key);
+      output.put(key, (count + 1.0));
+    } else {
+      output.put(key, 1.0);
     }
   }
 }

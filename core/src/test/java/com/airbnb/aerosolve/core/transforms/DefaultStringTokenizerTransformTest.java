@@ -23,12 +23,13 @@ public class DefaultStringTokenizerTransformTest {
   private static final Logger log = LoggerFactory.getLogger(
       DefaultStringTokenizerTransformTest.class);
 
-  public String makeConfig(String regex) {
+  public String makeConfig(String regex, boolean generateBigrams) {
     return "test_tokenizer {\n" +
         " transform: default_string_tokenizer\n" +
         " field1: strFeature1\n" +
         " regex: " + regex + "\n" +
         " output: bar\n" +
+        " generate_bigrams: " + Boolean.toString(generateBigrams) +
         "}";
   }
 
@@ -49,7 +50,7 @@ public class DefaultStringTokenizerTransformTest {
 
   @Test
   public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig("regex"));
+    Config config = ConfigFactory.parseString(makeConfig("regex", false));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
@@ -60,7 +61,7 @@ public class DefaultStringTokenizerTransformTest {
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\""));
+    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", false));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
