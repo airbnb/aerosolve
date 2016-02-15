@@ -60,8 +60,31 @@ public class FullRankLinearModel extends AbstractModel {
 
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
-    // (TODO) implement debugScoreComponents
+    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
+    int dim = labelDictionary.size();
+    for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
+      String familyKey = entry.getKey();
+      Map<String, FloatVector> family = weightVector.get(familyKey);
+      if (family != null) {
+        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
+          String featureKey = feature.getKey();
+          FloatVector featureWeights = family.get(featureKey);
+          float val = feature.getValue().floatValue();
+          if (featureWeights != null) {
+            for (int i = 0; i < dim; i++) {
+              DebugScoreRecord record = new DebugScoreRecord();
+              record.setFeatureFamily(familyKey);
+              record.setFeatureName(featureKey);
+              record.setFeatureValue(val);
+              record.setFeatureWeight(featureWeights.get(i));
+              record.setLabel(labelDictionary.get(i).label);
+              scoreRecordsList.add(record);
+            }
+          }
+        }
+      }
+    }
     return scoreRecordsList;
   }
   
@@ -110,9 +133,7 @@ public class FullRankLinearModel extends AbstractModel {
     header.setModelType("full_rank_linear");
     long count = 0;
     for (Map.Entry<String, Map<String, FloatVector>> familyMap : weightVector.entrySet()) {
-      for (Map.Entry<String, FloatVector> feature : familyMap.getValue().entrySet()) {
-        count++;
-      }
+      count += familyMap.getValue().entrySet().size();
     }
     header.setNumRecords(count);
     header.setLabelDictionary(labelDictionary);

@@ -33,6 +33,10 @@ public class FloatVector implements Serializable {
     values[i] = val;
   }
 
+  public float get(int i) {
+    return values[i];
+  }
+
   public static FloatVector getGaussianVector(int num) {
     float[] init = new float[num];
     double mult = 1.0 / Math.sqrt(num);
