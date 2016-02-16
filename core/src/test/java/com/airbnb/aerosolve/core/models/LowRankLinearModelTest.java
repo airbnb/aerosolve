@@ -62,7 +62,7 @@ public class LowRankLinearModelTest {
     // A naive model with three classes 'animal', 'color' and 'fruit'
     // and the size of embedding D = number of labels, W is an identity matrix
     LowRankLinearModel model = new LowRankLinearModel();
-    model.setD(3);
+    model.setEmbeddingDimension(3);
     model.setLabelDictionary(makeLabelDictionary());
 
     // construct featureWeightVector

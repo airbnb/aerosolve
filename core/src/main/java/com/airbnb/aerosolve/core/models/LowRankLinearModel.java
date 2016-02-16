@@ -52,7 +52,7 @@ public class LowRankLinearModel extends AbstractModel {
   // size of the embedding
   @Getter
   @Setter
-  private int D;
+  private int embeddingDimension;
 
   public LowRankLinearModel() {
     featureWeightVector = new HashMap<>();
@@ -102,9 +102,13 @@ public class LowRankLinearModel extends AbstractModel {
   }
 
   public FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
-    int dim = labelDictionary.size();
-    FloatVector sum = new FloatVector(dim);
-    FloatVector fvProjection = new FloatVector(D);
+    FloatVector fvProjection = projectFeatureToEmbedding(flatFeatures);
+    FloatVector sum = projectEmbeddingToLabel(fvProjection);
+    return sum;
+  }
+
+  public FloatVector projectFeatureToEmbedding(Map<String, Map<String, Double>> flatFeatures) {
+    FloatVector fvProjection = new FloatVector(embeddingDimension);
 
     // compute the projection from feature space to D-dim joint space
     for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
@@ -118,6 +122,12 @@ public class LowRankLinearModel extends AbstractModel {
         }
       }
     }
+    return fvProjection;
+  }
+
+  public FloatVector projectEmbeddingToLabel(FloatVector fvProjection) {
+    int dim = labelDictionary.size();
+    FloatVector sum = new FloatVector(dim);
     // compute the projection from D-dim joint space to label space
     for (int i = 0; i < dim; i++) {
       String labelKey = labelDictionary.get(i).getLabel();
@@ -152,7 +162,7 @@ public class LowRankLinearModel extends AbstractModel {
       float[] values = labelRepresentation.getValue().getValues();
 
       ArrayList<Double> arrayList = new ArrayList<>();
-      for (int i = 0; i < D; i++) {
+      for (int i = 0; i < embeddingDimension; i++) {
         arrayList.add((double) values[i]);
       }
       labelEmbedding.put(labelRepresentation.getKey(), arrayList);
@@ -190,13 +200,13 @@ public class LowRankLinearModel extends AbstractModel {
     buildLabelToIndex();
     labelWeightVector = new HashMap<>();
 
-    D = header.getLabelEmbedding().entrySet().iterator().next().getValue().size();
+    embeddingDimension = header.getLabelEmbedding().entrySet().iterator().next().getValue().size();
 
     for (Map.Entry<String, java.util.List<Double>> labelRepresentation : header.getLabelEmbedding().entrySet()) {
       java.util.List<Double> values = labelRepresentation.getValue();
       String labelKey = labelRepresentation.getKey();
-      FloatVector labelWeight = new FloatVector(D);
-      for (int i = 0; i < D; i++) {
+      FloatVector labelWeight = new FloatVector(embeddingDimension);
+      for (int i = 0; i < embeddingDimension; i++) {
         labelWeight.set(i, values.get(i).floatValue());
       }
       labelWeightVector.put(labelKey, labelWeight);
