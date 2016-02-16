@@ -27,6 +27,7 @@ public final class ModelFactory {
       case "additive": return new AdditiveModel();
       case "kernel" : return new KernelModel();
       case "full_rank_linear" : return new FullRankLinearModel();
+      case "low_rank_linear" : return new LowRankLinearModel();
     }
     log.error("Could not create model of type " + name);
     return null;

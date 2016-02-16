@@ -75,6 +75,7 @@ struct ModelHeader {
   6: optional DictionaryRecord dictionary;
   // Multiclass labels.
   7: optional list<LabelDictionaryEntry> labelDictionary;
+  8: optional map<string, list<double>> labelEmbedding;
 }
 
 struct ModelRecord {
