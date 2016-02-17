@@ -148,7 +148,7 @@ object LowRankLinearTrainer {
                 N += 1
               } else {
                 // if we cannot find a random other label that has smaller margin compared to posMargin
-                // we skip learning in this iteration
+                // we skip learning for the current example
                 N = dim
               }
               // break the loop if the random other label is violating the margin requirement
@@ -178,11 +178,11 @@ object LowRankLinearTrainer {
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                 gradContainerPos.grad.multiplyAdd(-1.0f * rankLoss, fvProjection)
                 gradient.put(posLabelKey, GradientContainer(gradContainerPos.grad,
-                  gradContainerNeg.featureSquaredSum + fvNorm))
+                  gradContainerPos.featureSquaredSum + fvNorm))
 
                 // compute gradient w.r.t V (featureWeightVector)
-                val posLabelWeightVector = model.getLabelWeightVector.get(posLabel)
-                val negLabelWeightVector = model.getLabelWeightVector.get(negLabel)
+                val posLabelWeightVector = labelWeightVector.get(posLabel)
+                val negLabelWeightVector = labelWeightVector.get(negLabel)
                 for (family <- flatFeatures) {
                   for (feature <- family._2) {
                     val key = (family._1, feature._1)
@@ -272,6 +272,7 @@ object LowRankLinearTrainer {
   }
 
   private def uniformRankLoss(k: Int, dim: Int): Float = {
+    // dim is the number of classes
     // assume we always have dim > 1
     k * 1.0f / (dim - 1.0f)
   }
