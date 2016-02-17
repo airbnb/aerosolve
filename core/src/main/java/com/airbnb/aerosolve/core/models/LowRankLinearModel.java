@@ -103,8 +103,7 @@ public class LowRankLinearModel extends AbstractModel {
 
   public FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
     FloatVector fvProjection = projectFeatureToEmbedding(flatFeatures);
-    FloatVector sum = projectEmbeddingToLabel(fvProjection);
-    return sum;
+    return projectEmbeddingToLabel(fvProjection);
   }
 
   public FloatVector projectFeatureToEmbedding(Map<String, Map<String, Double>> flatFeatures) {
