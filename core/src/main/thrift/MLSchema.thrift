@@ -112,6 +112,8 @@ struct DebugScoreRecord {
   2: optional string featureName;
   3: optional double featureValue;
   4: optional double featureWeight;
+  // This is only used for multi-class cases
+  5: optional string label;
 }
 
 struct DebugScoreDiffRecord {
