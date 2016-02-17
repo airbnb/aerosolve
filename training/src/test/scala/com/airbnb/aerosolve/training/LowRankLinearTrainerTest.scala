@@ -11,8 +11,8 @@ import org.junit.Assert._
 
 import scala.collection.JavaConverters._
 
-class FullRankLinearModelTest {
-  val log = LoggerFactory.getLogger("FullRankLinearModelTest")
+class LowRankLinearTrainerTest {
+  val log = LoggerFactory.getLogger("LowRankLinearTrainerTest")
 
   def makeConfig(loss : String, lambda : Double, solver : String) : String = {
     """
@@ -24,9 +24,10 @@ class FullRankLinearModelTest {
       |  rank_key : "$rank"
       |  loss : "%s"
       |  subsample : 0.5
-      |  iterations : 10
+      |  iterations : 5
       |  lambda : %f
       |  min_count : 0
+      |  embedding_dimension : 32
       |  cache : "memory"
       |  solver : "%s"
       |  context_transform : identity_transform
@@ -34,61 +35,46 @@ class FullRankLinearModelTest {
       |  combined_transform : identity_transform
       |}
     """.stripMargin
-       .format(loss, lambda, solver)
+      .format(loss, lambda, solver)
   }
 
   @Test
-  def testFullRankLinearSoftmax() = {
-    testFullRankLinear("softmax", 0.1, "sparse_boost", false, 0.9)
+  def testLowRankLinearSparseBoost() = {
+    testLowRankLinear("hinge", 0.0, "sparse_boost", false, 0.9)
   }
 
   @Test
-  def testFullRankLinearHinge() = {
-    testFullRankLinear("hinge", 0.1, "sparse_boost", false, 0.9)
+  def testLowRankLinearRprop() = {
+    testLowRankLinear("hinge", 0.0, "rprop", false, 0.9)
   }
 
-  @Test
-  def testFullRankLinearHingeRprop() = {
-    testFullRankLinear("hinge", 0.1, "rprop", false, 0.9)
-  }
-
-  @Test
-  def testFullRankLinearHingeMultilabel() = {
-    testFullRankLinear("hinge", 0.1, "rprop", true, 0.9)
-  }
-
-  @Test
-  def testFullRankLinearSquaredHinge() = {
-    testFullRankLinear("squared_hinge", 0.1, "sparse_boost", false, 0.9)
-  }
-
-  @Test
-  def testFullRankLinearSquaredHingeMultilabel() = {
-    testFullRankLinear("squared_hinge", 0.1, "sparse_boost", true, 0.9)
-  }
-
-  def testFullRankLinear(loss : String,
-                         lambda : Double,
-                         solver : String,
-                         multiLabel : Boolean,
-                         expectedCorrect : Double) = {
+  def testLowRankLinear(loss : String,
+                        lambda : Double,
+                        solver : String,
+                        multiLabel : Boolean,
+                        expectedCorrect : Double) = {
     val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(multiLabel)
 
-    var sc = new SparkContext("local", "FullRankLinearTest")
+    var sc = new SparkContext("local", "LowRankLinearTest")
 
     try {
       val config = ConfigFactory.parseString(makeConfig(loss, lambda, solver))
 
       val input = sc.parallelize(examples)
-      val model = FullRankLinearTrainer.train(sc, input, config, "model_config")
+      val model = LowRankLinearTrainer.train(sc, input, config, "model_config")
 
-      val weightVector = model.getWeightVector().asScala
-      for (wv <- weightVector) {
+      val featureWeightVector = model.getFeatureWeightVector.asScala
+      for (wv <- featureWeightVector) {
+        log.info(wv.toString())
+      }
+
+      val labelWeightVector = model.getLabelWeightVector.asScala
+      for (wv <- labelWeightVector) {
         log.info(wv.toString())
       }
 
       var numCorrect: Int = 0
-      for (i <- 0 until examples.length) {
+      for (i <- examples.indices) {
         val ex = examples(i)
         val scores = model.scoreItemMulticlass(ex.example.get(0))
         val best = scores.asScala.sortWith((a, b) => a.score > b.score).head
@@ -98,19 +84,19 @@ class FullRankLinearModelTest {
       }
       val fracCorrect: Double = numCorrect * 1.0 / examples.length
       log.info("Num correct = %d, frac correct = %f"
-                 .format(numCorrect, fracCorrect))
+        .format(numCorrect, fracCorrect))
       assertTrue(fracCorrect > expectedCorrect)
 
       val swriter = new StringWriter()
       val writer = new BufferedWriter(swriter)
       model.save(writer)
       writer.close()
-      val str = swriter.toString()
+      val str = swriter.toString
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
       val model2Opt = ModelFactory.createFromReader(reader)
-      assertTrue(model2Opt.isPresent())
+      assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
       val labelCount = if (multiLabel) 6 else 4
 
@@ -131,4 +117,5 @@ class FullRankLinearModelTest {
       System.clearProperty("spark.master.port")
     }
   }
+
 }

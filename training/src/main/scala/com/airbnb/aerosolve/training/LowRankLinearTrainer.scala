@@ -141,10 +141,13 @@ object LowRankLinearTrainer {
             var N = 0
             do {
               // Pick a random other label
-              val (negIdx, negLabel, negMargin, iter) = pickRandomOtherLabel(model, labels, posIdx, posMargin, rnd, dim)
+              val (idx, label, margin, iter) = pickRandomOtherLabel(model, labels, posIdx, posMargin, rnd, dim)
               if (iter < dim) {
                 // we successfully get a random other label
                 negScore = scores.values(negIdx)
+                negMargin = margin
+                negIdx = idx
+                negLabel = label
                 N += 1
               } else {
                 // if we cannot find a random other label that has smaller margin compared to posMargin
