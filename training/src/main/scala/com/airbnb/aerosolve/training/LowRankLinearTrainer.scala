@@ -12,8 +12,6 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-import scala.collection.immutable.HashMap
 import scala.util.{Try, Random}
 
 /*
@@ -80,12 +78,13 @@ object LowRankLinearTrainer {
       val labelWeightVector = model.getLabelWeightVector
       val labelWeightVectorWrapper =  new java.util.HashMap[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]]()
       labelWeightVectorWrapper.put(LABEL_EMBEDDING_KEY, labelWeightVector)
-
-      val dim = model.getLabelDictionary.size()
       options.solver match {
+        case "sparse_boost" =>
+          GradientUtils.sparseBoost(gradients, featureWeightVector, options.embeddingDimension, options.lambda)
+          GradientUtils.sparseBoost(gradients, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
         case "rprop" => {
-          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, dim, options.lambda)
-          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, dim, options.lambda)
+          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda)
+          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
           prevGradients = gradients
         }
       }
@@ -163,23 +162,23 @@ object LowRankLinearTrainer {
               val rankLoss = rankToLoss(N, dim, options.rankLossType)
               val loss = ((posMargin - negMargin) + (negScore - posScore)) * rankLoss
               if (loss > 0.0) {
-
                 // compute gradient w.r.t W (labelWeightVector)
                 val fvProjection = model.projectFeatureToEmbedding(flatFeatures)
+                val fvNorm = math.max(fvProjection.dot(fvProjection), 1.0)
                 // update w-
                 val negLabelKey = (LABEL_EMBEDDING_KEY, negLabel)
                 val gradContainerNeg = gradient.getOrElse(negLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                 gradContainerNeg.grad.multiplyAdd(1.0f * rankLoss, fvProjection)
                 gradient.put(negLabelKey, GradientContainer(gradContainerNeg.grad,
-                  gradContainerNeg.featureSquaredSum + fvProjection.dot(fvProjection)))
+                  gradContainerNeg.featureSquaredSum + fvNorm))
                 // update w+
                 val posLabelKey = (LABEL_EMBEDDING_KEY, posLabel)
                 val gradContainerPos = gradient.getOrElse(posLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                 gradContainerPos.grad.multiplyAdd(-1.0f * rankLoss, fvProjection)
                 gradient.put(posLabelKey, GradientContainer(gradContainerPos.grad,
-                  gradContainerNeg.featureSquaredSum + fvProjection.dot(fvProjection)))
+                  gradContainerNeg.featureSquaredSum + fvNorm))
 
                 // compute gradient w.r.t V (featureWeightVector)
                 val posLabelWeightVector = model.getLabelWeightVector.get(posLabel)
