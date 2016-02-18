@@ -108,7 +108,7 @@ object GradientUtils {
       }
     })
     val stepNorms = step.map(kv => math.sqrt(kv._2.dot(kv._2)))
-    log.info("Sum of Step L2 norms = " + stepNorms.reduce(_ + _))
+    log.info("Sum of Step L2 norms = " + stepNorms.sum)
     val median = stepNorms.toBuffer.sorted.get(stepNorms.size / 2)
     log.info("Median Step L2 norms = " + median)
   }

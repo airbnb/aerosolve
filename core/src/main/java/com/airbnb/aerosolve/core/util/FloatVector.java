@@ -46,6 +46,16 @@ public class FloatVector implements Serializable {
     return new FloatVector(init);
   }
 
+  public static FloatVector getUniformVector(int num) {
+    // uniformly sample from -1/sqrt(num) to +1/sqrt(num)
+    float[] init = new float[num];
+    double mult = 1.0 / Math.sqrt(num);
+    for (int i = 0; i < num; i++) {
+      init[i] = (float) (rnd.nextFloat() * mult * 2 - mult);
+    }
+    return new FloatVector(init);
+  }
+
   public void setZero(int num) {
     values = new float[num];
   }

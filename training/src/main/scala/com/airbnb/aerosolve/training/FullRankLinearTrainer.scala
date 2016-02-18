@@ -1,10 +1,6 @@
 package com.airbnb.aerosolve.training
 
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
-import java.util.concurrent.ConcurrentHashMap
-
-import com.airbnb.aerosolve.core.{ModelRecord, ModelHeader, FeatureVector, Example, LabelDictionaryEntry}
+import com.airbnb.aerosolve.core.{Example, LabelDictionaryEntry}
 import com.airbnb.aerosolve.core.models.FullRankLinearModel
 import com.airbnb.aerosolve.core.util.FloatVector
 import com.airbnb.aerosolve.core.util.Util
