@@ -79,9 +79,6 @@ object LowRankLinearTrainer {
       val labelWeightVectorWrapper =  new java.util.HashMap[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]]()
       labelWeightVectorWrapper.put(LABEL_EMBEDDING_KEY, labelWeightVector)
       options.solver match {
-        case "sparse_boost" =>
-          GradientUtils.sparseBoost(gradients, featureWeightVector, options.embeddingDimension, options.lambda)
-          GradientUtils.sparseBoost(gradients, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
         case "rprop" => {
           GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda)
           GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
@@ -234,7 +231,7 @@ object LowRankLinearTrainer {
       cache = Try(config.getString("cache")).getOrElse(""),
       solver = Try(config.getString("solver")).getOrElse("sparse_boost"),
       embeddingDimension = config.getInt("embedding_dimension"),
-      rankLossType = Try(config.getString("rank_loss")).getOrElse("uniform")
+      rankLossType = Try(config.getString("rank_loss")).getOrElse("")
     )
   }
 
@@ -269,7 +266,7 @@ object LowRankLinearTrainer {
         nonUniformRankLoss(k, dim)
       }
       case _ => {
-        uniformRankLoss(k, dim)
+        1.0f
       }
     }
   }
@@ -311,14 +308,14 @@ object LowRankLinearTrainer {
         val familyMap = featureWeights.get(family)
         if (!familyMap.containsKey(feature)) {
           count = count + 1
-          familyMap.put(feature, new FloatVector(embeddingSize))
+          familyMap.put(feature, FloatVector.getGaussianVector(embeddingSize))
         }
       }
     }
 
     for (labelEntry <- dict) {
       val labelName = labelEntry.getLabel
-      val fv = new FloatVector(embeddingSize)
+      val fv = FloatVector.getGaussianVector(embeddingSize)
       labelWeights.put(labelName, fv)
     }
 

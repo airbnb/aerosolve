@@ -39,11 +39,6 @@ class LowRankLinearTrainerTest {
   }
 
   @Test
-  def testLowRankLinearSparseBoost() = {
-    testLowRankLinear("hinge", 0.0, "sparse_boost", false, 0.9)
-  }
-
-  @Test
   def testLowRankLinearRprop() = {
     testLowRankLinear("hinge", 0.0, "rprop", false, 0.9)
   }
