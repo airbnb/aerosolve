@@ -139,7 +139,7 @@ object LowRankLinearTrainer {
             do {
               // Pick a random other label
               val (idx, label, margin, iter) = pickRandomOtherLabel(model, labels, posIdx, posMargin, rnd, dim)
-              if (iter < dim) {
+              if (iter < dim * 2) {
                 // we successfully get a random other label
                 negScore = scores.values(negIdx)
                 negMargin = margin
@@ -243,9 +243,9 @@ object LowRankLinearTrainer {
     var negLabel = model.getLabelDictionary.get(negIdx).label
     var negMargin : Double = if (posLabels.containsKey(negLabel)) posLabels.get(negLabel) else 0.0
     var iter = 0
-    while ((negIdx == posIdx || negMargin > posMargin) && iter < dim) {
+    while ((negIdx == posIdx || negMargin > posMargin) && iter < dim * 2) {
       // we only want to pick a label that has smaller margin, we try at most dim times
-      // we try this for at most dim times
+      // we try this for at most 2 * dim times
       negIdx = rnd.nextInt(dim)
       negLabel = model.getLabelDictionary.get(negIdx).label
       negMargin = if (posLabels.containsKey(negLabel)) posLabels.get(negLabel) else 0.0

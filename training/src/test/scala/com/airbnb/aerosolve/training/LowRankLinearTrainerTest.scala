@@ -45,13 +45,28 @@ class LowRankLinearTrainerTest {
   }
 
   @Test
+  def testLowRankLinearRpropMultiLabel() = {
+    testLowRankLinear("hinge", 0.1, "rprop", "", true, 0.9)
+  }
+
+  @Test
   def testLowRankLinearRpropUniformRankLoss() = {
     testLowRankLinear("hinge", 0.1, "rprop", "uniform", false, 0.9)
   }
 
   @Test
+  def testLowRankLinearRpropUniformRankLossMultiLabel() = {
+    testLowRankLinear("hinge", 0.1, "rprop", "uniform", true, 0.9)
+  }
+
+  @Test
   def testLowRankLinearRpropNonUniformRankLoss() = {
     testLowRankLinear("hinge", 0.1, "rprop", "non_uniform", false, 0.9)
+  }
+
+  @Test
+  def testLowRankLinearRpropNonUniformRankLossMultiLabel() = {
+    testLowRankLinear("hinge", 0.1, "rprop", "non_uniform", true, 0.9)
   }
 
   def testLowRankLinear(loss : String,
