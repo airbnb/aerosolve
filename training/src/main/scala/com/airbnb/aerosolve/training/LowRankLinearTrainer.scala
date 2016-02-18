@@ -164,21 +164,21 @@ object LowRankLinearTrainer {
               if (loss > 0.0) {
                 // compute gradient w.r.t W (labelWeightVector)
                 val fvProjection = model.projectFeatureToEmbedding(flatFeatures)
-                val fvNorm = math.max(fvProjection.dot(fvProjection), 1.0)
                 // update w-
                 val negLabelKey = (LABEL_EMBEDDING_KEY, negLabel)
                 val gradContainerNeg = gradient.getOrElse(negLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                 gradContainerNeg.grad.multiplyAdd(1.0f * rankLoss, fvProjection)
-                gradient.put(negLabelKey, GradientContainer(gradContainerNeg.grad,
-                  gradContainerNeg.featureSquaredSum + fvNorm))
+                // the real sqaure sum can be computed by:
+                // featureSquaredSum += Math.max(fvProjection.dot(fvProjection), 1.0)
+                // but with rprop solver, this is not used, so we don't compute it here to improve speed
+                gradient.put(negLabelKey, GradientContainer(gradContainerNeg.grad, 0.0))
                 // update w+
                 val posLabelKey = (LABEL_EMBEDDING_KEY, posLabel)
                 val gradContainerPos = gradient.getOrElse(posLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                 gradContainerPos.grad.multiplyAdd(-1.0f * rankLoss, fvProjection)
-                gradient.put(posLabelKey, GradientContainer(gradContainerPos.grad,
-                  gradContainerPos.featureSquaredSum + fvNorm))
+                gradient.put(posLabelKey, GradientContainer(gradContainerPos.grad, 0.0))
 
                 // compute gradient w.r.t V (featureWeightVector)
                 val posLabelWeightVector = labelWeightVector.get(posLabel)
@@ -193,11 +193,8 @@ object LowRankLinearTrainer {
                         GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
                       gradContainer.grad.multiplyAdd(featureVal.toFloat * 1.0f, negLabelWeightVector)
                       gradContainer.grad.multiplyAdd(-featureVal.toFloat * 1.0f, posLabelWeightVector)
-                      val norm = math.max(featureVal * featureVal, 1.0)
                       gradient.put(key,
-                        GradientContainer(gradContainer.grad,
-                          gradContainer.featureSquaredSum + norm
-                        ))
+                        GradientContainer(gradContainer.grad, 0.0))
                     }
                   }
                 }
@@ -229,9 +226,9 @@ object LowRankLinearTrainer {
       subsample = config.getDouble("subsample"),
       minCount = config.getInt("min_count"),
       cache = Try(config.getString("cache")).getOrElse(""),
-      solver = Try(config.getString("solver")).getOrElse("sparse_boost"),
+      solver = Try(config.getString("solver")).getOrElse("rprop"),
       embeddingDimension = config.getInt("embedding_dimension"),
-      rankLossType = Try(config.getString("rank_loss")).getOrElse("")
+      rankLossType = Try(config.getString("rank_loss")).getOrElse("uniform")
     )
   }
 
@@ -278,6 +275,7 @@ object LowRankLinearTrainer {
   }
 
   private def nonUniformRankLoss(k: Int, dim: Int): Float = {
+    // (TODO) peng: make this an array for efficiency
     var loss = 0.0f
     for (i <- 1 to k) {
       loss += 1.0f / i
@@ -308,14 +306,14 @@ object LowRankLinearTrainer {
         val familyMap = featureWeights.get(family)
         if (!familyMap.containsKey(feature)) {
           count = count + 1
-          familyMap.put(feature, FloatVector.getGaussianVector(embeddingSize))
+          familyMap.put(feature, FloatVector.getUniformVector(embeddingSize))
         }
       }
     }
 
     for (labelEntry <- dict) {
       val labelName = labelEntry.getLabel
-      val fv = FloatVector.getGaussianVector(embeddingSize)
+      val fv = FloatVector.getUniformVector(embeddingSize)
       labelWeights.put(labelName, fv)
     }
 
