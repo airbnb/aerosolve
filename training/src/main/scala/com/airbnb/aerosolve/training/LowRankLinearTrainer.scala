@@ -31,7 +31,10 @@ object LowRankLinearTrainer {
                                          cache : String,
                                          solver : String,
                                          embeddingDimension : Int,
-                                         rankLossType: String)
+                                         rankLossType: String,
+                                         maxNorm: Double,
+                                         learningRate: Double,
+                                         rateDecay: Double)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -66,6 +69,7 @@ object LowRankLinearTrainer {
                      pointwise : RDD[Example]) = {
     var prevGradients : Map[(String, String), GradientContainer] = Map()
     val step = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+    var learningRate = options.learningRate
     for (iter <- 0 until options.iterations) {
       log.info(s"Iteration $iter")
       val sample = pointwise
@@ -74,6 +78,7 @@ object LowRankLinearTrainer {
         case "hinge" => hingeGradient(sc, options ,model, sample)
         case _: String => hingeGradient(sc, options, model, sample)
       }
+
       val featureWeightVector = model.getFeatureWeightVector
       val labelWeightVector = model.getLabelWeightVector
       val labelWeightVectorWrapper =  new java.util.HashMap[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]]()
@@ -83,6 +88,15 @@ object LowRankLinearTrainer {
           GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda)
           GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
           prevGradients = gradients
+          normalizeWeightVectors(model, options.maxNorm)
+        }
+        case "gd" => {
+          GradientUtils.gradientDescent(gradients, featureWeightVector,
+            options.embeddingDimension, learningRate, options.lambda)
+          GradientUtils.gradientDescent(gradients, labelWeightVectorWrapper,
+            options.embeddingDimension, learningRate, options.lambda)
+          normalizeWeightVectors(model, options.maxNorm)
+          learningRate = learningRate * options.rateDecay
         }
       }
     }
@@ -159,7 +173,7 @@ object LowRankLinearTrainer {
               // d(loss)/d(w-) =  rankLoss * V * x
               // d(loss)/d(w+) = - rankLoss * V * x
               // d(loss)/d(v) = rankLoss * w(-) * x - rankLoss * w(+) * x
-              val rankLoss = rankToLoss(N, dim, options.rankLossType)
+              val rankLoss = rankToLoss(Math.floor((dim - 1) / N).toInt, dim, options.rankLossType)
               val loss = ((posMargin - negMargin) + (negScore - posScore)) * rankLoss
               if (loss > 0.0) {
                 // compute gradient w.r.t W (labelWeightVector)
@@ -168,8 +182,8 @@ object LowRankLinearTrainer {
                 val negLabelKey = (LABEL_EMBEDDING_KEY, negLabel)
                 val gradContainerNeg = gradient.getOrElse(negLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
-                gradContainerNeg.grad.multiplyAdd(1.0f * rankLoss, fvProjection)
-                // the real sqaure sum can be computed by:
+                gradContainerNeg.grad.multiplyAdd(rankLoss, fvProjection)
+                // the real square sum can be computed by:
                 // featureSquaredSum += Math.max(fvProjection.dot(fvProjection), 1.0)
                 // but with rprop solver, this is not used, so we don't compute it here to improve speed
                 gradient.put(negLabelKey, GradientContainer(gradContainerNeg.grad, 0.0))
@@ -177,7 +191,7 @@ object LowRankLinearTrainer {
                 val posLabelKey = (LABEL_EMBEDDING_KEY, posLabel)
                 val gradContainerPos = gradient.getOrElse(posLabelKey,
                   GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
-                gradContainerPos.grad.multiplyAdd(-1.0f * rankLoss, fvProjection)
+                gradContainerPos.grad.multiplyAdd(-rankLoss, fvProjection)
                 gradient.put(posLabelKey, GradientContainer(gradContainerPos.grad, 0.0))
 
                 // compute gradient w.r.t V (featureWeightVector)
@@ -191,10 +205,9 @@ object LowRankLinearTrainer {
                       val featureVal = feature._2
                       val gradContainer = gradient.getOrElse(key,
                         GradientContainer(new FloatVector(options.embeddingDimension), 0.0))
-                      gradContainer.grad.multiplyAdd(featureVal.toFloat * 1.0f, negLabelWeightVector)
-                      gradContainer.grad.multiplyAdd(-featureVal.toFloat * 1.0f, posLabelWeightVector)
-                      gradient.put(key,
-                        GradientContainer(gradContainer.grad, 0.0))
+                      gradContainer.grad.multiplyAdd(featureVal.toFloat * rankLoss, negLabelWeightVector)
+                      gradContainer.grad.multiplyAdd(-featureVal.toFloat * rankLoss, posLabelWeightVector)
+                      gradient.put(key, GradientContainer(gradContainer.grad, 0.0))
                     }
                   }
                 }
@@ -217,6 +230,30 @@ object LowRankLinearTrainer {
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 
+  private def normalizeWeightVectors(model: LowRankLinearModel, maxNorm: Double) = {
+    val featureWeightVector = model.getFeatureWeightVector
+    val labelWeightVector = model.getLabelWeightVector
+    for (family <- featureWeightVector.entrySet()) {
+      for (feature <- family.getValue.entrySet()) {
+        val weight = feature.getValue
+        val norm = Math.sqrt(weight.dot(weight))
+        if (norm > maxNorm) {
+          val scale = maxNorm / norm
+          weight.scale(scale.toFloat)
+        }
+      }
+    }
+
+    for (labelWeight <- labelWeightVector.entrySet()) {
+      val weight = labelWeight.getValue
+      val norm = Math.sqrt(weight.dot(weight))
+      if (norm > maxNorm) {
+        val scale = maxNorm / norm
+        weight.scale(scale.toFloat)
+      }
+    }
+  }
+
   private def parseTrainingOptions(config : Config) : LowRankLinearTrainerOptions = {
     LowRankLinearTrainerOptions(
       loss = config.getString("loss"),
@@ -228,7 +265,10 @@ object LowRankLinearTrainer {
       cache = Try(config.getString("cache")).getOrElse(""),
       solver = Try(config.getString("solver")).getOrElse("rprop"),
       embeddingDimension = config.getInt("embedding_dimension"),
-      rankLossType = Try(config.getString("rank_loss")).getOrElse("uniform")
+      rankLossType = Try(config.getString("rank_loss")).getOrElse(""),
+      maxNorm = Try(config.getDouble("max_norm")).getOrElse(1.0),
+      learningRate = Try(config.getDouble("learning_rate")).getOrElse(0.1),
+      rateDecay = Try(config.getDouble("rate_decay")).getOrElse(0.9)
     )
   }
 
@@ -318,7 +358,7 @@ object LowRankLinearTrainer {
     }
 
     model.buildLabelToIndex()
-
+    normalizeWeightVectors(model, options.maxNorm)
     log.info(s"Total number of labels is ${dict.size()}")
     log.info(s"Total number of features is $count")
 

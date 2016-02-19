@@ -27,7 +27,7 @@ class LowRankLinearTrainerTest {
       |  iterations : 5
       |  lambda : %f
       |  min_count : 0
-      |  embedding_dimension : 32
+      |  embedding_dimension : 64
       |  cache : "memory"
       |  solver : "%s"
       |  rank_loss : "%s"
