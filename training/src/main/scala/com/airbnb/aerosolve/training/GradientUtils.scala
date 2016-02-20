@@ -62,12 +62,12 @@ object GradientUtils {
             step : scala.collection.mutable.HashMap[(String, String), FloatVector],
             weightVector : java.util.Map[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]],
             dim :Int,
-            lambda : Double) = {
+            lambda : Double,
+            deltaMax : Float = 50.0f) = {
     // Some fixed parameters for rprop, they don't matter much as the algorithm adapts them
     // so just keep them fixed here.
     // Step size parameters
     val deltaInitial = 0.01f
-    val deltaMax = 50.0f
     val deltaMin = 1e-6f
     // Change in step size parameters
     val etaPlus = 1.2f

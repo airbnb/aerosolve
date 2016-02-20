@@ -67,6 +67,16 @@ class FullRankLinearModelTest {
     testFullRankLinear("squared_hinge", 0.1, "sparse_boost", true, 0.9)
   }
 
+  @Test
+  def testFullRankLinearSquaredHingeRprop() = {
+    testFullRankLinear("squared_hinge", 0.1, "rprop", false, 0.9)
+  }
+
+  @Test
+  def testFullRankLinearSquaredHingeMultilabelRprop() = {
+    testFullRankLinear("squared_hinge", 0.1, "rprop", true, 0.9)
+  }
+
   def testFullRankLinear(loss : String,
                          lambda : Double,
                          solver : String,
@@ -82,7 +92,7 @@ class FullRankLinearModelTest {
       val input = sc.parallelize(examples)
       val model = FullRankLinearTrainer.train(sc, input, config, "model_config")
 
-      val weightVector = model.getWeightVector().asScala
+      val weightVector = model.getWeightVector.asScala
       for (wv <- weightVector) {
         log.info(wv.toString())
       }
@@ -105,12 +115,12 @@ class FullRankLinearModelTest {
       val writer = new BufferedWriter(swriter)
       model.save(writer)
       writer.close()
-      val str = swriter.toString()
+      val str = swriter.toString
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
       val model2Opt = ModelFactory.createFromReader(reader)
-      assertTrue(model2Opt.isPresent())
+      assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
       val labelCount = if (multiLabel) 6 else 4
 

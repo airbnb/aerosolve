@@ -92,7 +92,7 @@ object TrainingTestHelper {
     val examples = ArrayBuffer[Example]()
     val labels = ArrayBuffer[String]()
     val rnd = new java.util.Random(1234)
-    for (i <- 0 until 200) {
+    for (i <- 0 until 1000) {
       var x = 2.0 * rnd.nextDouble() - 1.0
       var y = 2.0 * rnd.nextDouble() - 1.0
       val z = 2.0 * rnd.nextDouble() - 1.0

@@ -34,7 +34,8 @@ object LowRankLinearTrainer {
                                          rankLossType: String,
                                          maxNorm: Double,
                                          learningRate: Double,
-                                         rateDecay: Double)
+                                         rateDecay: Double,
+                                         deltaMax: Double)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -55,8 +56,6 @@ object LowRankLinearTrainer {
 
     modelIteration(sc, options, model, pointwise)
 
-    filterZeros(model)
-
     options.cache match {
       case "memory" => pointwise.unpersist()
     }
@@ -70,6 +69,7 @@ object LowRankLinearTrainer {
     var prevGradients : Map[(String, String), GradientContainer] = Map()
     val step = scala.collection.mutable.HashMap[(String, String), FloatVector]()
     var learningRate = options.learningRate
+    var deltaMax = options.deltaMax
     for (iter <- 0 until options.iterations) {
       log.info(s"Iteration $iter")
       val sample = pointwise
@@ -84,35 +84,14 @@ object LowRankLinearTrainer {
       val labelWeightVectorWrapper =  new java.util.HashMap[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]]()
       labelWeightVectorWrapper.put(LABEL_EMBEDDING_KEY, labelWeightVector)
       options.solver match {
+        // TODO (Peng): implement alternating optimization with bagging
         case "rprop" => {
-          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda)
-          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
+          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda, deltaMax.toFloat)
+          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda, deltaMax.toFloat)
           prevGradients = gradients
           normalizeWeightVectors(model, options.maxNorm)
+          deltaMax = deltaMax * options.rateDecay
         }
-        case "gd" => {
-          GradientUtils.gradientDescent(gradients, featureWeightVector,
-            options.embeddingDimension, learningRate, options.lambda)
-          GradientUtils.gradientDescent(gradients, labelWeightVectorWrapper,
-            options.embeddingDimension, learningRate, options.lambda)
-          normalizeWeightVectors(model, options.maxNorm)
-          learningRate = learningRate * options.rateDecay
-        }
-      }
-    }
-  }
-
-  def filterZeros(model : LowRankLinearModel) = {
-    val weightVector = model.getFeatureWeightVector
-    for (family <- weightVector) {
-      val toDelete = scala.collection.mutable.ArrayBuffer[String]()
-      for (feature <- family._2) {
-        if (feature._2.dot(feature._2) < 1e-6) {
-          toDelete.add(feature._1)
-        }
-      }
-      for (deleteFeature <- toDelete) {
-        family._2.remove(deleteFeature)
       }
     }
   }
@@ -153,7 +132,7 @@ object LowRankLinearTrainer {
             do {
               // Pick a random other label
               val (idx, label, margin, iter) = pickRandomOtherLabel(model, labels, posIdx, posMargin, rnd, dim)
-              if (iter < dim * 2) {
+              if (iter < dim) {
                 // we successfully get a random other label
                 negScore = scores.values(negIdx)
                 negMargin = margin
@@ -236,21 +215,13 @@ object LowRankLinearTrainer {
     for (family <- featureWeightVector.entrySet()) {
       for (feature <- family.getValue.entrySet()) {
         val weight = feature.getValue
-        val norm = Math.sqrt(weight.dot(weight))
-        if (norm > maxNorm) {
-          val scale = maxNorm / norm
-          weight.scale(scale.toFloat)
-        }
+        weight.capNorm(maxNorm.toFloat)
       }
     }
 
     for (labelWeight <- labelWeightVector.entrySet()) {
       val weight = labelWeight.getValue
-      val norm = Math.sqrt(weight.dot(weight))
-      if (norm > maxNorm) {
-        val scale = maxNorm / norm
-        weight.scale(scale.toFloat)
-      }
+      weight.capNorm(maxNorm.toFloat)
     }
   }
 
@@ -265,10 +236,11 @@ object LowRankLinearTrainer {
       cache = Try(config.getString("cache")).getOrElse(""),
       solver = Try(config.getString("solver")).getOrElse("rprop"),
       embeddingDimension = config.getInt("embedding_dimension"),
-      rankLossType = Try(config.getString("rank_loss")).getOrElse(""),
+      rankLossType = Try(config.getString("rank_loss")).getOrElse("non_uniform"),
       maxNorm = Try(config.getDouble("max_norm")).getOrElse(1.0),
       learningRate = Try(config.getDouble("learning_rate")).getOrElse(0.1),
-      rateDecay = Try(config.getDouble("rate_decay")).getOrElse(0.9)
+      rateDecay = Try(config.getDouble("rate_decay")).getOrElse(1.0),
+      deltaMax = Try(config.getDouble("delta_max")).getOrElse(1.0f)
     )
   }
 
@@ -283,9 +255,9 @@ object LowRankLinearTrainer {
     var negLabel = model.getLabelDictionary.get(negIdx).label
     var negMargin : Double = if (posLabels.containsKey(negLabel)) posLabels.get(negLabel) else 0.0
     var iter = 0
-    while ((negIdx == posIdx || negMargin > posMargin) && iter < dim * 2) {
+    while ((negIdx == posIdx || negMargin > posMargin) && iter < dim) {
       // we only want to pick a label that has smaller margin, we try at most dim times
-      // we try this for at most 2 * dim times
+      // we try this for at most dim times
       negIdx = rnd.nextInt(dim)
       negLabel = model.getLabelDictionary.get(negIdx).label
       negMargin = if (posLabels.containsKey(negLabel)) posLabels.get(negLabel) else 0.0
