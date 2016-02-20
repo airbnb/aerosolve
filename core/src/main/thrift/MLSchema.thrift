@@ -97,6 +97,7 @@ struct ModelRecord {
   12: optional i32 rightChild;
   // e.g. SPLINE, LINEAR
   13: optional FunctionForm functionForm;
+  14: optional map<string, double> labelDistribution;
 }
 
 struct EvaluationRecord {

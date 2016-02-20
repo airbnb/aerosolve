@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 
 // Types of split criteria
 object SplitCriteriaTypes extends Enumeration {
-  val Classification, Regression = Value
+  val Classification, Regression, Multiclass = Value
 }
 
 // The decision tree is meant to be a prior for the spline model / linear model
@@ -31,7 +31,9 @@ object DecisionTreeTrainer {
     "gini" -> SplitCriteriaTypes.Classification,
     "information_gain" -> SplitCriteriaTypes.Classification,
     "hellinger" -> SplitCriteriaTypes.Classification,
-    "variance" -> SplitCriteriaTypes.Regression
+    "variance" -> SplitCriteriaTypes.Regression,
+    "multiclass_hellinger" -> SplitCriteriaTypes.Multiclass,
+    "multiclass_gini" -> SplitCriteriaTypes.Multiclass
   )
 
   def train(sc : SparkContext,
@@ -152,6 +154,25 @@ object DecisionTreeTrainer {
         // In regression case, leaf is the average of all the associated values
         rec.setFeatureWeight(sum / count)
       }
+      case Some(SplitCriteriaTypes.Multiclass) => {
+        val labelDistribution = new java.util.HashMap[java.lang.String, java.lang.Double]()
+        rec.setLabelDistribution(labelDistribution)
+        val dist = labelDistribution.asScala
+        var sum = 0.0
+        for (example <- examples) {
+          for (kv <- example.get(rankKey).asScala) {
+            val count = dist.getOrElse(kv._1, new java.lang.Double(0.0))
+            sum = sum + kv._2
+            dist.put(kv._1, count + kv._2)
+          }
+        }
+        if (sum > 0.0) {
+          val scale = 1.0 / sum
+          for (kv <- dist) {
+            dist.put(kv._1, scale * kv._2)
+          }
+        }
+      }
       case _ => {
         log.error("Unrecognized criteria type: %s".format(splitCriteria))
       }
@@ -187,6 +208,13 @@ object DecisionTreeTrainer {
           }
           case Some(SplitCriteriaTypes.Regression) => {
             evaluateRegressionSplit(
+              examples, rankKey,
+              minLeafCount,
+              splitCriteria, candidateOpt
+            )
+          }
+          case Some(SplitCriteriaTypes.Multiclass) => {
+            evaluateMulticlassSplit(
               examples, rankKey,
               minLeafCount,
               splitCriteria, candidateOpt
@@ -282,6 +310,64 @@ object DecisionTreeTrainer {
           val hellinger = math.sqrt(1.0 - bhattacharyya)
 
           Some(hellinger)
+        }
+      }
+    } else {
+      None
+    }
+  }
+
+  def giniImpurity(dist : scala.collection.mutable.Map[String, Double]) : Double = {
+    val sum = dist.map(x => x._2).sum
+    val scale = 1.0 / (sum * sum)
+    var impurity : Double = 0.0
+    for (kv1 <- dist) {
+      for (kv2 <- dist) {
+        if (kv1._1 != kv2._1) {
+          impurity += scale * kv1._2 * kv2._2
+        }
+      }
+    }
+    impurity
+  }
+
+  // Evaluate a multiclass classification-type split
+  def evaluateMulticlassSplit(examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
+                              rankKey : String,
+                              minLeafCount : Int,
+                              splitCriteria : String,
+                              candidateOpt : Option[ModelRecord]): Option[Double] = {
+    val leftDist = scala.collection.mutable.HashMap[String, Double]()
+    val rightDist = scala.collection.mutable.HashMap[String, Double]()
+
+    for (example <- examples) {
+      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
+      for (kv <- example.get(rankKey).asScala) {
+        if (response) {
+          rightDist.put(kv._1, kv._2)
+        } else {
+          leftDist.put(kv._1, kv._2)
+        }
+      }
+    }
+
+    if (rightDist.size >= minLeafCount && leftDist.size >= minLeafCount) {
+      splitCriteria match {
+        case "multiclass_hellinger" => {
+          val total = rightDist.map(x => x._2).sum * leftDist.map(x => x._2).sum
+          val scale = 1.0 / total
+          // http://en.wikipedia.org/wiki/Bhattacharyya_distance
+          val bhattacharyya = rightDist
+            .map(x => math.sqrt(scale * x._2 * leftDist.getOrElse(x._1, 0.0)))
+            .sum
+          // http://en.wikipedia.org/wiki/Hellinger_distance
+          val hellinger = math.sqrt(1.0 - bhattacharyya)
+
+          Some(hellinger)
+        }
+        case "multiclass_gini" => {
+          val impurity = giniImpurity(leftDist) + giniImpurity(rightDist)
+          Some(-impurity)
         }
       }
     } else {
