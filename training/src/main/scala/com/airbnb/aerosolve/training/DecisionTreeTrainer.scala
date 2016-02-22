@@ -324,11 +324,11 @@ object DecisionTreeTrainer {
     for (kv1 <- dist) {
       for (kv2 <- dist) {
         if (kv1._1 != kv2._1) {
-          impurity += scale * kv1._2 * kv2._2
+          impurity += kv1._2 * kv2._2
         }
       }
     }
-    impurity
+    impurity * scale
   }
 
   // Evaluate a multiclass classification-type split
