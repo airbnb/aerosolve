@@ -28,7 +28,7 @@ class DecisionTreeModelTest {
       |  num_candidates : 1000
       |  rank_threshold : 0.0
       |  max_depth : 20
-      |  min_leaf_items : 5
+      |  min_leaf_items : 2
       |  num_tries : 10
       |  context_transform : identity_transform
       |  item_transform : identity_transform
@@ -41,6 +41,16 @@ class DecisionTreeModelTest {
   @Test
   def testDecisionTreeTrainerHellinger() = {
     testDecisionTreeClassificationTrainer("hellinger", 0.8)
+  }
+
+  @Test
+  def testDecisionTreeTrainerMulticlassHellinger() = {
+    testDecisionTreeMulticlassTrainer("multiclass_hellinger", 0.7)
+  }
+
+  @Test
+  def testDecisionTreeTrainerMulticlassGini() = {
+    testDecisionTreeMulticlassTrainer("multiclass_gini", 0.7)
   }
 
   @Test
@@ -107,6 +117,64 @@ class DecisionTreeModelTest {
       }
 
    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  def testDecisionTreeMulticlassTrainer(splitType : String,
+                                        expectedCorrect : Double) = {
+    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false)
+
+    var sc = new SparkContext("local", "DecisionTreeTest")
+
+    try {
+      val config = ConfigFactory.parseString(makeConfig(splitType))
+
+      val input = sc.parallelize(examples)
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+
+      val stumps = model.getStumps.asScala
+      stumps.foreach(stump => log.info(stump.toString))
+
+      var numCorrect: Int = 0
+      for (i <- 0 until examples.length) {
+        val ex = examples(i)
+        val scores = model.scoreItemMulticlass(ex.example.get(0))
+        val best = scores.asScala.sortWith((a, b) => a.score > b.score).head
+        if (best.label == labels(i)) {
+          numCorrect = numCorrect + 1
+        }
+      }
+      val fracCorrect: Double = numCorrect * 1.0 / examples.length
+      log.info("Num correct = %d, frac correct = %f"
+                 .format(numCorrect, fracCorrect))
+      assertTrue(fracCorrect > expectedCorrect)
+
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
+      writer.close()
+      val str = swriter.toString()
+      val sreader = new StringReader(str)
+      val reader = new BufferedReader(sreader)
+
+      val model2Opt = ModelFactory.createFromReader(reader)
+      assertTrue(model2Opt.isPresent())
+      val model2 = model2Opt.get()
+
+      for (ex <- examples) {
+        val score = model.scoreItemMulticlass(ex.example.get(0))
+        val score2 = model2.scoreItemMulticlass(ex.example.get(0))
+        assertEquals(score.size, score2.size)
+        for (i <- 0 until score.size) {
+          assertEquals(score.get(i).score, score2.get(i).score, 0.1f)
+        }
+      }
+
+    } finally {
       sc.stop
       sc = null
       // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
