@@ -63,7 +63,7 @@ object GradientUtils {
             weightVector : java.util.Map[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]],
             dim :Int,
             lambda : Double,
-            deltaMax : Float = 50.0f) = {
+            deltaMax : Float = 1.0f) = {
     // Some fixed parameters for rprop, they don't matter much as the algorithm adapts them
     // so just keep them fixed here.
     // Step size parameters

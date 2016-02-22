@@ -32,10 +32,7 @@ object LowRankLinearTrainer {
                                          solver : String,
                                          embeddingDimension : Int,
                                          rankLossType: String,
-                                         maxNorm: Double,
-                                         learningRate: Double,
-                                         rateDecay: Double,
-                                         deltaMax: Double)
+                                         maxNorm: Double)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -68,8 +65,6 @@ object LowRankLinearTrainer {
                      pointwise : RDD[Example]) = {
     var prevGradients : Map[(String, String), GradientContainer] = Map()
     val step = scala.collection.mutable.HashMap[(String, String), FloatVector]()
-    var learningRate = options.learningRate
-    var deltaMax = options.deltaMax
     for (iter <- 0 until options.iterations) {
       log.info(s"Iteration $iter")
       val sample = pointwise
@@ -86,11 +81,10 @@ object LowRankLinearTrainer {
       options.solver match {
         // TODO (Peng): implement alternating optimization with bagging
         case "rprop" => {
-          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda, deltaMax.toFloat)
-          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda, deltaMax.toFloat)
+          GradientUtils.rprop(gradients, prevGradients, step, featureWeightVector, options.embeddingDimension, options.lambda)
+          GradientUtils.rprop(gradients, prevGradients, step, labelWeightVectorWrapper, options.embeddingDimension, options.lambda)
           prevGradients = gradients
           normalizeWeightVectors(model, options.maxNorm)
-          deltaMax = deltaMax * options.rateDecay
         }
       }
     }
@@ -237,10 +231,7 @@ object LowRankLinearTrainer {
       solver = Try(config.getString("solver")).getOrElse("rprop"),
       embeddingDimension = config.getInt("embedding_dimension"),
       rankLossType = Try(config.getString("rank_loss")).getOrElse("non_uniform"),
-      maxNorm = Try(config.getDouble("max_norm")).getOrElse(1.0),
-      learningRate = Try(config.getDouble("learning_rate")).getOrElse(0.1),
-      rateDecay = Try(config.getDouble("rate_decay")).getOrElse(1.0),
-      deltaMax = Try(config.getDouble("delta_max")).getOrElse(1.0f)
+      maxNorm = Try(config.getDouble("max_norm")).getOrElse(1.0)
     )
   }
 
