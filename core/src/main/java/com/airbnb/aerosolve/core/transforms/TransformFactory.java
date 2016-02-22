@@ -156,6 +156,18 @@ public class TransformFactory {
         result = new NormalizeFloatFeatureTransform();
         break;
       }
+      case "convert_string_case" : {
+        result = new ConvertStringCaseTransform();
+        break;
+      }
+      case "normalize_utf_8" : {
+        result = new NormalizeUtf8Transform();
+        break;
+      }
+      case "replace_all_strings" : {
+        result = new ReplaceAllStringsTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);

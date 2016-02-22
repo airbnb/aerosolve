@@ -23,12 +23,14 @@ public class DefaultStringTokenizerTransformTest {
   private static final Logger log = LoggerFactory.getLogger(
       DefaultStringTokenizerTransformTest.class);
 
-  public String makeConfig(String regex) {
+  public String makeConfig(String regex, boolean generateBigrams) {
     return "test_tokenizer {\n" +
         " transform: default_string_tokenizer\n" +
         " field1: strFeature1\n" +
         " regex: " + regex + "\n" +
         " output: bar\n" +
+        " generate_bigrams: " + Boolean.toString(generateBigrams) + "\n" +
+        " bigrams_output: bigrams\n" +
         "}";
   }
 
@@ -49,7 +51,7 @@ public class DefaultStringTokenizerTransformTest {
 
   @Test
   public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig("regex"));
+    Config config = ConfigFactory.parseString(makeConfig("regex", false));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
@@ -59,8 +61,8 @@ public class DefaultStringTokenizerTransformTest {
   }
 
   @Test
-  public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\""));
+  public void testTransformWithoutBigrams() {
+    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", false));
     Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
@@ -84,5 +86,65 @@ public class DefaultStringTokenizerTransformTest {
     assertEquals(1.0, output.get("so"), 0.0);
     assertEquals(2.0, output.get("pie"), 0.0);
     assertEquals(1.0, output.get("m"), 0.0);
+  }
+
+  @Test
+  public void testTransformWithBigrams() {
+    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", true));
+    Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
+    FeatureVector featureVector = makeFeatureVector();
+    transform.doTransform(featureVector);
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+
+    assertEquals(1, stringFeatures.size());
+    assertEquals(2, floatFeatures.size());
+
+    Map<String, Double> output = floatFeatures.get("bar");
+
+    assertEquals(11, output.size());
+    assertEquals(1.0, output.get("apple"), 0.0);
+    assertEquals(1.0, output.get("blueberry"), 0.0);
+    assertEquals(2.0, output.get("blue"), 0.0);
+    assertEquals(3.0, output.get("like"), 0.0);
+    assertEquals(1.0, output.get("excited"), 0.0);
+    assertEquals(1.0, output.get("and"), 0.0);
+    assertEquals(4.0, output.get("I"), 0.0);
+    assertEquals(1.0, output.get("also"), 0.0);
+    assertEquals(1.0, output.get("so"), 0.0);
+    assertEquals(2.0, output.get("pie"), 0.0);
+    assertEquals(1.0, output.get("m"), 0.0);
+
+    Map<String, Double> bigrams = floatFeatures.get("bigrams");
+
+    assertEquals(14, bigrams.size());
+    assertEquals(2.0, bigrams.get(
+        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blueberry"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "blueberry" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "apple"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "apple" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "and"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "and" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "also"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "also" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
+    assertEquals(2.0, bigrams.get(
+        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blue"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "m"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "m" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "so"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "so" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "excited"), 0.0);
+    assertEquals(1.0, bigrams.get(
+        "excited" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
   }
 }
