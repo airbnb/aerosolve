@@ -130,3 +130,7 @@ Support
 
 Dev group :  https://groups.google.com/forum/#!forum/aerosolve-dev
 User group : https://groups.google.com/forum/#!forum/aerosolve-users
+
+In the wild
+-------
+Organizations and projects using `aerosolve` can list themselves [here](inthewild.md).
