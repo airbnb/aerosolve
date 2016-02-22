@@ -62,12 +62,12 @@ object GradientUtils {
             step : scala.collection.mutable.HashMap[(String, String), FloatVector],
             weightVector : java.util.Map[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]],
             dim :Int,
-            lambda : Double) = {
+            lambda : Double,
+            deltaMax : Float = 1.0f) = {
     // Some fixed parameters for rprop, they don't matter much as the algorithm adapts them
     // so just keep them fixed here.
     // Step size parameters
     val deltaInitial = 0.01f
-    val deltaMax = 50.0f
     val deltaMin = 1e-6f
     // Change in step size parameters
     val etaPlus = 1.2f
@@ -109,7 +109,30 @@ object GradientUtils {
     })
     val stepNorms = step.map(kv => math.sqrt(kv._2.dot(kv._2)))
     log.info("Sum of Step L2 norms = " + stepNorms.sum)
+    log.info("Average of Step L2 norms = " + stepNorms.sum / stepNorms.size)
+    log.info("Max of Step L2 norms = " + stepNorms.max)
     val median = stepNorms.toBuffer.sorted.get(stepNorms.size / 2)
     log.info("Median Step L2 norms = " + median)
+  }
+
+  def gradientDescent(gradients : Map[(String, String), GradientContainer],
+                      weightVector : java.util.Map[String,java.util.Map[String,com.airbnb.aerosolve.core.util.FloatVector]],
+                      dim :Int,
+                      learningRate: Double,
+                      lambda : Double) = {
+    gradients.foreach(kv => {
+      val (key, gradient) = kv
+      val featureMap = weightVector.get(key._1)
+      if (featureMap != null) {
+        val weight: FloatVector = featureMap.get(key._2)
+        if (weight != null) {
+          for (i <- 0 until dim) {
+            // L2 regularization term determined by lambda
+            gradient.grad.values(i) = gradient.grad.values(i) + lambda.toFloat * weight.values(i)
+            weight.values(i) -= learningRate.toFloat * gradient.grad.values(i)
+          }
+        }
+      }
+    })
   }
 }

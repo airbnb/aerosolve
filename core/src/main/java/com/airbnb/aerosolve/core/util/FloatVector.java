@@ -82,9 +82,24 @@ public class FloatVector implements Serializable {
     return sum;
   }
 
+  public float l2Norm() {
+    float sum = 0;
+    for (int i  = 0; i < values.length; i++) {
+      sum += values[i] * values[i];
+    }
+    return (float) Math.sqrt(sum);
+  }
+
   public void scale(float scale) {
     for (int i  = 0; i < values.length; i++) {
       values[i] *= scale;
+    }
+  }
+
+  public void capNorm(float maxNorm) {
+    float norm = this.l2Norm();
+    if (norm > maxNorm) {
+      this.scale(maxNorm / norm);
     }
   }
 

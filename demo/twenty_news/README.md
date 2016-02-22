@@ -39,7 +39,7 @@ less 20_newsgroups.txt
 
 The file format is label followed by a tab then the body of the post.
 
-Save the dataset at `src/main/resources`, and make sure the path is consistent with the config file in `src/main/resources/income_prediction.conf`.
+Save the dataset at `src/main/resources`, and make sure the path is consistent with the config file in `src/main/resources/twenty_news.conf`.
 
 After you edit the config file, you can build the demo using:
 

@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 class LowRankLinearTrainerTest {
   val log = LoggerFactory.getLogger("LowRankLinearTrainerTest")
 
-  def makeConfig(loss : String, lambda : Double, solver : String, rankLossType : String) : String = {
+  def makeConfig(lambda : Double, embeddingDim : Int, rankLossType : String) : String = {
     """
       |identity_transform {
       |  transform : list
@@ -22,41 +22,34 @@ class LowRankLinearTrainerTest {
       |}
       |model_config {
       |  rank_key : "$rank"
-      |  loss : "%s"
-      |  subsample : 0.5
-      |  iterations : 5
+      |  loss : "hinge"
+      |  subsample : 1.0
+      |  iterations : 10
       |  lambda : %f
       |  min_count : 0
-      |  embedding_dimension : 32
+      |  embedding_dimension : %d
       |  cache : "memory"
-      |  solver : "%s"
       |  rank_loss : "%s"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
       |}
     """.stripMargin
-      .format(loss, lambda, solver, rankLossType)
-  }
-
-  @Test
-  def testLowRankLinearRprop() = {
-    testLowRankLinear("hinge", 0.1, "rprop", "", false, 0.9)
+      .format(lambda, embeddingDim, rankLossType)
   }
 
   @Test
   def testLowRankLinearRpropUniformRankLoss() = {
-    testLowRankLinear("hinge", 0.1, "rprop", "uniform", false, 0.9)
+    testLowRankLinear(0.1, 32, "uniform", false, 0.9)
   }
 
   @Test
   def testLowRankLinearRpropNonUniformRankLoss() = {
-    testLowRankLinear("hinge", 0.1, "rprop", "non_uniform", false, 0.9)
+    testLowRankLinear(0.1, 32, "non_uniform", false, 0.9)
   }
 
-  def testLowRankLinear(loss : String,
-                        lambda : Double,
-                        solver : String,
+  def testLowRankLinear(lambda : Double,
+                        embeddingDim : Int,
                         rankLossType: String,
                         multiLabel : Boolean,
                         expectedCorrect : Double) = {
@@ -65,7 +58,7 @@ class LowRankLinearTrainerTest {
     var sc = new SparkContext("local", "LowRankLinearTest")
 
     try {
-      val config = ConfigFactory.parseString(makeConfig(loss, lambda, solver, rankLossType))
+      val config = ConfigFactory.parseString(makeConfig(lambda, embeddingDim, rankLossType))
 
       val input = sc.parallelize(examples)
       val model = LowRankLinearTrainer.train(sc, input, config, "model_config")
