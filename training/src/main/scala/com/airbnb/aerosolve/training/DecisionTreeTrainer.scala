@@ -344,9 +344,11 @@ object DecisionTreeTrainer {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
       for (kv <- example.get(rankKey).asScala) {
         if (response) {
-          rightDist.put(kv._1, kv._2)
+          val v = rightDist.getOrElse(kv._1, 0.0)
+          rightDist.put(kv._1, kv._2 + v)
         } else {
-          leftDist.put(kv._1, kv._2)
+          val v = rightDist.getOrElse(kv._1, 0.0)
+          leftDist.put(kv._1, kv._2 + v)
         }
       }
     }
