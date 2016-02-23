@@ -20,8 +20,7 @@ import static org.junit.Assert.assertTrue;
  * Created by christhetree on 1/27/16.
  */
 public class ConvertStringCaseTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(
-      ConvertStringCaseTransformTest.class);
+  private static final Logger log = LoggerFactory.getLogger(ConvertStringCaseTransformTest.class);
 
   public String makeConfig(boolean convertToUppercase) {
     return "test_convert_string_case {\n" +
