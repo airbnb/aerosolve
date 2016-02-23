@@ -38,9 +38,20 @@ public class DecisionTreeModel extends AbstractModel {
 
   @Override
   public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
-    ArrayList<MulticlassScoringResult> results = new ArrayList<>();
     Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
+    return scoreFlattenedFeatureMulticlass(floatFeatures);
+  }
 
+  public float scoreFlattenedFeature(Map<String, Map<String, Double>> floatFeatures) {
+    int leaf = getLeafIndex(floatFeatures);
+    if (leaf < 0) return 0.0f;
+
+    ModelRecord stump = stumps.get(leaf);
+    return (float) stump.featureWeight;
+  }
+
+  public ArrayList<MulticlassScoringResult> scoreFlattenedFeatureMulticlass(Map<String, Map<String, Double>> floatFeatures) {
+    ArrayList<MulticlassScoringResult> results = new ArrayList<>();
     int leaf = getLeafIndex(floatFeatures);
     if (leaf < 0) return results;
 
@@ -54,16 +65,7 @@ public class DecisionTreeModel extends AbstractModel {
       result.setScore(entry.getValue());
       results.add(result);
     }
-
     return results;
-  }
-
-  public float scoreFlattenedFeature(Map<String, Map<String, Double>> floatFeatures) {
-    int leaf = getLeafIndex(floatFeatures);
-    if (leaf < 0) return 0.0f;
-
-    ModelRecord stump = stumps.get(leaf);
-    return (float) stump.featureWeight;
   }
 
   public int getLeafIndex(Map<String, Map<String, Double>> floatFeatures) {

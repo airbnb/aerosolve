@@ -340,20 +340,25 @@ object DecisionTreeTrainer {
     val leftDist = scala.collection.mutable.HashMap[String, Double]()
     val rightDist = scala.collection.mutable.HashMap[String, Double]()
 
+    var leftCount = 0
+    var rightCount = 0
+
     for (example <- examples) {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
       for (kv <- example.get(rankKey).asScala) {
         if (response) {
           val v = rightDist.getOrElse(kv._1, 0.0)
           rightDist.put(kv._1, kv._2 + v)
+          rightCount = rightCount + 1
         } else {
           val v = rightDist.getOrElse(kv._1, 0.0)
           leftDist.put(kv._1, kv._2 + v)
+          leftCount = leftCount + 1
         }
       }
     }
 
-    if (rightDist.size >= minLeafCount && leftDist.size >= minLeafCount) {
+    if (rightCount >= minLeafCount && leftCount >= minLeafCount) {
       splitCriteria match {
         case "multiclass_hellinger" => {
           val total = rightDist.map(x => x._2).sum * leftDist.map(x => x._2).sum
@@ -364,7 +369,6 @@ object DecisionTreeTrainer {
             .sum
           // http://en.wikipedia.org/wiki/Hellinger_distance
           val hellinger = math.sqrt(1.0 - bhattacharyya)
-
           Some(hellinger)
         }
         case "multiclass_gini" => {

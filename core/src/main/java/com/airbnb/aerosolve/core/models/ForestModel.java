@@ -12,10 +12,7 @@ import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.AbstractMap;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.ModelHeader;
-import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.*;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.Spline;
 import lombok.Getter;
@@ -43,6 +40,38 @@ public class ForestModel extends AbstractModel {
       sum += trees.get(i).scoreFlattenedFeature(floatFeatures);
     }
     return sum;
+  }
+
+  @Override
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
+    HashMap<String, Double> map = new HashMap<>();
+
+    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
+
+    // Note: we sum instead of average so that the trainer has the option of boosting the
+    // trees together.
+    for (int i = 0; i < trees.size(); i++) {
+      ArrayList<MulticlassScoringResult> tmp = trees.get(i).scoreFlattenedFeatureMulticlass(
+          floatFeatures);
+      for (MulticlassScoringResult result : tmp) {
+        Double v = map.get(result.label);
+        if (v == null) {
+          map.put(result.label, result.score);
+        } else {
+          map.put(result.label, v + result.score);
+        }
+      }
+    }
+
+    ArrayList<MulticlassScoringResult> results =  new ArrayList<>();
+    for (Map.Entry<String, Double> entry : map.entrySet()) {
+      MulticlassScoringResult result = new MulticlassScoringResult();
+      result.setLabel(entry.getKey());
+      result.setScore(entry.getValue());
+      results.add(result);
+    }
+
+    return results;
   }
 
   @Override

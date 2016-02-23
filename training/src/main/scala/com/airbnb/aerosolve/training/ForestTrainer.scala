@@ -79,6 +79,12 @@ object ForestTrainer {
         if (stump.featureWeight != 0.0f) {
           stump.featureWeight *= scale
         }
+        if (stump.labelDistribution != null) {
+          val dist = stump.labelDistribution.asScala
+          for (rec <- dist) {
+            dist.put(rec._1, rec._2 * scale)
+          }
+        }
       }
       forest.getTrees().append(tree)
     }
