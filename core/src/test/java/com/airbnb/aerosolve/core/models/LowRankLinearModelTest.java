@@ -132,7 +132,6 @@ public class LowRankLinearModelTest {
     return featureVector;
   }
 
-
   @Test
   public void testScoreEmptyFeature() {
     FeatureVector featureVector = new FeatureVector();

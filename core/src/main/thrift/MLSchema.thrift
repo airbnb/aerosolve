@@ -76,6 +76,12 @@ struct ModelHeader {
   // Multiclass labels.
   7: optional list<LabelDictionaryEntry> labelDictionary;
   8: optional map<string, list<double>> labelEmbedding;
+  // The number of hidden layers in neural network
+  9: optional i32 numHiddenLayers;
+  // the activation function in neural network
+  10: optional string activationFunction;
+  // number of nodes in each hidden layer of a neural network
+  11: optional list<i32> numberHiddenNodes;
 }
 
 struct ModelRecord {
