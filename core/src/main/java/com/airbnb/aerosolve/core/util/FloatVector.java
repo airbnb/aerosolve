@@ -105,13 +105,15 @@ public class FloatVector implements Serializable {
 
   public void sigmoid() {
     for (int i = 0; i < values.length; i++) {
+      // this is to prevent overflow
+      values[i] = Math.max(values[i], -20);
       values[i] = 1.0f /(1.0f + (float) Math.exp(-values[i]));
     }
   }
 
   public void tanh() {
     for (int i = 0; i < values.length; i++) {
-      values[i] = 2.0f /(1.0f + (float) Math.exp(-2.0 * values[i])) - 1.0f;
+      values[i] = (float) Math.tanh(values[i]);
     }
   }
 

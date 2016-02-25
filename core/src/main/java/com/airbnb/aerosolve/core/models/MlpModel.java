@@ -3,12 +3,11 @@ package com.airbnb.aerosolve.core.models;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.io.Serializable;
 import java.util.*;
 
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.util.Util;
@@ -45,7 +44,7 @@ public class MlpModel extends AbstractModel {
 
   @Getter
   @Setter
-  private String activationFunction;
+  private ArrayList<FunctionForm> activationFunction;
 
   // number of layers (excluding input layer and output layer)
   @Getter
@@ -55,27 +54,29 @@ public class MlpModel extends AbstractModel {
   // number of nodes for each hidden layer and output layer (does not include input layer)
   @Getter
   @Setter
-  private Map<Integer, Integer> layerNodeNumber;
+  private ArrayList<Integer> layerNodeNumber;
 
   @Getter
   @Setter
   private Map<Integer, FloatVector> layerActivations;
 
   public MlpModel() {
-    layerNodeNumber = new HashMap<>();
+    layerNodeNumber = new ArrayList<>();
     inputLayerWeights = new HashMap<>();
     hiddenLayerWeights = new HashMap<>();
     layerActivations = new HashMap<>();
     bias = new HashMap<>();
+    activationFunction = new ArrayList<>();
   }
 
-  public MlpModel(String activation, ArrayList<Integer> nodeNumbers) {
+  public MlpModel(ArrayList<FunctionForm> activation, ArrayList<Integer> nodeNumbers) {
     // n is the number of hidden layers (does not count input and output layer)
     // activation specifies activation function
     // nodeNumbers: specifies number of nodes in each hidden layer
     numHiddenLayers = nodeNumbers.size();
     activationFunction = activation;
-    layerNodeNumber = new HashMap<>();
+    layerNodeNumber = nodeNumbers;
+    assert(activation.size() == numHiddenLayers + 1);
     inputLayerWeights = new HashMap<>();
     hiddenLayerWeights = new HashMap<>();
     // bias including the bias added at the output layer
@@ -84,13 +85,12 @@ public class MlpModel extends AbstractModel {
 
     for (int i = 0; i < numHiddenLayers; i++) {
       int nodeNum = nodeNumbers.get(i);
-      layerNodeNumber.put(i, nodeNum);
       hiddenLayerWeights.put(i, new ArrayList<>(nodeNum));
       bias.put(i, new FloatVector(nodeNum));
       layerActivations.put(i, new FloatVector(nodeNum));
     }
     // output layer has one node
-    layerNodeNumber.put(numHiddenLayers, 1);
+    layerNodeNumber.add(1);
     layerActivations.put(numHiddenLayers, new FloatVector(1));
     bias.put(numHiddenLayers, new FloatVector(1));
   }
@@ -137,7 +137,7 @@ public class MlpModel extends AbstractModel {
     }
     // add bias for the first hidden layer or output layer
     fvProjection.multiplyAdd(1.0f, bias.get(0));
-    applyActivation(fvProjection);
+    applyActivation(fvProjection, activationFunction.get(0));
     return fvProjection;
   }
 
@@ -158,25 +158,25 @@ public class MlpModel extends AbstractModel {
       output.multiplyAdd(input.get(i), weights.get(i));
     }
     output.multiplyAdd(1.0f, bias.get(outputLayerId));
-    applyActivation(output);
+    applyActivation(output, activationFunction.get(outputLayerId));
     return output;
   }
 
-  private void applyActivation(FloatVector input) {
-    switch (activationFunction) {
-      case "sigmoid": {
+  private void applyActivation(FloatVector input, FunctionForm func) {
+    switch (func) {
+      case SIGMOID: {
         input.sigmoid();
         break;
       }
-      case "relu": {
+      case RELU: {
         input.rectify();
         break;
       }
-      case "tanh": {
+      case TANH: {
         input.tanh();
         break;
       }
-      case "identity": {
+      case IDENTITY: {
         break;
       }
       default: {
@@ -202,7 +202,6 @@ public class MlpModel extends AbstractModel {
   public void save(BufferedWriter writer) throws IOException {
     ModelHeader header = new ModelHeader();
     header.setModelType("multilayer_perceptron");
-    header.setActivationFunction(activationFunction);
     header.setNumHiddenLayers(numHiddenLayers);
     ArrayList<Integer> nodeNum = new ArrayList<>();
     for (int i = 0; i < numHiddenLayers + 1; i++) {
@@ -247,6 +246,7 @@ public class MlpModel extends AbstractModel {
         arrayList.add((double) layerBias.get(j));
       }
       record.setWeightVector(arrayList);
+      record.setFunctionForm(activationFunction.get(i));
       writer.write(Util.encode(record));
       writer.newLine();
     }
@@ -271,11 +271,10 @@ public class MlpModel extends AbstractModel {
 
   @Override
   protected void loadInternal(ModelHeader header, BufferedReader reader) throws IOException {
-    activationFunction = header.getActivationFunction();
     numHiddenLayers = header.getNumHiddenLayers();
     List<Integer> hiddenNodeNumber = header.getNumberHiddenNodes();
     for (int i = 0; i < hiddenNodeNumber.size(); i++) {
-      layerNodeNumber.put(i, hiddenNodeNumber.get(i));
+      layerNodeNumber.add(hiddenNodeNumber.get(i));
     }
     // load input layer weights
     long rows = header.getNumRecords();
@@ -296,7 +295,7 @@ public class MlpModel extends AbstractModel {
       }
       inner.put(name, vec);
     }
-    // load bias
+    // load bias and activation function
     for (int i = 0; i < numHiddenLayers + 1; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
@@ -306,7 +305,9 @@ public class MlpModel extends AbstractModel {
         layerBias.set(j, arrayList.get(j).floatValue());
       }
       bias.put(i, layerBias);
+      activationFunction.add(record.getFunctionForm());
     }
+
     // load the hiddenLayerWeights, one record per (layer + node)
     for (int i = 0; i < numHiddenLayers; i++) {
       ArrayList<FloatVector> weights = new ArrayList<>();

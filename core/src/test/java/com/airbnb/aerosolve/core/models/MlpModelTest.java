@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.core.models;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.LabelDictionaryEntry;
+import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.util.FloatVector;
@@ -39,13 +39,16 @@ public class MlpModelTest {
     floatFeatures.put("in", feature);
     return featureVector;
   }
-  public MlpModel makeMlpModel(String activation) {
+  public MlpModel makeMlpModel(FunctionForm func) {
     // construct a network with 1 hidden layer
     // and there are 3 nodes in the hidden layer
     ArrayList nodeNum = new ArrayList(1);
     nodeNum.add(3);
     // assume bias at each node are zeros
-    MlpModel model = new MlpModel(activation, nodeNum);
+    ArrayList activations = new ArrayList();
+    activations.add(func);
+    activations.add(func);
+    MlpModel model = new MlpModel(activations, nodeNum);
 
     // set input layer
     HashMap inputLayer = new HashMap<>();
@@ -81,9 +84,9 @@ public class MlpModelTest {
 
   @Test
   public void testConstructedModel() {
-    MlpModel model = makeMlpModel("relu");
+    MlpModel model = makeMlpModel(FunctionForm.RELU);
     assertEquals(model.getNumHiddenLayers(), 1);
-    assertEquals(model.getActivationFunction(), "relu");
+    assertEquals(model.getActivationFunction().get(0), FunctionForm.RELU);
     assertEquals(model.getHiddenLayerWeights().size(), 1);
     assertEquals(model.getHiddenLayerWeights().get(0).size(), 3);
     assertEquals(model.getInputLayerWeights().entrySet().size(), 1);
@@ -95,7 +98,7 @@ public class MlpModelTest {
   @Test
   public void testScoring() {
     FeatureVector fv = makeFeatureVector();
-    MlpModel model = makeMlpModel("relu");
+    MlpModel model = makeMlpModel(FunctionForm.RELU);
     float output = model.scoreItem(fv);
     assertEquals(output, 6.0f, 1e-10f);
   }
@@ -104,7 +107,7 @@ public class MlpModelTest {
   public void testSave() {
     StringWriter strWriter = new StringWriter();
     BufferedWriter writer = new BufferedWriter(strWriter);
-    MlpModel model = makeMlpModel("relu");
+    MlpModel model = makeMlpModel(FunctionForm.RELU);
     try {
       model.save(writer);
       writer.close();
@@ -120,7 +123,6 @@ public class MlpModelTest {
     // create header record
     ModelHeader header = new ModelHeader();
     header.setModelType("multilayer_perceptron");
-    header.setActivationFunction("relu");
     header.setNumHiddenLayers(1);
     ArrayList<Integer> nodeNum = new ArrayList<>(2);
     nodeNum.add(3);
@@ -156,10 +158,12 @@ public class MlpModelTest {
     b1.add(0.0);
     b1.add(0.0);
     record4.setWeightVector(b1);
+    record4.setFunctionForm(FunctionForm.RELU);
     ModelRecord record5 = new ModelRecord();
     ArrayList<Double> b2 = new ArrayList<>();
     b2.add(0.0);
     record5.setWeightVector(b2);
+    record5.setFunctionForm(FunctionForm.RELU);
 
     // create records for hidden layer
     ModelRecord record6 = new ModelRecord();

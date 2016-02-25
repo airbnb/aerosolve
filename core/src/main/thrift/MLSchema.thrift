@@ -9,7 +9,11 @@ enum FunctionForm {
   SPLINE,
   LINEAR,
   RADIAL_BASIS_FUNCTION,
-  ARC_COSINE
+  ARC_COSINE,
+  SIGMOID,
+  RELU,
+  TANH,
+  IDENTITY
 }
 
 struct FeatureVector {
@@ -78,10 +82,8 @@ struct ModelHeader {
   8: optional map<string, list<double>> labelEmbedding;
   // The number of hidden layers in neural network
   9: optional i32 numHiddenLayers;
-  // the activation function in neural network
-  10: optional string activationFunction;
   // number of nodes in each hidden layer of a neural network
-  11: optional list<i32> numberHiddenNodes;
+  10: optional list<i32> numberHiddenNodes;
 }
 
 struct ModelRecord {
