@@ -51,6 +51,12 @@ class BoostedForestTrainerTest {
     ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
   }
 
+  @Test
+  def testBoostedForestTrainerMulticlassHellinger() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_hellinger", "uniform"))
+    ForestTrainerTestHelper.testForestTrainerMulticlass(config, true, 0.8)
+  }
+
    @Test
   def testBoostedForestTrainerHellingerSampleFirst() = {
     val config = ConfigFactory.parseString(makeConfig("hellinger", "first"))

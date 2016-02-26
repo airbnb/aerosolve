@@ -198,6 +198,10 @@ object TrainingUtils {
     return label
   }
 
+  def getLabelDistribution(fv : FeatureVector, rankKey : String) : Map[String, Double] = {
+    fv.floatFeatures.get(rankKey).asScala.map(x => (x._1.toString, x._2.toDouble)).toMap
+  }
+
   def getLabel(fv : FeatureVector, rankKey : String) : Double = {
     // get label for regression
     fv.floatFeatures.get(rankKey).asScala.head._2.toDouble
