@@ -5,7 +5,6 @@ import com.airbnb.aerosolve.core.models.MlpModel
 
 import com.airbnb.aerosolve.core.util.FloatVector
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.GradientUtils.GradientContainer
 import com.typesafe.config.Config
 import org.slf4j.{LoggerFactory, Logger}
 import org.apache.spark.SparkContext
@@ -68,6 +67,7 @@ object MlpModelTrainer {
 
     trainerOptions.cache match {
       case "memory" => pointwise.unpersist()
+      case _ => Unit
     }
     model
   }
@@ -210,7 +210,7 @@ object MlpModelTrainer {
 
   def updateModel(model: MlpModel,
                   gradientContainer:  Map[(String, String), FloatVector],
-                  updateContainer: Map[(String, String), FloatVector],
+                  updateContainer: scala.collection.mutable.HashMap[(String, String), FloatVector],
                   momentum: Float,
                   learningRate: Float,
                   dropout: Double) = {
@@ -220,7 +220,7 @@ object MlpModelTrainer {
     for ((key, prevUpdate) <- updateContainer) {
       val weightToUpdate : FloatVector = if (key._1.startsWith(LAYER_PREFIX)) {
         val layerId: Int = key._1.substring(LAYER_PREFIX.length).toInt
-        assert(layerId >=0 && layerId <= numHiddenLayers)
+        assert(layerId >= 0 && layerId <= numHiddenLayers)
         if (key._2.equals(BIAS_PREFIX)) {
           // node bias updates
           model.getBias.get(layerId)
@@ -331,13 +331,13 @@ object MlpModelTrainer {
       }
       hiddenLayerWeights.put(i, arr)
     }
-    // note: bias at each node is default to zero in this trainer
+    // note: bias at each node initialized to zero in this trainer
     log.info(s"Total number of features is $count")
     model
   }
 
-  private def setupUpdateContainer(model: MlpModel) : Map[(String, String), FloatVector] = {
-    val container : Map[(String, String), FloatVector] = Map()
+  private def setupUpdateContainer(model: MlpModel) : scala.collection.mutable.HashMap[(String, String), FloatVector] = {
+    val container = scala.collection.mutable.HashMap[(String, String), FloatVector]()
     // set up input layer weights gradient
     val inputLayerWeights = model.getInputLayerWeights
     val n0 = model.getLayerNodeNumber.get(0)
@@ -373,11 +373,11 @@ object MlpModelTrainer {
                              momentum: Float,
                              learningRate: Float,
                              gradient: FloatVector): FloatVector = {
+    // based on hinton's dropout paper: http://arxiv.org/pdf/1207.0580.pdf
     val update: FloatVector = new FloatVector(prevUpdate.length)
     update.multiplyAdd(momentum, prevUpdate)
-    update.multiplyAdd(1.0f - momentum, gradient)
-    update.scale(learningRate.toFloat)
-    return update
+    update.multiplyAdd(-(1.0f - momentum) * learningRate, gradient)
+    update
   }
 
   private def getFunctionForm(func: String) : FunctionForm = {
@@ -386,7 +386,7 @@ object MlpModelTrainer {
       case "relu" => FunctionForm.RELU
       case "tanh" => FunctionForm.TANH
       case "identity" => FunctionForm.IDENTITY
-      case _ => FunctionForm.SIGMOID
+      case _ => assert(false); FunctionForm.SIGMOID
     }
   }
 
