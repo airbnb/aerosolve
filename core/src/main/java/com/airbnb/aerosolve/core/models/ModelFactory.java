@@ -28,6 +28,7 @@ public final class ModelFactory {
       case "kernel" : return new KernelModel();
       case "full_rank_linear" : return new FullRankLinearModel();
       case "low_rank_linear" : return new LowRankLinearModel();
+      case "multilayer_perceptron" : return new MlpModel();
     }
     log.error("Could not create model of type " + name);
     return null;
