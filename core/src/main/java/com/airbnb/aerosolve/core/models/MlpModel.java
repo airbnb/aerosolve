@@ -70,10 +70,10 @@ public class MlpModel extends AbstractModel {
   }
 
   public MlpModel(ArrayList<FunctionForm> activation, ArrayList<Integer> nodeNumbers) {
-    // n is the number of hidden layers (does not count input and output layer)
+    // n is the number of hidden layers (including output layer, excluding input layer)
     // activation specifies activation function
     // nodeNumbers: specifies number of nodes in each hidden layer
-    numHiddenLayers = nodeNumbers.size();
+    numHiddenLayers = nodeNumbers.size() - 1; // excluding output layer
     activationFunction = activation;
     layerNodeNumber = nodeNumbers;
     assert(activation.size() == numHiddenLayers + 1);
@@ -83,16 +83,14 @@ public class MlpModel extends AbstractModel {
     bias = new HashMap<>();
     layerActivations = new HashMap<>();
 
-    for (int i = 0; i < numHiddenLayers; i++) {
+    for (int i = 0; i <= numHiddenLayers; i++) {
       int nodeNum = nodeNumbers.get(i);
-      hiddenLayerWeights.put(i, new ArrayList<>(nodeNum));
+      if (i < numHiddenLayers) {
+        hiddenLayerWeights.put(i, new ArrayList<>(nodeNum));
+      }
       bias.put(i, new FloatVector(nodeNum));
       layerActivations.put(i, new FloatVector(nodeNum));
     }
-    // output layer has one node
-    layerNodeNumber.add(1);
-    layerActivations.put(numHiddenLayers, new FloatVector(1));
-    bias.put(numHiddenLayers, new FloatVector(1));
   }
 
   @Override
@@ -102,14 +100,27 @@ public class MlpModel extends AbstractModel {
   }
 
   public float forwardPropagation(Map<String, Map<String, Double>> flatFeatures) {
-    projectInputLayer(flatFeatures);
+    projectInputLayer(flatFeatures, 0.0);
     for (int i = 0; i < numHiddenLayers; i++) {
-      projectHiddenLayer(i);
+      projectHiddenLayer(i, 0.0);
     }
     return layerActivations.get(numHiddenLayers).get(0);
   }
 
-  public FloatVector projectInputLayer(Map<String, Map<String, Double>> flatFeatures) {
+  public float forwardPropagationWithDropout(Map<String, Map<String, Double>> flatFeatures, Double dropout) {
+    // reference: George E. Dahl et al. "IMPROVING DEEP NEURAL NETWORKS FOR LVCSR USING RECTIFIED LINEAR UNITS AND DROPOUT"
+    // scale the input to a node by 1/(1-dropout), so that we don't need to rescale model weights after training
+    // make sure the value is between 0 and 1
+    assert(dropout > 0.0);
+    assert(dropout < 1.0);
+    projectInputLayer(flatFeatures, dropout);
+    for (int i = 0; i < numHiddenLayers; i++) {
+      projectHiddenLayer(i, dropout);
+    }
+    return layerActivations.get(numHiddenLayers).get(0);
+  }
+
+  public FloatVector projectInputLayer(Map<String, Map<String, Double>> flatFeatures, Double dropout) {
     // compute the projection from input feature space to the first hidden layer or
     // output layer if there is no hidden layer
     // output: fvProjection is a float vector representing the activation at the first layer after input layer
@@ -129,19 +140,22 @@ public class MlpModel extends AbstractModel {
         for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
           FloatVector vec = family.get(feature.getKey());
           if (vec != null) {
-            assert(outputNodeNum == vec.length());
+            if (dropout > 0.0 && Math.random() < dropout) continue;
             fvProjection.multiplyAdd(feature.getValue().floatValue(), vec);
           }
         }
       }
     }
+    if (dropout > 0.0 && dropout < 1.0) {
+      fvProjection.scale(1.0f / (1.0f - dropout.floatValue()));
+    }
     // add bias for the first hidden layer or output layer
-    fvProjection.multiplyAdd(1.0f, bias.get(0));
+    fvProjection.add(bias.get(0));
     applyActivation(fvProjection, activationFunction.get(0));
     return fvProjection;
   }
 
-  public FloatVector projectHiddenLayer(int hiddenLayerId) {
+  public FloatVector projectHiddenLayer(int hiddenLayerId, Double dropout) {
     int outputLayerId = hiddenLayerId + 1;
     int outputDim = layerNodeNumber.get(outputLayerId);
     FloatVector output = layerActivations.get(outputLayerId);
@@ -155,7 +169,11 @@ public class MlpModel extends AbstractModel {
     FloatVector input = layerActivations.get(hiddenLayerId);
     ArrayList<FloatVector> weights = hiddenLayerWeights.get(hiddenLayerId);
     for (int i = 0; i < input.length(); i++) {
+      if (dropout > 0.0 && Math.random() < dropout) continue;
       output.multiplyAdd(input.get(i), weights.get(i));
+    }
+    if (dropout > 0.0 && dropout < 1.0) {
+      output.scale(1.0f / (1.0f - dropout.floatValue()));
     }
     output.multiplyAdd(1.0f, bias.get(outputLayerId));
     applyActivation(output, activationFunction.get(outputLayerId));
