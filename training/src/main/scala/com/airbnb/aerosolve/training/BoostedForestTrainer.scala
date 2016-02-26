@@ -39,8 +39,9 @@ object BoostedForestTrainer {
                                          learningRate : Double,
                                          samplingStrategy : String,
                                          multiclass : Boolean)
-                                         
+  // A container class that returns the tree and leaf a feature vector ends up in
   case class ForestResponse(tree : Int, leaf : Int)
+  // The sum of all responses to a feature vector of an entire forest.
   case class ForestResult(label : Double,
                           labels : Map[String, Double],
                           sum : Double,
