@@ -27,8 +27,8 @@ class DecisionTreeModelTest {
       |  split_criteria : "%s"
       |  num_candidates : 1000
       |  rank_threshold : 0.0
-      |  max_depth : 20
-      |  min_leaf_items : 2
+      |  max_depth : 4
+      |  min_leaf_items : 5
       |  num_tries : 10
       |  context_transform : identity_transform
       |  item_transform : identity_transform
@@ -138,6 +138,8 @@ class DecisionTreeModelTest {
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
+
+      log.info(model.toDot)
 
       var numCorrect: Int = 0
       for (i <- 0 until examples.length) {

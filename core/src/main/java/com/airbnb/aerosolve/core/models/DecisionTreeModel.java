@@ -152,7 +152,7 @@ public class DecisionTreeModel extends AbstractModel {
       } else {
         sb.append(String.format("\"node%d\" [\n", i));
         if (stump.labelDistribution != null) {
-          sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
+          sb.append(String.format("label = \"<f0> "));
           for (Map.Entry<String, Double> entry : stump.labelDistribution.entrySet()) {
             sb.append(String.format("%s : %f ", entry.getKey(), entry.getValue()));
           }
