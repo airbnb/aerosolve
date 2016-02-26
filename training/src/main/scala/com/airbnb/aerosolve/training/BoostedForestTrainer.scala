@@ -5,9 +5,9 @@ import java.util
 import com.airbnb.aerosolve.core.models.BoostedStumpsModel
 import com.airbnb.aerosolve.core.models.DecisionTreeModel
 import com.airbnb.aerosolve.core.models.ForestModel
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.ModelRecord
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{FeatureVector, Example, ModelRecord}
+import com.airbnb.aerosolve.core.util.{FloatVector, Util}
+import com.airbnb.aerosolve.training.GradientUtils.GradientContainer
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -37,10 +37,16 @@ object BoostedForestTrainer {
                                          subsample : Double,
                                          iterations : Int,
                                          learningRate : Double,
-                                         samplingStrategy : String)
-                                         
-  case class ForestResponse(tree : Int, leaf : Int, weight : Double)
-  case class ForestResult(label : Double, sum : Double, response : Array[ForestResponse])
+                                         samplingStrategy : String,
+                                         multiclass : Boolean)
+  // A container class that returns the tree and leaf a feature vector ends up in
+  case class ForestResponse(tree : Int, leaf : Int)
+  // The sum of all responses to a feature vector of an entire forest.
+  case class ForestResult(label : Double,
+                          labels : Map[String, Double],
+                          sum : Double,
+                          sumResponses : scala.collection.mutable.HashMap[String,Double],
+                          response : Array[ForestResponse])
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -72,7 +78,8 @@ object BoostedForestTrainer {
           subsample = subsample,
           iterations = iterations,
           learningRate = learningRate,
-          samplingStrategy = samplingStrategy
+          samplingStrategy = samplingStrategy,
+          multiclass = splitCriteria.contains("multiclass")
         )
     
     val forest = new ForestModel()
@@ -81,27 +88,56 @@ object BoostedForestTrainer {
     for (i <- 0 until numTrees) {
       log.info("Iteration %d".format(i))
       addNewTree(sc, forest, input, config, key, params)
-      boostForest(sc, forest, input, config, key, params)
+      if (params.multiclass) {
+        boostForestMulticlass(sc, forest, input, config, key, params)
+      } else {
+        boostForest(sc, forest, input, config, key, params)
+      }
     }
     
     forest
   }
   
-  def optionalExample(ex : Example, forest : ForestModel, params : BoostedForestTrainerParams) = {
+  def optionalExample(ex : Example, forest : ForestModel, params : BoostedForestTrainerParams)
+  : Option[FeatureVector] = {
     val item = ex.example(0)
-    val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
-    val score = forest.scoreItem(item)
-    val prob = forest.scoreProbability(score)
-    val importance = if (label > 0) {
-      1.0 - prob
+    if (params.multiclass) {
+      val labels = TrainingUtils.getLabelDistribution(item, params.rankKey)
+      if (labels.isEmpty) return None
+
+      // Assuming that this is a single label multi-class
+      val label = labels.head._1
+
+      val scores = forest.scoreItemMulticlass(item)
+      if (scores.isEmpty) return Some(item)
+
+      forest.scoreToProbability(scores)
+
+      val probs = scores.filter(x => x.label == label)
+      if (probs.isEmpty) return None
+
+      val importance = 1.0 - probs.head.probability
+      if (scala.util.Random.nextDouble < importance) {
+        return Some(item)
+      } else {
+        return None
+      }
     } else {
-      prob
+      val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
+      val score = forest.scoreItem(item)
+      val prob = forest.scoreProbability(score)
+      val importance = if (label > 0) {
+        1.0 - prob
+      } else {
+        prob
+      }
+      if (scala.util.Random.nextDouble < importance) {
+        return Some(item)
+      } else {
+        return None
+      }
     }
-    if (scala.util.Random.nextDouble < importance) {
-      Some(item)
-    } else {
-      None
-    }
+    return None
   }
 
   def getSample(sc : SparkContext,
@@ -152,10 +188,27 @@ object BoostedForestTrainer {
     
     val tree = new DecisionTreeModel()
     tree.setStumps(stumps)
-    val scale = 1.0f / params.numTrees.toFloat
-    for (stump <- tree.getStumps) {
-      if (stump.featureWeight != 0.0f) {
-        stump.featureWeight *= scale
+    if (params.multiclass) {
+      // Convert a pdf into something like a weight
+      val scale = 1.0f / params.numTrees.toFloat
+      for (stump <- tree.getStumps) {
+        if (stump.labelDistribution != null) {
+          val dist = stump.labelDistribution.asScala
+
+          for (key <- dist.keys) {
+            val v = dist.get(key)
+            if (v != None) {
+              dist.put(key, scale * (2.0 * v.get - 1.0))
+            }
+          }
+        }
+      }
+    } else {
+      val scale = 1.0f / params.numTrees.toFloat
+      for (stump <- tree.getStumps) {
+        if (stump.featureWeight != 0.0f) {
+          stump.featureWeight *= scale
+        }
       }
     }
     forest.getTrees().append(tree)
@@ -192,7 +245,7 @@ object BoostedForestTrainer {
        })
        .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
        .collectAsMap
-       
+
        // Gradient step
        val trees = forest.getTrees().asScala.toArray
        var sum : Double = 0.0
@@ -209,6 +262,70 @@ object BoostedForestTrainer {
        log.info("Gradient L2 Norm = %f".format(scala.math.sqrt(sum)))
      }
   }
+
+  def boostForestMulticlass(
+                  sc : SparkContext,
+                  forest: ForestModel,
+                  input : RDD[Example],
+                  config : Config,
+                  key : String,
+                  params : BoostedForestTrainerParams) = {
+    for (i <- 0 until params.iterations) {
+      log.info("Running boost iteration %d".format(i))
+      val forestBC = sc.broadcast(forest)
+      // Get forest responses
+      val labelSumResponse = LinearRankerUtils
+        .makePointwiseFloat(input, config, key)
+        .sample(false, params.subsample)
+        .map(x => getForestResponse(forestBC.value, x, params))
+      // Get forest batch gradient
+      val countAndGradient = labelSumResponse.mapPartitions(part => {
+        val gradientMap = scala.collection.mutable.HashMap[(Int, Int, String), (Double, Double)]()
+        part.foreach(x => {
+          val posLabels = x.labels.keys
+          // Convert to multinomial using softmax.
+          val max = x.sumResponses.values.max
+          val tmp = x.sumResponses.map(x => (x._1, Math.exp(x._2 - max)))
+          val sum = math.max(1e-10, tmp.values.sum)
+          val importance = tmp
+            .map(x => (x._1, x._2 / sum))
+            .map(x => (x._1, if (posLabels.contains(x._1)) x._2 - 1.0 else x._2))
+
+          x.response.foreach(resp => {
+            importance.foreach(imp => {
+              val key = (resp.tree, resp.leaf, imp._1)
+              val current = gradientMap.getOrElse(key, (0.0, 0.0))
+              val grad = imp._2
+              gradientMap.put(key, (current._1 + 1, current._2 + grad))
+            })
+          })
+        })
+        gradientMap.iterator
+      })
+        .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
+        .collectAsMap
+
+      // Gradient step
+      val trees = forest.getTrees().asScala.toArray
+      var sum : Double = 0.0
+      for (cg <- countAndGradient) {
+        val key = cg._1
+        val tree = trees(key._1)
+        val stump = tree.getStumps().get(key._2)
+        val label = key._3
+        val (count, grad) = cg._2
+        val curr = stump.labelDistribution.get(label)
+        val avgGrad = grad / count
+        if (curr == null) {
+          stump.labelDistribution.put(label, - params.learningRate * avgGrad)
+        } else {
+          stump.labelDistribution.put(label, curr - params.learningRate * avgGrad)
+        }
+        sum += avgGrad * avgGrad
+      }
+      log.info("Gradient L2 Norm = %f".format(scala.math.sqrt(sum)))
+    }
+  }
   
   def getForestResponse(forest : ForestModel,
                         ex : Example,
@@ -218,6 +335,7 @@ object BoostedForestTrainer {
     val result = scala.collection.mutable.ArrayBuffer[ForestResponse]()
     val trees = forest.getTrees().asScala.toArray
     var sum : Double = 0.0
+    val sumResponses = scala.collection.mutable.HashMap[String, Double]()
     for (i <- 0 until trees.size) {
       val tree = trees(i)
       val leaf = trees(i).getLeafIndex(floatFeatures);
@@ -225,12 +343,20 @@ object BoostedForestTrainer {
         val stump = tree.getStumps().get(leaf);
         val weight = stump.featureWeight
         sum = sum + weight
-        val response = ForestResponse(i, leaf, sum) 
+        if (params.multiclass && stump.labelDistribution != null) {
+          val dist = stump.labelDistribution.asScala
+          for (kv <- dist) {
+            val v = sumResponses.getOrElse(kv._1, 0.0)
+            sumResponses.put(kv._1, v + kv._2)
+          }
+        }
+        val response = ForestResponse(i, leaf)
         result.append(response)
       }      
     }
     val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
-    ForestResult(label, sum, result.toArray)
+    val labels = TrainingUtils.getLabelDistribution(item, params.rankKey)
+    ForestResult(label, labels, sum, sumResponses, result.toArray)
   }
   
   def trainAndSaveToFile(sc : SparkContext,

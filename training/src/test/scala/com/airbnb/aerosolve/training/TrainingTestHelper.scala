@@ -130,6 +130,24 @@ object TrainingTestHelper {
     (examples, labels)
   }
 
+  def makeNonlinearMulticlassClassificationExamples() = {
+    val examples = ArrayBuffer[Example]()
+    val labels = ArrayBuffer[String]()
+    val rnd = new java.util.Random(1234)
+    for (i <- 0 until 1000) {
+      val x = 20.0 * rnd.nextDouble() - 10.0
+      val y = 20.0 * rnd.nextDouble() - 10.0
+      val z = 20.0 * rnd.nextDouble() - 10.0
+      val d = math.sqrt(x * x + y * y + z * z)
+      // Three nested layers inner, middle and outer
+      val label : String = if (d < 5) "inner" else
+                           if (d < 10) "middle" else "outer"
+      labels += label
+      examples += makeMulticlassExample(x, y, z, (label, 1.0), None)
+    }
+    (examples, labels)
+  }
+
   def makeHybridExample(x : Double,
                         y : Double,
                         target : Double) : Example = {

@@ -51,16 +51,35 @@ class BoostedForestTrainerTest {
     ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
   }
 
+  @Test
+  def testBoostedForestTrainerMulticlassHellinger() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_hellinger", "uniform"))
+    ForestTrainerTestHelper.testForestTrainerMulticlass(config, true, 0.8)
+  }
+
+  @Test
+  def testBoostedForestTrainerMulticlassHellingerNonlinear() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_hellinger", "uniform"))
+    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, true, 0.7)
+  }
+
    @Test
   def testBoostedForestTrainerHellingerSampleFirst() = {
     val config = ConfigFactory.parseString(makeConfig("hellinger", "first"))
     ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
   }
-  
+
+
   @Test
   def testBoostedForestTrainerGini() = {
     val config = ConfigFactory.parseString(makeConfig("gini", "uniform"))
     ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
+  }
+
+  @Test
+  def testBoostedForestTrainerMulticlassGiniNonlinear() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_gini", "uniform"))
+    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, true, 0.7)
   }
   
   @Test

@@ -69,23 +69,40 @@ class ForestTrainerTest {
     ForestTrainerTestHelper.testForestTrainerMulticlass(config, false, 0.8)
   }
 
+  @Test
+  def testForestTrainerMulticlassHellingerNonlinear() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_hellinger"))
+    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, false, 0.7)
+  }
+
+  @Test
+  def testForestTrainerMulticlassGiniNonlinear() = {
+    val config = ConfigFactory.parseString(makeConfig("multiclass_gini"))
+    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, false, 0.7)
+  }
+
 }
 
 object ForestTrainerTestHelper {
   val log = LoggerFactory.getLogger("ForestTrainerTest")
 
   def testForestTrainer(config : Config, boost : Boolean, expectedCorrect : Double) = {
-    testForestTrainerHelper(config, boost, expectedCorrect, false)
+    testForestTrainerHelper(config, boost, expectedCorrect, false, false)
   }
 
   def testForestTrainerMulticlass(config : Config, boost : Boolean, expectedCorrect : Double) = {
-    testForestTrainerHelper(config, boost, expectedCorrect, true)
+    testForestTrainerHelper(config, boost, expectedCorrect, true, false)
+  }
+
+  def testForestTrainerMulticlassNonlinear(config : Config, boost : Boolean, expectedCorrect : Double) = {
+    testForestTrainerHelper(config, boost, expectedCorrect, true, true)
   }
 
   def testForestTrainerHelper(config : Config,
                               boost : Boolean,
                               expectedCorrect : Double,
-                              multiclass : Boolean ) = {
+                              multiclass : Boolean,
+                              nonlinear : Boolean) = {
 
     var examples = ArrayBuffer[Example]()
     var label = ArrayBuffer[Double]()
@@ -93,7 +110,9 @@ object ForestTrainerTestHelper {
     var numPos = 0
 
     if (multiclass) {
-      val (tmpEx, tmpLabels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false)
+      val (tmpEx, tmpLabels) = if (nonlinear)
+        TrainingTestHelper.makeNonlinearMulticlassClassificationExamples() else
+        TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false)
       examples = tmpEx
       labels = tmpLabels
     } else {
