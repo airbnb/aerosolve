@@ -12,10 +12,11 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
 import scala.collection.JavaConversions._
-import scala.util.{Try, Random}
+import scala.util.Try
 
 /**
   * A trainer that generates a MLP model.
+  * TODO (Peng): add maxNorm and weightDecay regularizations
   */
 
 object MlpModelTrainer {

@@ -65,6 +65,16 @@ class MlpModelTrainerTest {
     testMlpModelTrainer("hinge", 0.0, "", 0, 0, "linear")
   }
 
+  @Test
+  def testModelTrainerHingeNonLinearWithDropout : Unit = {
+    testMlpModelTrainer("hinge", 0.1, "", 0, 0, "poly")
+  }
+
+  @Test
+  def testModelTrainerHingeLinearWithDropout : Unit = {
+    testMlpModelTrainer("hinge", 0.1, "", 0, 0, "linear")
+  }
+
   def testMlpModelTrainer(loss : String,
                           dropout : Double,
                           extraArgs : String,
