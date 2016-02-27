@@ -122,7 +122,11 @@ object MlpModelTrainer {
         partition.foreach(example => {
           val fv = example.example.get(0)
           val flatFeatures: java.util.Map[String, java.util.Map[java.lang.String, java.lang.Double]] = Util.flattenFeature(fv)
-          val score = model.forwardPropagationWithDropout(flatFeatures, options.dropout)
+          val score = if (options.dropout > 0) {
+            model.forwardPropagationWithDropout(flatFeatures, options.dropout)
+          } else {
+            model.forwardPropagation(flatFeatures)
+          }
           val grad = options.loss match {
             case "hinge" => computeHingeGradient(score, fv, options)
             case _ => computeHingeGradient(score, fv, options)
@@ -225,7 +229,7 @@ object MlpModelTrainer {
           // node bias updates
           model.getBias.get(layerId)
         } else if (key._2.startsWith(NODE_PREFIX)) {
-          val nodeId = key._1.substring(NODE_PREFIX.length).toInt
+          val nodeId = key._2.substring(NODE_PREFIX.length).toInt
           // hidden layer weight updates
           model.getHiddenLayerWeights.get(layerId).get(nodeId)
         } else {
