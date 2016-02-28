@@ -16,7 +16,7 @@ import scala.util.Try
 
 /**
   * A trainer that generates a MLP model.
-  * TODO (Peng): add maxNorm and weightDecay regularizations
+  * TODO (Peng): add maxNorm regularizations
   */
 
 object MlpModelTrainer {
@@ -130,6 +130,7 @@ object MlpModelTrainer {
           }
           val grad = options.loss match {
             case "hinge" => computeHingeGradient(score, fv, options)
+            case "regression" => computeRegressionGradient(score, fv, options)
             case _ => computeHingeGradient(score, fv, options)
           }
           // back-propagation for updating gradient
@@ -140,13 +141,18 @@ object MlpModelTrainer {
           // activation: the output of a node
           val outputNodeDelta = computeActivationGradient(score, func) * grad
 
-          backPropagation(model, outputNodeDelta.toFloat, gradient, flatFeatures)
+          backPropagation(model, outputNodeDelta.toFloat, gradient, flatFeatures, options.weightDecay.toFloat)
         })
         gradient.iterator
       })
+      .mapValues(fv => (fv, 1.0))
       .reduceByKey((a, b) => {
-        a.add(b)
-        a
+        a._1.add(b._1)
+        (a._1, a._2 + b._2)
+      })
+      .mapValues(x => {
+        x._1.scale(1.0f / x._2.toFloat)
+        x._1
       })
       .collectAsMap
       .toMap
@@ -155,7 +161,8 @@ object MlpModelTrainer {
   def backPropagation(model: MlpModel,
                       outputNodeDelta: Float,
                       gradient: scala.collection.mutable.HashMap[(String, String), FloatVector],
-                      flatFeatures: java.util.Map[String, java.util.Map[java.lang.String, java.lang.Double]]) = {
+                      flatFeatures: java.util.Map[String, java.util.Map[java.lang.String, java.lang.Double]],
+                      weightDecay: Float = 0.0f) = {
     // outputNodeDelta: gradient of the loss function w.r.t the input of the output node
     val numHiddenLayers = model.getNumHiddenLayers
     val layerNodeNumber = model.getLayerNodeNumber
@@ -185,6 +192,10 @@ object MlpModelTrainer {
         val key = (LAYER_PREFIX + i.toString, NODE_PREFIX + j.toString)
         val gradFv = gradient.getOrElse(key, new FloatVector(numNodeUpperLayer))
         gradFv.multiplyAdd(activations.get(j), upperLayerDelta)
+        if (weightDecay > 0.0f) {
+          val weight = model.getHiddenLayerWeights.get(i).get(j)
+          gradFv.multiplyAdd(weightDecay, weight)
+        }
         gradient.put(key, gradFv)
 
         val grad = upperLayerDelta.dot(hiddenLayerWeights.get(j))
@@ -193,6 +204,9 @@ object MlpModelTrainer {
         thisLayerDelta.set(j, delta.toFloat)
       }
       biasGrad.add(thisLayerDelta)
+      if (weightDecay > 0.0f) {
+        biasGrad.multiplyAdd(weightDecay, model.getBias.get(i))
+      }
       gradient.put(biasKey, biasGrad)
       upperLayerDelta = thisLayerDelta
     }
@@ -207,6 +221,10 @@ object MlpModelTrainer {
         if (inputLayerWeights.containsKey(key._1) && inputLayerWeights.get(key._1).containsKey(key._2)) {
           val gradFv = gradient.getOrElse(key, new FloatVector(numNodeUpperLayer))
           gradFv.multiplyAdd(feature._2.toFloat, upperLayerDelta)
+          if (weightDecay > 0.0f) {
+            val weight = inputLayerWeights.get(key._1).get(key._2)
+            gradFv.multiplyAdd(weightDecay, weight)
+          }
           gradient.put(key, gradFv)
         }
       }
@@ -272,7 +290,7 @@ object MlpModelTrainer {
       momentumEnd = Try(config.getDouble("momentum_end")).getOrElse(0.0),
       momentumT = Try(config.getInt("momentum_t")).getOrElse(0),
       dropout = Try(config.getDouble("dropout")).getOrElse(0.0),
-      maxNorm = config.getDouble("max_norm"),
+      maxNorm = Try(config.getDouble("max_norm")).getOrElse(0.0),
       weightDecay = Try(config.getDouble("weight_decay")).getOrElse(0.0),
       weightInitStd = config.getDouble("weight_init_std"),
       cache = Try(config.getString("cache")).getOrElse(""),
@@ -419,16 +437,31 @@ object MlpModelTrainer {
     }
   }
 
+  private def computeRegressionGradient(prediction: Double,
+                                        fv: FeatureVector,
+                                        option: TrainerOptions): Double = {
+    // epsilon-insensitive loss for regression (as in SVM regression)
+    // loss = max(0.0, |prediction - label| - epsilon)
+    // where epsilon = option.margin
+    assert(option.margin > 0)
+    val label = TrainingUtils.getLabel(fv, option.rankKey)
+    if (prediction - label > option.margin) {
+        1.0
+      } else if (prediction - label < - option.margin) {
+        -1.0
+      } else {
+      0.0
+    }
+  }
+
   private def computeActivationGradient(activation: Double,
                                         func: FunctionForm): Double = {
     // compute the gradient of activation w.r.t input
-    // note: input only need to be specified for RELU
     func match {
       case FunctionForm.SIGMOID => activation * (1.0 - activation)
       case FunctionForm.RELU => if (activation > 0) 1.0 else 0.0
       case FunctionForm.IDENTITY => 1.0
       case FunctionForm.TANH => 1.0 - activation * activation
-      case _ => activation * (1.0 - activation)
     }
   }
 }

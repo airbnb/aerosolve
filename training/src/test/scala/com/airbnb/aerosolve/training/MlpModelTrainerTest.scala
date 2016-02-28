@@ -16,29 +16,29 @@ class MlpModelTrainerTest {
   val log = LoggerFactory.getLogger("MlpModelTrainerTest")
   def makeConfig(dropout : Double,
                  momentumT : Int,
-                 maxNorm : Double,
                  loss : String,
-                 extraArgs : String) : String = {
+                 extraArgs : String,
+                 weightDecay : Double = 0.0,
+                 margin : Double = 1.0,
+                 learningRateInit: Double = 0.1) : String = {
     """
       |identity_transform {
       |  transform : list
       |  transforms: []
       |}
       |model_config {
-      |  num_bags : 3
       |  %s
       |  loss : %s
       |  rank_key : "$rank"
       |  rank_threshold : 0.0
-      |  margin : 1.0
-      |  learning_rate_init : 0.1
+      |  margin : %f
+      |  learning_rate_init : %f
       |  learning_rate_decay : 0.95
       |  momentum_init : 0.5
       |  momentum_end : 0.9
       |  momentum_t : %d
-      |  max_norm : %f
-      |  weight_decay : 0.0
-      |  weight_init_std : 0.01
+      |  weight_decay : %f
+      |  weight_init_std : 0.1
       |  iterations : 100
       |  dropout : %f
       |  min_count : 0
@@ -47,39 +47,69 @@ class MlpModelTrainerTest {
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
-      |  activations : ["sigmoid", "identity"]
-      |  node_number : [3, 1]
+      |  activations : ["tanh", "identity"]
+      |  node_number : [5, 1]
       |  model_output : ""
       |}
-    """.stripMargin.format(extraArgs, loss, momentumT, maxNorm, dropout)
+    """.stripMargin.format(extraArgs, loss, margin, learningRateInit, momentumT, weightDecay, dropout)
   }
 
   // TODO (peng): add more tests and gradient checks
   @Test
   def testModelTrainerHingeNonLinear : Unit = {
-    testMlpModelTrainer("hinge", 0.0, "", 0, 0, "poly")
+    testMlpModelTrainer("hinge", 0.0, "", 0, 0.0, "poly")
   }
 
   @Test
   def testModelTrainerHingeLinear : Unit = {
-    testMlpModelTrainer("hinge", 0.0, "", 0, 0, "linear")
+    testMlpModelTrainer("hinge", 0.0, "", 0, 0.0, "linear")
   }
 
   @Test
   def testModelTrainerHingeNonLinearWithDropout : Unit = {
-    testMlpModelTrainer("hinge", 0.1, "", 0, 0, "poly")
+    testMlpModelTrainer("hinge", 0.1, "", 0, 0.0, "poly")
   }
 
   @Test
   def testModelTrainerHingeLinearWithDropout : Unit = {
-    testMlpModelTrainer("hinge", 0.1, "", 0, 0, "linear")
+    testMlpModelTrainer("hinge", 0.1, "", 0, 0.0, "linear")
+  }
+
+  @Test
+  def testModelTrainerHingeNonLinearWithMomentum : Unit = {
+    testMlpModelTrainer("hinge", 0.0, "", 50, 0.0, "poly")
+  }
+
+  @Test
+  def testModelTrainerHingeLinearWithMomentum : Unit = {
+    testMlpModelTrainer("hinge", 0.0, "", 50, 0.0, "linear")
+  }
+
+  @Test
+  def testModelTrainerHingeNonLinearWithWeightDecay : Unit = {
+    testMlpModelTrainer("hinge", 0.0, "", 0,  weightDecay = 0.0001, "poly")
+  }
+
+  @Test
+  def testModelTrainerHingeLinearWithWeightDecay : Unit = {
+    testMlpModelTrainer("hinge", 0.0, "", 0, 0.0001, "linear")
+  }
+
+  @Test
+  def testRegression: Unit = {
+    testRegressionModel(0.0, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
+  }
+
+  @Test
+  def testRegressionWithDropout: Unit = {
+    testRegressionModel(0.05, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
   }
 
   def testMlpModelTrainer(loss : String,
                           dropout : Double,
                           extraArgs : String,
                           momentumT : Int,
-                          maxNorm : Double,
+                          weightDecay : Double = 0.0,
                           exampleFunc: String = "poly") = {
     var sc = new SparkContext("local", "MlpModelTrainerTest")
     try {
@@ -88,7 +118,7 @@ class MlpModelTrainerTest {
       } else {
         TrainingTestHelper.makeLinearClassificationExamples
       }
-      val config = ConfigFactory.parseString(makeConfig(dropout, momentumT, maxNorm, loss, extraArgs))
+      val config = ConfigFactory.parseString(makeConfig(dropout, momentumT, loss, extraArgs, weightDecay))
       val input = sc.parallelize(examples)
       val model = MlpModelTrainer.train(sc, input, config, "model_config")
       testClassificationModel(model, examples, label, numPos)
@@ -116,7 +146,7 @@ class MlpModelTrainerTest {
     val fracCorrect : Double = numCorrect * 1.0 / examples.length
     log.info("Num correct = %d, frac correct = %f, num pos = %d, num neg = %d"
       .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
-    assertTrue(fracCorrect > 0.6)
+    assertTrue(fracCorrect > 0.8)
 
     val swriter = new StringWriter()
     val writer = new BufferedWriter(swriter)
@@ -133,6 +163,57 @@ class MlpModelTrainerTest {
       val score = model.scoreItem(ex.example.get(0))
       val score2 = model2.scoreItem(ex.example.get(0))
       assertEquals(score, score2, 0.01f)
+    }
+  }
+
+  def testRegressionModel(dropout : Double,
+                          extraArgs : String,
+                          momentumT : Int,
+                          weightDecay : Double,
+                          epsilon: Double = 0.1,
+                          learningRateInit: Double = 0.1): Unit = {
+    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples()
+    var sc = new SparkContext("local", "MlpRegressionTest")
+    try {
+      val config = ConfigFactory.parseString(makeConfig(
+        dropout, momentumT, "regression", extraArgs, weightDecay = weightDecay,
+        margin = epsilon, learningRateInit = learningRateInit))
+      val input = sc.parallelize(trainingExample)
+      val model = MlpModelTrainer.train(sc, input, config, "model_config")
+      val trainLabelArr = trainingLabel.toArray
+      var trainTotalError : Double = 0
+      var i = 0
+      // compute training error
+      for (ex <- trainingExample) {
+        val score = model.scoreItem(ex.example.get(0))
+        val label = trainLabelArr(i)
+        trainTotalError += math.abs(score - label)
+        i += 1
+      }
+      val trainError = trainTotalError / trainingExample.size.toDouble
+      // compute testing error
+      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(25)
+      val testLabelArr = testingLabel.toArray
+      var testTotalError : Double = 0
+      // compute training error
+      i = 0
+      for (ex <- testingExample) {
+        val score = model.scoreItem(ex.example.get(0))
+        val label = testLabelArr(i)
+        testTotalError += math.abs(score - label)
+        i += 1
+      }
+      val testError = testTotalError / testingExample.size.toDouble
+      log.info("Training: Average absolute error = %f".format(trainError))
+      log.info("Testing: Average absolute error = %f".format(testError))
+
+      assertTrue(trainError < 4.0)
+      assertTrue(testError < 4.0)
+    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
     }
   }
 }
