@@ -3,9 +3,7 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -13,7 +11,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
