@@ -152,6 +152,10 @@ public class TransformFactory {
         result = new DeleteStringFeatureColumnTransform();
         break;
       }
+      case "delete_float_feature_family" : {
+        result = new DeleteFloatFeatureFamilyTransform();
+        break;
+      }
       case "normalize_float" : {
         result = new NormalizeFloatFeatureTransform();
         break;
