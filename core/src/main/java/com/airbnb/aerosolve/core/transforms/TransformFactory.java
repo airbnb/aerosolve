@@ -76,6 +76,10 @@ public class TransformFactory {
         result = new DeleteFloatFeatureTransform();
         break;
       }
+      case "delete_float_feature_family" : {
+        result = new DeleteFloatFeatureFamilyTransform();
+        break;
+      }
       case "delete_string_feature": {
         result = new DeleteStringFeatureTransform();
         break;
