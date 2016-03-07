@@ -40,7 +40,7 @@ class DecisionTreeModelTest {
 
   @Test
   def testDecisionTreeTrainerHellinger() = {
-    testDecisionTreeClassificationTrainer("hellinger", 0.8)
+    testDecisionTreeClassificationTrainer("hellinger", 0.7)
   }
 
   @Test
