@@ -3,7 +3,6 @@ package com.airbnb.aerosolve.training
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
 import com.airbnb.aerosolve.core.models.{ModelFactory, AdditiveModel}
-import com.airbnb.aerosolve.core.util.{Linear, Spline, AbstractFunction}
 import com.airbnb.aerosolve.core.Example
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext

@@ -46,6 +46,14 @@ public class FloatVector implements Serializable {
     return new FloatVector(init);
   }
 
+  public static FloatVector getGaussianVector(int num, float std) {
+    float[] init = new float[num];
+    for (int i = 0; i < num; i++) {
+      init[i] = (float) (rnd.nextGaussian() * std);
+    }
+    return new FloatVector(init);
+  }
+
   public static FloatVector getUniformVector(int num) {
     // uniformly sample from -1/sqrt(num) to +1/sqrt(num)
     float[] init = new float[num];

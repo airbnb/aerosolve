@@ -40,12 +40,12 @@ class LowRankLinearTrainerTest {
 
   @Test
   def testLowRankLinearRpropUniformRankLoss() = {
-    testLowRankLinear(0.1, 32, "uniform", false, 0.9)
+    testLowRankLinear(0.1, 32, "uniform", false, 0.8)
   }
 
   @Test
   def testLowRankLinearRpropNonUniformRankLoss() = {
-    testLowRankLinear(0.1, 32, "non_uniform", false, 0.9)
+    testLowRankLinear(0.1, 32, "non_uniform", false, 0.8)
   }
 
   def testLowRankLinear(lambda : Double,

@@ -42,8 +42,9 @@ public class MlpModelTest {
   public MlpModel makeMlpModel(FunctionForm func) {
     // construct a network with 1 hidden layer
     // and there are 3 nodes in the hidden layer
-    ArrayList nodeNum = new ArrayList(1);
+    ArrayList nodeNum = new ArrayList(2);
     nodeNum.add(3);
+    nodeNum.add(1);
     // assume bias at each node are zeros
     ArrayList activations = new ArrayList();
     activations.add(func);
