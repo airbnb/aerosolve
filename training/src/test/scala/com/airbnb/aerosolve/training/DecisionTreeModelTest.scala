@@ -45,12 +45,12 @@ class DecisionTreeModelTest {
 
   @Test
   def testDecisionTreeTrainerMulticlassHellinger() = {
-    testDecisionTreeMulticlassTrainer("multiclass_hellinger", 0.7)
+    testDecisionTreeMulticlassTrainer("multiclass_hellinger", 0.6)
   }
 
   @Test
   def testDecisionTreeTrainerMulticlassGini() = {
-    testDecisionTreeMulticlassTrainer("multiclass_gini", 0.7)
+    testDecisionTreeMulticlassTrainer("multiclass_gini", 0.6)
   }
 
   @Test

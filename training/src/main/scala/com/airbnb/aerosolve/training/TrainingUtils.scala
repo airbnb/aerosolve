@@ -258,6 +258,40 @@ object TrainingUtils {
       .collect
   }
 
+  def getLabelCounts(minCount : Int,
+                     input : RDD[Example],
+                     rankKey: String) : Array[((String, String), Int)] = {
+    input
+      .mapPartitions(partition => {
+        // family, feature name => count
+        val weights = new ConcurrentHashMap[(String, String), Int]().asScala
+        partition.foreach(examples => {
+          for (i <- 0 until examples.example.size()) {
+            val example = examples.example.get(i)
+            val floatFeatures = example.getFloatFeatures
+            val stringFeatures = example.getStringFeatures
+            if (floatFeatures.containsKey(rankKey)) {
+              for (labelEntry <- floatFeatures.get(rankKey)) {
+                val key = (rankKey, labelEntry._1)
+                val cur = weights.getOrElse(key, 0)
+                weights.put(key, 1 + cur)
+              }
+            } else if (stringFeatures.containsKey(rankKey)) {
+              for (labelName <- stringFeatures.get(rankKey)) {
+                val key = (rankKey, labelName)
+                val cur = weights.getOrElse(key, 0)
+                weights.put(key, 1 + cur)
+              }
+            }
+          }
+        }
+        )
+        weights.iterator
+      })
+      .reduceByKey((a, b) => a + b)
+      .collect
+  }
+
   def createStringDictionaryFromFeatureStatistics(stats : Array[((String, String), FeatureStatistics)],
                                                   excludedFamilies : Set[String]) : StringDictionary = {
     val dictionary = new StringDictionary()

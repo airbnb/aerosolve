@@ -60,7 +60,7 @@ class BoostedForestTrainerTest {
   @Test
   def testBoostedForestTrainerMulticlassHellingerNonlinear() = {
     val config = ConfigFactory.parseString(makeConfig("multiclass_hellinger", "uniform"))
-    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, true, 0.7)
+    ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, true, 0.6)
   }
 
    @Test
