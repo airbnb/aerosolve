@@ -1,4 +1,7 @@
 package com.airbnb.aerosolve.core.util;
+
+import com.airbnb.aerosolve.core.KDTreeNode;
+
 // http://www.geodatasource.com/developers/java
 public class Distance {
   public static double miles(double lat1, double lon1, double lat2, double lon2) {
@@ -10,6 +13,11 @@ public class Distance {
     dist = Math.acos(dist);
     dist = rad2deg(dist);
     return dist * 60 * 1.1515;
+  }
+
+  // assume kdtree node x is lat, and y is lng, return distance in miles between kdtree's max and min
+  public static double kdtreeDistanceInMiles(KDTreeNode node) {
+    return Distance.miles(node.getMaxX(), node.getMaxY(), node.getMinX(), node.getMinY());
   }
 
   public static double kilometers(double lat1, double lon1, double lat2, double lon2) {
