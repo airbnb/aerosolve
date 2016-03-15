@@ -44,6 +44,10 @@ public class KDTreeModel implements Serializable {
     }
   }
 
+  public KDTreeNode getNode(int id) {
+    return nodes[id];
+  }
+
   // Returns the indices of nodes traversed to get to the leaf containing the point.
   public ArrayList<Integer> query(double x, double y) {
     ArrayList<Integer> idx = new ArrayList<>();
