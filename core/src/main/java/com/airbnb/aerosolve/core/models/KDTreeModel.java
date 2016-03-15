@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.models;
 
 import com.airbnb.aerosolve.core.KDTreeNode;
+import com.airbnb.aerosolve.core.util.Distance;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
 import lombok.Getter;
@@ -42,6 +43,12 @@ public class KDTreeModel implements Serializable {
         currIdx = nextIdx;
       }
     }
+  }
+
+  // assume kdtree node x is lat, and y is lng, return distance in miles between kdtree's max and min
+  public double miles(int id) {
+    KDTreeNode node = nodes[id];
+    return Distance.miles(node.getMaxX(), node.getMaxY(), node.getMinX(), node.getMinY());
   }
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
