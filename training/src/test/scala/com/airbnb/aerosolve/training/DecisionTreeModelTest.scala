@@ -40,27 +40,27 @@ class DecisionTreeModelTest {
 
   @Test
   def testDecisionTreeTrainerHellinger() = {
-    testDecisionTreeClassificationTrainer("hellinger", 0.7)
+    testDecisionTreeClassificationTrainer("hellinger", 0.6)
   }
 
   @Test
   def testDecisionTreeTrainerMulticlassHellinger() = {
-    testDecisionTreeMulticlassTrainer("multiclass_hellinger", 0.7)
+    testDecisionTreeMulticlassTrainer("multiclass_hellinger", 0.6)
   }
 
   @Test
   def testDecisionTreeTrainerMulticlassGini() = {
-    testDecisionTreeMulticlassTrainer("multiclass_gini", 0.7)
+    testDecisionTreeMulticlassTrainer("multiclass_gini", 0.6)
   }
 
   @Test
   def testDecisionTreeTrainerGini() = {
-    testDecisionTreeClassificationTrainer("gini", 0.7)
+    testDecisionTreeClassificationTrainer("gini", 0.6)
   }
 
   @Test
   def testDecisionTreeTrainerInformationGain() = {
-    testDecisionTreeClassificationTrainer("information_gain", 0.7)
+    testDecisionTreeClassificationTrainer("information_gain", 0.6)
   }
 
   @Test

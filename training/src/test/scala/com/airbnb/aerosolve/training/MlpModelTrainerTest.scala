@@ -102,7 +102,7 @@ class MlpModelTrainerTest {
 
   @Test
   def testRegressionWithDropout: Unit = {
-    testRegressionModel(0.05, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
+    testRegressionModel(0.01, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
   }
 
   def testMlpModelTrainer(loss : String,

@@ -30,7 +30,8 @@ object FullRankLinearTrainer {
                                           subsample : Double,
                                           minCount : Int,
                                           cache : String,
-                                          solver : String)
+                                          solver : String,
+                                          labelMinCount: Option[Int])
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -256,24 +257,26 @@ object FullRankLinearTrainer {
         subsample = config.getDouble("subsample"),
         minCount = config.getInt("min_count"),
         cache = config.getString("cache"),
-        solver = Try(config.getString("solver")).getOrElse("sparse_boost")
+        solver = Try(config.getString("solver")).getOrElse("sparse_boost"),
+        labelMinCount = Try(Some(config.getInt("label_min_count"))).getOrElse(None)
     )
   }
   
   def setupModel(options : FullRankLinearTrainerOptions, pointwise : RDD[Example]) : FullRankLinearModel = {
     val stats = TrainingUtils.getFeatureStatistics(options.minCount, pointwise)
+    val labelCounts = if (options.labelMinCount.isDefined) {
+      TrainingUtils.getLabelCounts(options.labelMinCount.get, pointwise, options.rankKey)
+    } else {
+      TrainingUtils.getLabelCounts(options.minCount, pointwise, options.rankKey)
+    }
+
     val model = new FullRankLinearModel()
     val weights = model.getWeightVector()
     val dict = model.getLabelDictionary()
 
     for (kv <- stats) {
       val (family, feature) = kv._1
-      if (family == options.rankKey) {
-        val entry = new LabelDictionaryEntry()
-        entry.setLabel(feature)
-        entry.setCount(kv._2.count.toInt)
-        dict.add(entry)
-      } else {
+      if (family != options.rankKey) {
         if (!weights.containsKey(family)) {
           weights.put(family, new java.util.HashMap[java.lang.String, FloatVector]())
         }
@@ -283,6 +286,14 @@ object FullRankLinearTrainer {
           familyMap.put(feature, null)
         }
       }
+    }
+
+    for (kv <- labelCounts) {
+      val (family, feature) = kv._1
+      val entry = new LabelDictionaryEntry()
+      entry.setLabel(feature)
+      entry.setCount(kv._2)
+      dict.add(entry)
     }
 
     val dim = dict.size()
