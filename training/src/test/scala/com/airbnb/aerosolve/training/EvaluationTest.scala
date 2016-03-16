@@ -109,7 +109,8 @@ class EvaluationTest {
   }
 
   // The test data is perfectly correlated with the labels
-  @Test def evaluationCorrectTest: Unit = {
+  @Test
+  def evaluationCorrectTest(): Unit = {
     val recs = generateDataPerfect(true)
     var sc = new SparkContext("local", "EvaluationTest")
 
@@ -135,7 +136,8 @@ class EvaluationTest {
   }
 
   // The test data is perfectly anti-correlated with the labels
-  @Test def evaluationInCorrectTest: Unit = {
+  @Test
+  def evaluationInCorrectTest(): Unit = {
     val recs = generateDataPerfect(false)
     var sc = new SparkContext("local", "EvaluationTest")
 
@@ -160,7 +162,36 @@ class EvaluationTest {
     }
   }
 
-  @Test def evaluationGaussianTest: Unit = {
+  @Test
+  def evaluationInCorrectListTest(): Unit = {
+    val recs = generateDataPerfect(false).toList
+    var sc = new SparkContext("local", "EvaluationTest")
+    try {
+      val results1 = Evaluation.evaluateBinaryClassification(recs, 11, "!HOLD_F1").toMap
+      val results2 = Evaluation.evaluateBinaryClassification(sc.parallelize(recs), 11, "!HOLD_F1").toMap
+      log.info("Non-RDD eval")
+      results1.foreach(res => log.info("%s = %f".format(res._1, res._2)))
+      log.info("RDD eval")
+      results2.foreach(res => log.info("%s = %f".format(res._1, res._2)))
+
+      assertEquals(results1.getOrElse("!HOLD_AUC", 0.0), results2.getOrElse("!HOLD_ACC", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_PR_AUC", 0.0), results2.getOrElse("!HOLD_PR_AUC", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_F1", 0.0), results2.getOrElse("!HOLD_F1", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_RECALL", 0.0), results2.getOrElse("!HOLD_RECALL", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_PRECISION", 0.0), results2.getOrElse("!HOLD_PRECISION", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_RMSE", 0.0), results2.getOrElse("!HOLD_RMSE", 0.0), 0.1)
+      assertEquals(results1.getOrElse("!HOLD_FPR", 0.0), results2.getOrElse("!HOLD_FPR", 0.0), 0.1)
+    } finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port,
+      // since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  @Test
+  def evaluationGaussianTest(): Unit = {
     val recs = generateDataGaussian
     var sc = new SparkContext("local", "EvaluationTest")
 
@@ -191,7 +222,29 @@ class EvaluationTest {
     }
   }
 
-  @Test def evaluationRegressionCorrelatedTest: Unit = {
+  @Test
+  def evaluationGaussianListTest(): Unit = {
+    val recs = generateDataGaussian.toList
+    val results = Evaluation.evaluateBinaryClassification(recs, 11, "!HOLD_F1").toMap
+    results.foreach(res => log.info("%s = %f".format(res._1, res._2)))
+
+    val THRESHOLD = 0.7
+    assertTrue(results.getOrElse("!TRAIN_ACC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!TRAIN_AUC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!TRAIN_PR_AUC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!TRAIN_F1", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!TRAIN_RECALL", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!TRAIN_PRECISION", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_ACC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_AUC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_PR_AUC", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_F1", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_RECALL", 0.0) > THRESHOLD)
+    assertTrue(results.getOrElse("!HOLD_PRECISION", 0.0) > THRESHOLD)
+  }
+
+  @Test
+  def evaluationRegressionCorrelatedTest(): Unit = {
     val recs = generateDataCorrelatedRegression
     var sc = new SparkContext("local", "EvaluationTest")
 
@@ -214,7 +267,8 @@ class EvaluationTest {
     }
   }
 
-  @Test def evaluationMulticlassTest: Unit = {
+  @Test
+  def evaluationMulticlassTest(): Unit = {
     for (posOfLabel <- 0 until 3) {
       log.info("Labels at position " + posOfLabel)
       val recs = generateMulticlassDataPerfect(posOfLabel)
