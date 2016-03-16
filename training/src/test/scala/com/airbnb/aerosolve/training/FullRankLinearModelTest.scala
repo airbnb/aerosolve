@@ -44,7 +44,7 @@ class FullRankLinearModelTest {
 
   @Test
   def testFullRankLinearHinge() = {
-    testFullRankLinear("hinge", 0.1, "sparse_boost", false, 0.9)
+    testFullRankLinear("hinge", 0.1, "sparse_boost", false, 0.85)
   }
 
   @Test

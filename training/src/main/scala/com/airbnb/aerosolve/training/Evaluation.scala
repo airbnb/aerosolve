@@ -41,14 +41,7 @@ object Evaluation {
       holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0)))
     }
 
-    metrics.append(("!TRAIN_PR_AUC", getPRAUC(trainPR)))
-    metrics.append(("!HOLD_PR_AUC", getPRAUC(holdPR)))
-    for (tpr <- trainPR) {
-      metrics.append(("!TRAIN_PREC@RECALL=%f".format(tpr._2), tpr._1))
-    }
-    for (hpr <- holdPR) {
-      metrics.append(("!HOLD_PREC@RECALL=%f".format(hpr._2), hpr._1))
-    }
+    metricsAppend(metrics, trainPR, holdPR)
 
     evaluateBinaryClassificationAUC(records, metrics)
 
@@ -83,14 +76,8 @@ object Evaluation {
       trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0)))
       holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0)))
     }
-    metrics.append(("!TRAIN_PR_AUC", getPRAUC(trainPR)))
-    metrics.append(("!HOLD_PR_AUC", getPRAUC(holdPR)))
-    for (tpr <- trainPR) {
-      metrics.append(("!TRAIN_PREC@RECALL=%f".format(tpr._2), tpr._1))
-    }
-    for (hpr <- holdPR) {
-      metrics.append(("!HOLD_PREC@RECALL=%f".format(hpr._2), hpr._1))
-    }
+
+    metricsAppend(metrics, trainPR, holdPR)
 
     evaluateBinaryClassificationAUC(records, metrics)
 
@@ -148,6 +135,19 @@ object Evaluation {
     .toBuffer
     .sortWith((a, b) => a._1 < b._1)
     .toArray
+  }
+
+  private def metricsAppend(metrics: mutable.Buffer[(String, Double)],
+                            trainPR: ArrayBuffer[(Double, Double)],
+                            holdPR: ArrayBuffer[(Double, Double)]): Unit = {
+    metrics.append(("!TRAIN_PR_AUC", getPRAUC(trainPR)))
+    metrics.append(("!HOLD_PR_AUC", getPRAUC(holdPR)))
+    for (tpr <- trainPR) {
+      metrics.append(("!TRAIN_PREC@RECALL=%f".format(tpr._2), tpr._1))
+    }
+    for (hpr <- holdPR) {
+      metrics.append(("!HOLD_PREC@RECALL=%f".format(hpr._2), hpr._1))
+    }
   }
 
   private def evaluateBinaryClassificationAtThreshold(records : RDD[EvaluationRecord],
