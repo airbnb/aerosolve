@@ -223,7 +223,7 @@ class DecisionTreeModelTest {
       flatRegionExamples.foreach { flatRegionExample =>
         val score = model.scoreItem(flatRegionExample.example.get(0))
 
-        assertEquals(score, -8.0, 1.5f)
+        assertEquals(score, -8.0, 2.0f)
       }
     } finally {
       sc.stop
