@@ -63,7 +63,7 @@ object Evaluation {
     var metrics  = mutable.Buffer[(String, Double)]()
     var bestF1 = -1.0
     val scores: List[Double] = records.map(x => x.score)
-    val thresholds = getThresholds(records.map(x => x.score), buckets)
+    val thresholds = getThresholds(scores, buckets)
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
     val trainPR = new ArrayBuffer[(Double, Double)]()
