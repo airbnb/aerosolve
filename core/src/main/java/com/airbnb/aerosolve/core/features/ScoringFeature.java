@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.core.online;
+package com.airbnb.aerosolve.core.features;
 
 import lombok.Getter;
 

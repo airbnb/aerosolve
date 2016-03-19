@@ -1,9 +1,15 @@
-package com.airbnb.aerosolve.core.online;
+package com.airbnb.aerosolve.core.features;
 
 import lombok.Getter;
 
 import java.util.*;
 
+/*
+  Features coming from differenct sources, and output as array[],
+  FeatureMapping helps to save incoming feature in the right index of final output array[]
+  it use incoming feature names array as key to locate the index.
+  refer to ModelScorerTest.java as how to use FeatureMapping
+ */
 public class FeatureMapping {
   public final static int DEFAULT_SIZE = 100;
   @Getter
@@ -30,8 +36,15 @@ public class FeatureMapping {
     mapping = new HashMap<>(size);
   }
 
+  // use name mapping array as key.
+  public void add(String[] names, Integer type) {
+    add(names, names, type);
+  }
+
   public void add(Object c, String[] names, Integer type) {
-    assert (names.length > 0);
+    assert(names.length > 0);
+    // should not add duplicated feature mapping
+    assert(mapping.get(c) == null);
     Entry e = new Entry();
     e.start = nameList.size();
     e.length = names.length;

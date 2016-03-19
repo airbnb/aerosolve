@@ -1,5 +1,8 @@
-package com.airbnb.aerosolve.core.online;
+package com.airbnb.aerosolve.core.features;
 
+import com.airbnb.aerosolve.core.features.FeatureGen;
+import com.airbnb.aerosolve.core.features.FeatureMapping;
+import com.airbnb.aerosolve.core.features.Features;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

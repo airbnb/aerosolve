@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.core.online;
+package com.airbnb.aerosolve.core.features;
 
 import lombok.experimental.Builder;
 
@@ -13,6 +13,7 @@ public class Features {
   // float type includes int, long, float, double
   public static final Integer FloatType = 1;
   public static final Integer BooleanType = 2;
+  public static final Integer TypeSize = 3;
 
   public final String[] names;
   public final Object[] values;

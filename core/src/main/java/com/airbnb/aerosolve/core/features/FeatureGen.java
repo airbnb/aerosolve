@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.core.online;
+package com.airbnb.aerosolve.core.features;
 
 /*
   use Float.MIN_VALUE as NULL for the float feature.
@@ -14,6 +14,7 @@ public class FeatureGen {
 
   public void add(float[] features, Object c) {
     FeatureMapping.Entry e = mapping.getMapping().get(c);
+    assert(e.length == features.length);
     // can't do System.arraycopy(features, 0, values, e.start, e.length);
     // due to Float.MIN_VALUE means NULL
     for (int i = 0; i < e.length; i++) {
@@ -23,8 +24,9 @@ public class FeatureGen {
     }
   }
 
-  public void add(Object[] features, Class c) {
+  public void add(Object[] features, Object c) {
     FeatureMapping.Entry e = mapping.getMapping().get(c);
+    assert(e.length == features.length);
     System.arraycopy(features, 0, values, e.start, e.length);
   }
 
