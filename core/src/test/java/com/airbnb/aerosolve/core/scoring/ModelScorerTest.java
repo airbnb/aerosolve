@@ -46,7 +46,7 @@ public class ModelScorerTest {
     List<FloatFamily> floatFamilies = new ArrayList<>();
     floatFamilies.add(new FloatFamily("F"));
 
-    Example example = ExampleGen.toExample(features, stringFamilies, floatFamilies);
+    Example example = FeatureVectorGen.toSingleFeatureVectorExample(features, stringFamilies, floatFamilies);
 
     FeatureVector featureVector = example.getExample().get(0);
     final Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();

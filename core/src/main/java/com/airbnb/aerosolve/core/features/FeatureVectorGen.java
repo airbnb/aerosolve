@@ -7,17 +7,15 @@ import java.util.*;
 
 /*
   Generate Example from input features and defined featureFamily.
-  refer to ModelScorerTest.java as how to use ExampleGen
+  refer to ModelScorerTest.java as how to use FeatureVectorGen
  */
-public class ExampleGen {
+public class FeatureVectorGen {
 
-  public static Example toExample(Features features,
-                           List<StringFamily> stringFamilies,
-                           List<FloatFamily> floatFamilies) {
-    Example example = new Example();
+  // TODO add a new function to consider dense feature.
+  public static FeatureVector toFeatureVector(Features features,
+                              List<StringFamily> stringFamilies,
+                              List<FloatFamily> floatFamilies) {
     FeatureVector featureVector = new FeatureVector();
-    example.addToExample(featureVector);
-
     // Set string features.
     final Map<String, Set<String>> stringFeatures = new HashMap<>();
     featureVector.setStringFeatures(stringFeatures);
@@ -51,7 +49,16 @@ public class ExampleGen {
         }
       }
     }
+    return featureVector;
+  }
 
+  public static Example toSingleFeatureVectorExample(Features features,
+                                                     List<StringFamily> stringFamilies,
+                                                     List<FloatFamily> floatFamilies) {
+    Example example = new Example();
+    FeatureVector featureVector = toFeatureVector(
+        features, stringFamilies, floatFamilies);
+    example.addToExample(featureVector);
     return example;
   }
 
