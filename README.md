@@ -128,8 +128,11 @@ We keep gradle config as testCompile so that to reduce jar file size.
 Support
 -------
 
-Dev group :  https://groups.google.com/forum/#!forum/aerosolve-dev
-User group : https://groups.google.com/forum/#!forum/aerosolve-users
+[Hackpad](https://aerosolve.hackpad.com/Welcome-to-Aerosolve-xZEVtJC9D8a)
+
+[Dev group](https://groups.google.com/forum/#!forum/aerosolve-dev)
+
+[User group](https://groups.google.com/forum/#!forum/aerosolve-users)
 
 In the wild
 -------
