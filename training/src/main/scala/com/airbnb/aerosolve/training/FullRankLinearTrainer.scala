@@ -256,8 +256,8 @@ object FullRankLinearTrainer {
         lambda = config.getDouble("lambda"),
         subsample = config.getDouble("subsample"),
         minCount = config.getInt("min_count"),
-        cache = config.getString("cache"),
-        solver = Try(config.getString("solver")).getOrElse("sparse_boost"),
+        cache = Try(config.getString("cache")).getOrElse(""),
+        solver = Try(config.getString("solver")).getOrElse("rprop"),
         labelMinCount = Try(Some(config.getInt("label_min_count"))).getOrElse(None)
     )
   }
