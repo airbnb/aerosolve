@@ -7,6 +7,11 @@ import java.util.Map;
 
 import com.typesafe.config.Config;
 
+/**
+ * Takes the floats in fieldName1, quantizes them into buckets, converts them to strings, then
+ * crosses them with the floats in fieldName2 and then stores the result in a new float feature
+ * output specified by outputName.
+ */
 public class FloatCrossFloatTransform extends Transform {
   private String fieldName1;
   private double bucket;
