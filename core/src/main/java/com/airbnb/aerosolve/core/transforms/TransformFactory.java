@@ -172,6 +172,10 @@ public class TransformFactory {
         result = new ReplaceAllStringsTransform();
         break;
       }
+      case "float_cross_float" : {
+        result = new FloatCrossFloatTransform();
+        break;
+      }
     }
     if (result != null) {
       result.configure(config, key);
