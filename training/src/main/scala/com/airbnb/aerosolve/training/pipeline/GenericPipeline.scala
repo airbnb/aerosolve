@@ -16,15 +16,16 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import org.apache.spark.sql.hive.HiveContext
 
 import scala.math.{ceil, max, pow}
 import scala.collection.JavaConverters._
 import scala.util.{Random, Try}
 
-/**
-  * This is a generic pipeline for building and testing aerosolve models.
-  */
+/*
+ * Pipeline for generating, evaluating, and scoring Aerosolve models.
+ */
 object GenericPipeline {
   val log: Logger = LoggerFactory.getLogger("GenericPipeline")
   val LABEL = "LABEL"
@@ -62,13 +63,17 @@ object GenericPipeline {
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
 
     val input = makeTraining(sc, query, isMulticlass)
+
     LinearRankerUtils
       .makePointwiseFloat(input, config, key)
       .take(count)
       .foreach(logPrettyExample)
   }
 
-  def trainingRun(sc: SparkContext, config: Config, isTraining: Example => Boolean = isTraining) = {
+  def trainingRun(
+      sc: SparkContext,
+      config: Config,
+      isTraining: Example => Boolean = isTraining) = {
     val cfg = config.getConfig("train_model")
     val inputPattern = cfg.getString("input")
     val subsample = cfg.getDouble("subsample")
@@ -77,21 +82,24 @@ object GenericPipeline {
     val input = getExamples(sc, inputPattern)
       .filter(isTraining)
 
-    val filteredInput = input
-      .sample(false, subsample)
+    val filteredInput = input.sample(false, subsample)
+
     TrainingUtils.trainAndSaveToFile(sc, filteredInput, config, modelConfig)
   }
 
-  def getModelAndTransform(config : Config,
-                           modelCfgName : String,
-                           modelName : String ) = {
+  def getModelAndTransform(
+      config : Config,
+      modelCfgName : String,
+      modelName : String ) = {
     val modelOpt = TrainingUtils.loadScoreModel(modelName)
+
     if (modelOpt.isEmpty) {
       log.error("Could not load model")
       System.exit(-1)
     }
 
     val transformer = new Transformer(config, modelCfgName)
+
     (modelOpt.get, transformer)
   }
 
@@ -100,14 +108,15 @@ object GenericPipeline {
       config : Config, cfgKey : String,
       isTraining: Example => Boolean = isTraining): Unit = {
     val metrics = evalCompute(sc, config, cfgKey, isTraining)
+
     metrics.foreach(x => log.info(x.toString))
   }
 
   def evalCompute(
-                   sc: SparkContext,
-                   config: Config,
-                   cfgKey: String,
-                   isTraining: Example => Boolean): Array[(String, Double)]  = {
+      sc: SparkContext,
+      config: Config,
+      cfgKey: String,
+      isTraining: Example => Boolean): Array[(String, Double)] = {
     val cfg = config.getConfig(cfgKey)
     val modelCfgName = cfg.getString("model_config")
     val modelName = cfg.getString("model_name")
@@ -138,9 +147,9 @@ object GenericPipeline {
   }
 
   def calibrateRun(
-                    sc: SparkContext,
-                    config: Config,
-                    isTraining: Example => Boolean = isTraining) = {
+      sc: SparkContext,
+      config: Config,
+      isTraining: Example => Boolean = isTraining) = {
     val plattsConfig = config.getConfig("calibrate_model")
     val modelCfgName = plattsConfig.getString("model_config")
     val modelName = plattsConfig.getString("model_name")
@@ -228,11 +237,13 @@ object GenericPipeline {
     val cfg = config.getConfig("dump_model")
     val modelName = cfg.getString("model_name")
     val modelDump = cfg.getString("model_dump")
+
     val model = sc
       .textFile(modelName)
       .map(Util.decodeModel)
       .filter(x => x.featureName != null)
       .map(modelRecordToString)
+
     PipelineUtil.saveAndCommitAsTextFile(model, modelDump)
   }
 
@@ -247,6 +258,7 @@ object GenericPipeline {
 
     val builder = new StringBuilder()
     val count = trees.size
+
     for (i <- 0 until count) {
       val tree = trees(i)
       builder ++= tree.toDot().replace("digraph g", "digraph tree_%d".format(i))
@@ -309,6 +321,7 @@ object GenericPipeline {
       log.error("Last row of the scoring table must be UNIQUE_ID")
       System.exit(-1)
     }
+
     // What was the schema except for Unique ID
     val origSchema = schema.dropRight(1)
 
@@ -372,9 +385,9 @@ object GenericPipeline {
   }
 
   def score(
-             example: Example,
-             model: AbstractModel,
-             transformer: Transformer) = {
+      example: Example,
+      model: AbstractModel,
+      transformer: Transformer) = {
     transformer.combineContextAndItems(example)
 
     val score = model.scoreItem(example.example.get(0))
@@ -384,9 +397,9 @@ object GenericPipeline {
   }
 
   def scoreMulticlass(
-                       example: Example,
-                       model: AbstractModel,
-                       transformer: Transformer) = {
+      example: Example,
+      model: AbstractModel,
+      transformer: Transformer) = {
     transformer.combineContextAndItems(example)
 
     val multiclassResults = model.scoreItemMulticlass(example.example.get(0))
@@ -396,17 +409,17 @@ object GenericPipeline {
   }
 
   private def evalModelInternal(
-                                 sc: SparkContext,
-                                 transformer: Transformer,
-                                 modelOpt: AbstractModel,
-                                 inputPattern: String,
-                                 subSample: Double,
-                                 bins: Int,
-                                 isProb: Boolean,
-                                 isRegression: Boolean,
-                                 isMulticlass: Boolean,
-                                 metric: String,
-                                 isTraining: Example => Boolean) : Array[(String, Double)] = {
+      sc: SparkContext,
+      transformer: Transformer,
+      modelOpt: AbstractModel,
+      inputPattern: String,
+      subSample: Double,
+      bins: Int,
+      isProb: Boolean,
+      isRegression: Boolean,
+      isMulticlass: Boolean,
+      metric: String,
+      isTraining: Example => Boolean) : Array[(String, Double)] = {
     val examples = sc.textFile(inputPattern)
       .map(Util.decodeExample)
       .sample(false, subSample)
@@ -439,30 +452,36 @@ object GenericPipeline {
   def logPrettyExample(ex : Example) = {
     val fv = ex.example.get(0)
     val builder = new StringBuilder()
+
     builder ++= "\nString Features:"
+
     if (fv.stringFeatures != null) {
       fv.stringFeatures.asScala.foreach(x => {
         builder ++= "FAMILY : " + x._1 + '\n'
         x._2.asScala.foreach(y => {builder ++= "--> " + y + '\n'})
       })
     }
+
     builder ++= "\nFloat Features:"
-    if (fv.floatFeatures != null) {
+
+  if (fv.floatFeatures != null) {
       fv.floatFeatures.asScala.foreach(x =>  {
         builder ++= "FAMILY : " + x._1 + '\n'
         x._2.asScala.foreach(y => {builder ++= "--> " + y.toString + '\n'})
       })
     }
+
     log.info(builder.toString)
   }
 
   def makeTraining(
-                    sc: SparkContext,
-                    query: String,
-                    isMulticlass: Boolean = false): RDD[Example] = {
+      sc: SparkContext,
+      query: String,
+      isMulticlass: Boolean = false): RDD[Example] = {
     val hc = new HiveContext(sc)
     val hiveTraining = hc.sql(query)
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
+
     hiveTraining
       .map(x => hiveTrainingToExample(x, schema, isMulticlass))
   }
@@ -484,17 +503,26 @@ object GenericPipeline {
     examples
   }
 
-  def evalCalibration(input: RDD[(Double, Boolean)], offset : Double, slope : Double, output : String = ""): Double = {
+  def evalCalibration(
+      input: RDD[(Double, Boolean)],
+      offset: Double,
+      slope: Double,
+      output: String = ""): Double = {
     val scoreLabelProb = input
       // score, label, probability
       .map{x => (x._1, x._2, 1.0 / (1.0 + math.exp(-offset - slope * x._1)))}
-    if (output.size > 0){
+
+    if (output.nonEmpty) {
       // save the (score, label, probability) tuple for offline evaluation
       PipelineUtil
-        .saveAndCommitAsTextFile(scoreLabelProb.map(x => "%f,%s,%f".format(x._1, x._2, x._3)), output)
+        .saveAndCommitAsTextFile(
+          scoreLabelProb.map(x => "%f,%s,%f".format(x._1, x._2, x._3)), output
+        )
     }
+
     val probLabel = scoreLabelProb.map(x => (x._3, x._2)) // RDD[(probability, label)]
     val error = computeCalibrationError(probLabel)
+
     error
   }
 
@@ -527,6 +555,7 @@ object GenericPipeline {
     val paramCfg = cfg.getConfigList("param_to_tune")
     val paramNames: Array[String] = Try(paramCfg.asScala.map(_.getString("name")).toArray)
       .getOrElse(Array[String]())
+
     val maxRound: Int = cfg.getInt("max_round")
     val initParamVals: Array[Array[Double]] = Try(
       paramCfg.asScala.map(_.getDoubleList("val").asScala
@@ -556,7 +585,7 @@ object GenericPipeline {
       paramVals.foldLeft(Array[Array[Double]](Array[Double]()))(
         (collector: Array[Array[Double]], ar: Array[Double]) => for (el <- collector; x <- ar)
           yield el :+ x)
-    val metrics: Array[(String, Double)] = (if (maxRound >= paramSets.size) paramSets else
+    val metrics: Array[(String, Double)] = (if (maxRound >= paramSets.length) paramSets else
       Random.shuffle(paramSets.toList).take(maxRound).toArray).map(
       x => trainEvalForParamSearch(sc, paramNames.zip(x), config))
     val bestMetric = metrics.reduceLeft((x, y) => if (x._2 > y._2) x else y)
@@ -579,15 +608,16 @@ object GenericPipeline {
   }
 
   def trainEvalForParamSearch(
-                               sc: SparkContext,
-                               paramSet: Array[(String,Double)],
-                               config: Config) : (String, Double) = {
+      sc: SparkContext,
+      paramSet: Array[(String,Double)],
+      config: Config) : (String, Double) = {
     val cfg = config.getConfig("param_search")
     val modelConfig = cfg.getString("model_config")
     val metricName: String = cfg.getString("metric_to_maximize")
     val paramStr = paramSet.map(x => s"${x._1}_${x._2}").mkString("__")
     val modelPrefix = cfg.getString("model_name_prefix")
     val modelOutput = modelPrefix.concat("__").concat(paramStr).concat(".model")
+
     // revise train_model.model_config, ${modelConfig}.model_output (for training)
     val baseCfg = config.withValue("train_model.model_config",
       ConfigValueFactory.fromAnyRef(modelConfig))
@@ -598,11 +628,15 @@ object GenericPipeline {
       .withValue("eval_model.model_config", ConfigValueFactory.fromAnyRef(modelConfig))
       .withValue("eval_model.metric_to_maximize", ConfigValueFactory.fromAnyRef(metricName))
       .withValue("eval_model.model_name", ConfigValueFactory.fromAnyRef(modelOutput))
+
     // revise ${modelConfig}.${param} for parameter setting
-    val finalCfg = paramSet.foldLeft(baseCfg)((
-                                                base: Config, param: (String, Double)) => base.withValue(
-      modelConfig.concat(".").concat(param._1), ConfigValueFactory.fromAnyRef(param._2)))
+    val finalCfg = paramSet.foldLeft(baseCfg)((base: Config, param: (String, Double)) => {
+      base.withValue(
+        modelConfig.concat(".").concat(param._1), ConfigValueFactory.fromAnyRef(param._2))
+    })
+
     trainingRun(sc, finalCfg)
+
     val evalResults = evalCompute(sc, finalCfg, "eval_model", isTraining)
 
     (modelOutput, evalResults.find(_._1.equals(metricName)).getOrElse(("", -1d))._2)
@@ -615,8 +649,10 @@ object GenericPipeline {
     val example = new Example()
     val featureVector = new FeatureVector()
     example.addToExample(featureVector)
+
     val stringFeatures = new java.util.HashMap[String, java.util.Set[java.lang.String]]()
     featureVector.setStringFeatures(stringFeatures)
+
     val floatFeatures = new java.util.HashMap[String, java.util.Map[
       java.lang.String, java.lang.Double]]()
     featureVector.setFloatFeatures(floatFeatures)
@@ -629,7 +665,7 @@ object GenericPipeline {
     stringFeatures.put("MISS", missing)
 
     //val genericFloat = new java.util.HashMap[java.lang.String, java.lang.Double]()
-    for (i <- 0 until schema.length) {
+    for (i <- schema.indices) {
       val rowSchema = schema(i)
       val name = rowSchema.name
       val tokens = rowSchema.name.split("_")

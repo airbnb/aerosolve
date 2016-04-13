@@ -6,11 +6,14 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.JavaConversions._
 
+/*
+ * Entry-point for running the generic pipeline.
+ */
 object JobRunner {
   def main(args: Array[String]): Unit = {
     val log: Logger = LoggerFactory.getLogger("Job.Runner")
 
-  if (args.length < 1) {
+    if (args.length < 1) {
       log.error("Usage: Job.Runner config_name job1,job2...")
       System.exit(-1)
     }
@@ -35,7 +38,7 @@ object JobRunner {
     val sc = new SparkContext(conf)
 
     for (job <- jobs) {
-      log.info("Running " + job)
+      log.info("Running job: %s".format(job))
       try {
         job match {
           case "GenericMakeExamples" => GenericPipeline
@@ -67,14 +70,13 @@ object JobRunner {
           case _ => log.error("Unknown job " + job)
         }
       } catch {
-        case e : Exception => log.error("Exception on job %s : %s".format(job, e.toString))
+        case e : Exception => log.error("Exception on job %s: %s".format(job, e.toString))
           System.exit(-1)
       }
     }
 
     log.info("Job(s) finished successfully")
     sc.stop()
-
     System.exit(0)
   }
 }
