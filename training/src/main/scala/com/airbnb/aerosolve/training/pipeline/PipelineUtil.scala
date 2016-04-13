@@ -10,7 +10,7 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
 /*
- * Miscellaneous utilities
+ * Miscellaneous utilities for pipeline file system access.
  */
 object PipelineUtil {
   val log: Logger = LoggerFactory.getLogger("PipelineUtil")

@@ -4,6 +4,7 @@ import com.airbnb.aerosolve.core.{EvaluationRecord, Example}
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.transforms.Transformer
 import org.apache.spark.SparkContext
+import org.apache.spark.mllib.stat.Statistics
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -111,5 +112,70 @@ object EvalUtil {
     result.setScore(prob)
     result.setLabel(rank)
     result
+  }
+
+  def getClassificationAUC(records : Seq[EvaluationRecord]) : Double = {
+    // Find minimal and maximal scores
+    var minScore = records.head.score
+    var maxScore = minScore
+
+    records.foreach(record => {
+      val score = record.score
+
+      minScore = Math.min(minScore, score)
+      maxScore = Math.max(maxScore, score)
+    })
+
+    if (minScore >= maxScore) {
+      log.warn("max score smaller than or equal to min score (%f, %f).".format(minScore, maxScore))
+      maxScore = minScore + 1.0
+    }
+
+    // For AUC evaluation
+    val buckets = records
+      .map(x => evaluateRecordForAUC(x, minScore, maxScore))
+      .groupBy(_._1)
+      .map(x => x._2.reduce((a, b) => (a._1, (a._2._1 + b._2._1, a._2._2 + b._2._2))))
+      .toArray
+      .sortBy(x => x._1)
+
+    getAUC(buckets.map(x => (x._2._1, x._2._2)))
+  }
+
+  private def evaluateRecordForAUC(
+      record : EvaluationRecord,
+      minScore : Double,
+      maxScore : Double) : (Long, (Long, Long)) = {
+    var offset = 0
+
+    if (record.label <= 0) {
+      offset += 1
+    }
+
+    val score : Long = ((record.score - minScore) / (maxScore - minScore) * 100).toLong
+
+    offset match {
+      case 0 => (score, (1, 0))
+      case 1 => (score, (0, 1))
+    }
+  }
+
+  private def getAUC(buckets: Array[(Long, Long)]): Double = {
+    val tot = buckets.reduce((x, y) => (x._1 + y._1, x._2 + y._2))
+    var auc = 0.0
+    var cs=(0L, 0L)
+    for (x <- buckets) {
+      // area for the current slice: (TP0+TP1)/2*(TN1-TN0)
+      auc += ((tot._1 - cs._1) + (tot._1 - cs._1 - x._1)) / 2.0 * x._2
+      // (TP0, TN0) -> (TP1, TN1)
+      cs = (cs._1 + x._1, cs._2 + x._2)
+    }
+    auc / tot._1 / tot._2
+  }
+
+  def getCorrelation(records : RDD[EvaluationRecord], method : String = "pearson") : Double = {
+    val score: RDD[Double] = records.map(record => record.score)
+    val label: RDD[Double] = records.map(record => record.label)
+    Statistics.corr(score, label, method)
   }
 }

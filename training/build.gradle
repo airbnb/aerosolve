@@ -40,9 +40,11 @@ dependencies {
 
   provided 'org.apache.spark:spark-core_2.10:1.2.1'
   provided 'org.apache.spark:spark-hive_2.10:1.2.1'
+  provided 'org.apache.spark:spark-mllib_2.10:1.2.1'
 
   testCompile 'org.apache.spark:spark-core_2.10:1.2.1'
   testCompile 'org.apache.spark:spark-hive_2.10:1.2.1'
+  testCompile 'org.apache.spark:spark-mllib_2.10:1.2.1'
   testCompile 'org.mockito:mockito-all:1.9.5'
   testCompile 'org.slf4j:slf4j-simple:1.7.7'
 }
