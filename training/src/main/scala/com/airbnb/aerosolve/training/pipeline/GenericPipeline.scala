@@ -643,9 +643,9 @@ object GenericPipeline {
   }
 
   def hiveTrainingToExample(
-                             row: Row,
-                             schema: Array[StructField],
-                             isMulticlass: Boolean = false): Example = {
+      row: Row,
+      schema: Array[StructField],
+      isMulticlass: Boolean = false): Example = {
     val example = new Example()
     val featureVector = new FeatureVector()
     example.addToExample(featureVector)
@@ -669,12 +669,14 @@ object GenericPipeline {
       val rowSchema = schema(i)
       val name = rowSchema.name
       val tokens = rowSchema.name.split("_")
+
       if (tokens.size != 2) {
         if (tokens(0) != LABEL) {
           log.error("Column name not in FAMILY_NAME format or is not LABEL! %s".format(name))
           System.exit(-1)
         }
       }
+
       val featureFamily = tokens(0)
       val featureName = if (tokens.size > 1) tokens(1) else ""
 

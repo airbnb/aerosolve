@@ -4,7 +4,6 @@ import com.airbnb.aerosolve.core.{EvaluationRecord, Example}
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.transforms.Transformer
 import org.apache.spark.SparkContext
-import org.apache.spark.mllib.stat.Statistics
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -171,11 +170,5 @@ object EvalUtil {
       cs = (cs._1 + x._1, cs._2 + x._2)
     }
     auc / tot._1 / tot._2
-  }
-
-  def getCorrelation(records : RDD[EvaluationRecord], method : String = "pearson") : Double = {
-    val score: RDD[Double] = records.map(record => record.score)
-    val label: RDD[Double] = records.map(record => record.label)
-    Statistics.corr(score, label, method)
   }
 }
