@@ -35,17 +35,21 @@ bintray {
 dependencies {
   compile project(':core')
   compile 'com.fasterxml.jackson.module:jackson-module-scala_2.10:2.4.2'
+  compile 'joda-time:joda-time:2.5'
+  compile 'org.apache.hadoop:hadoop-client:2.2.0'
+
   provided 'org.apache.spark:spark-core_2.10:1.2.1'
   provided 'org.apache.spark:spark-hive_2.10:1.2.1'
-  compile 'joda-time:joda-time:2.5'
-  testCompile 'org.slf4j:slf4j-simple:1.7.7'
+
   testCompile 'org.apache.spark:spark-core_2.10:1.2.1'
   testCompile 'org.apache.spark:spark-hive_2.10:1.2.1'
+  testCompile 'org.mockito:mockito-all:1.9.5'
+  testCompile 'org.slf4j:slf4j-simple:1.7.7'
 }
 
 compileScala {
-    scalaCompileOptions.fork = true
-    scalaCompileOptions.forkOptions.jvmArgs = ['-XX:MaxPermSize=512m']
+  scalaCompileOptions.fork = true
+  scalaCompileOptions.forkOptions.jvmArgs = ['-XX:MaxPermSize=512m']
 }
 
 shadowJar {
@@ -53,5 +57,5 @@ shadowJar {
 }
 
 test {
-    jvmArgs += [ "-XX:MaxPermSize=1024m" ]
+  jvmArgs += [ "-XX:MaxPermSize=1024m" ]
 }
