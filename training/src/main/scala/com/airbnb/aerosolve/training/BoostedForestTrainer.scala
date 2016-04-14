@@ -2,22 +2,17 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
-import com.airbnb.aerosolve.core.models.BoostedStumpsModel
-import com.airbnb.aerosolve.core.models.DecisionTreeModel
-import com.airbnb.aerosolve.core.models.ForestModel
-import com.airbnb.aerosolve.core.{FeatureVector, Example, ModelRecord}
-import com.airbnb.aerosolve.core.util.{FloatVector, Util}
-import com.airbnb.aerosolve.training.GradientUtils.GradientContainer
+import com.airbnb.aerosolve.core.features.{Family, FeatureRegistry, MultiFamilyVector}
+import com.airbnb.aerosolve.core.models.{DecisionTreeModel, ForestModel}
+import com.airbnb.aerosolve.core.{Example, ModelRecord}
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.util.Random
-import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 // A boosted tree forest trainer.
 // Alternates between fitting a tree and building one on the importance
@@ -27,7 +22,7 @@ object BoostedForestTrainer {
   private final val log: Logger = LoggerFactory.getLogger("BoostedForestTrainer")
   
   case class BoostedForestTrainerParams(candidateSize : Int,
-                                         rankKey : String,
+                                         labelFamily : Family,
                                          rankThreshold : Double,
                                          maxDepth : Int,
                                          minLeafCount : Int,
@@ -40,7 +35,8 @@ object BoostedForestTrainer {
                                          samplingStrategy : String,
                                          multiclass : Boolean,
                                          loss : String,
-                                         margin : Double)
+                                         margin : Double,
+                                         registry: FeatureRegistry)
   // A container class that returns the tree and leaf a feature vector ends up in
   case class ForestResponse(tree : Int, leaf : Int)
   // The sum of all responses to a feature vector of an entire forest.
@@ -53,10 +49,11 @@ object BoostedForestTrainer {
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : ForestModel = {
+            key : String,
+            registry: FeatureRegistry) : ForestModel = {
     val taskConfig = config.getConfig(key)
     val candidateSize : Int = taskConfig.getInt("num_candidates")
-    val rankKey : String = taskConfig.getString("rank_key")
+    val labelFamily : Family = registry.family(taskConfig.getString("rank_key"))
     val rankThreshold : Double = taskConfig.getDouble("rank_threshold")
     val maxDepth : Int = taskConfig.getInt("max_depth")
     val minLeafCount : Int = taskConfig.getInt("min_leaf_items")
@@ -71,9 +68,9 @@ object BoostedForestTrainer {
     val loss : String = Try{taskConfig.getString("loss")}.getOrElse("logistic")
     val margin: Double = Try{taskConfig.getDouble("margin")}.getOrElse(1.0)
     val cache: String = Try{taskConfig.getString("cache")}.getOrElse("")
-    
+
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
-          rankKey = rankKey,
+          labelFamily = labelFamily,
           rankThreshold = rankThreshold,
           maxDepth = maxDepth,
           minLeafCount = minLeafCount,
@@ -86,13 +83,14 @@ object BoostedForestTrainer {
           samplingStrategy = samplingStrategy,
           multiclass = splitCriteria.contains("multiclass"),
           loss = loss,
-          margin = margin
+          margin = margin,
+          registry = registry
         )
     
-    val forest = new ForestModel()
-    forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
+    val forest = new ForestModel(registry)
+    forest.trees(new java.util.ArrayList[DecisionTreeModel]())
 
-    val raw = LinearRankerUtils.makePointwiseFloat(input, config, key)
+    val raw = LinearRankerUtils.makePointwiseFloat(input, config, key, registry)
 
     val examples = cache match {
       case "memory" => raw.cache()
@@ -118,10 +116,10 @@ object BoostedForestTrainer {
   }
   
   def optionalExample(ex : Example, forest : ForestModel, params : BoostedForestTrainerParams)
-  : Option[FeatureVector] = {
-    val item = ex.example(0)
+  : Option[MultiFamilyVector] = {
+    val item = ex.only
     if (params.multiclass) {
-      val labels = TrainingUtils.getLabelDistribution(item, params.rankKey)
+      val labels = TrainingUtils.getLabelDistribution(item, params.labelFamily)
       if (labels.isEmpty) return None
 
       // Assuming that this is a single label multi-class
@@ -132,17 +130,17 @@ object BoostedForestTrainer {
 
       forest.scoreToProbability(scores)
 
-      val probs = scores.filter(x => x.label == label)
+      val probs = scores.filter(x => x.getLabel == label.name())
       if (probs.isEmpty) return None
 
-      val importance = 1.0 - probs.head.probability
+      val importance = 1.0 - probs.head.getProbability
       if (scala.util.Random.nextDouble < importance) {
         Some(item)
       } else {
         None
       }
     } else {
-      val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
+      val label = TrainingUtils.getLabel(item, params.labelFamily, params.rankThreshold)
       val score = forest.scoreItem(item)
       val prob = forest.scoreProbability(score)
       val importance = if (label > 0) {
@@ -167,15 +165,11 @@ object BoostedForestTrainer {
     val forestBC = sc.broadcast(forest)
     val paramsBC = sc.broadcast(params)
     val examples = input
-              .map(x => optionalExample(x, forestBC.value, paramsBC.value))
-              .filter(x => x.isDefined)
-              .map(x => Util.flattenFeature(x.get))
+              .flatMap(x => optionalExample(x, forestBC.value, paramsBC.value))
 
      params.samplingStrategy match {
        // Picks the first few items that match the criteria. Better for massive data sets.
-       case "first" => {
-         examples.take(params.candidateSize)
-       }
+       case "first" => examples.take(params.candidateSize)
        // Picks uniformly. Better for small data sets.
        case "uniform" => examples.takeSample(false, params.candidateSize)
      }
@@ -197,20 +191,20 @@ object BoostedForestTrainer {
         0,
         0,
         params.maxDepth,
-        params.rankKey,
+        params.labelFamily,
         params.rankThreshold,
         params.numTries,
         params.minLeafCount,
         SplitCriteria.splitCriteriaFromName(params.splitCriteria))
     
-    val tree = new DecisionTreeModel()
-    tree.setStumps(stumps)
+    val tree = new DecisionTreeModel(params.registry)
+    tree.stumps(stumps)
     if (params.multiclass) {
       // Convert a pdf into something like a weight
       val scale = 1.0f / params.numTrees.toFloat
-      for (stump <- tree.getStumps) {
-        if (stump.labelDistribution != null) {
-          val dist = stump.labelDistribution.asScala
+      for (stump <- tree.stumps) {
+        if (stump.getLabelDistribution != null) {
+          val dist = stump.getLabelDistribution.asScala
 
           for (key <- dist.keys) {
             val v = dist.get(key)
@@ -222,13 +216,13 @@ object BoostedForestTrainer {
       }
     } else {
       val scale = 1.0f / params.numTrees.toFloat
-      for (stump <- tree.getStumps) {
-        if (stump.featureWeight != 0.0f) {
-          stump.featureWeight *= scale
+      for (stump <- tree.stumps) {
+        if (stump.getFeatureWeight != 0.0f) {
+          stump.setFeatureWeight(stump.getFeatureWeight * scale)
         }
       }
     }
-    forest.getTrees.append(tree)
+    forest.trees.append(tree)
   }
   
   def boostForest(sc : SparkContext,
@@ -272,12 +266,12 @@ object BoostedForestTrainer {
        .collectAsMap
 
        // Gradient step
-       val trees = forest.getTrees.asScala.toArray
+       val trees = forest.trees.asScala.toArray
        var sum : Double = 0.0
        for (cg <- countAndGradient) {
          val key = cg._1
          val tree = trees(key._1)
-         val stump = tree.getStumps.get(key._2)
+         val stump = tree.stumps.get(key._2)
          val (count, grad) = cg._2
          val curr = stump.getFeatureWeight
          val avgGrad = grad / count
@@ -330,20 +324,20 @@ object BoostedForestTrainer {
         .collectAsMap
 
       // Gradient step
-      val trees = forest.getTrees.asScala.toArray
+      val trees = forest.trees.asScala.toArray
       var sum : Double = 0.0
       for (cg <- countAndGradient) {
         val key = cg._1
         val tree = trees(key._1)
-        val stump = tree.getStumps.get(key._2)
+        val stump = tree.stumps.get(key._2)
         val label = key._3
         val (count, grad) = cg._2
-        val curr = stump.labelDistribution.get(label)
+        val curr = stump.getLabelDistribution.get(label)
         val avgGrad = grad / count
         if (curr == null) {
-          stump.labelDistribution.put(label, - params.learningRate * avgGrad)
+          stump.getLabelDistribution.put(label, - params.learningRate * avgGrad)
         } else {
-          stump.labelDistribution.put(label, curr - params.learningRate * avgGrad)
+          stump.getLabelDistribution.put(label, curr - params.learningRate * avgGrad)
         }
         sum += avgGrad * avgGrad
       }
@@ -354,21 +348,20 @@ object BoostedForestTrainer {
   def getForestResponse(forest : ForestModel,
                         ex : Example,
                         params : BoostedForestTrainerParams) : ForestResult = {
-    val item = ex.example.get(0)
-    val floatFeatures = Util.flattenFeature(item)
+    val item = ex.only
     val result = scala.collection.mutable.ArrayBuffer[ForestResponse]()
-    val trees = forest.getTrees().asScala.toArray
+    val trees = forest.trees.asScala.toArray
     var sum : Double = 0.0
     val sumResponses = scala.collection.mutable.HashMap[String, Double]()
-    for (i <- 0 until trees.size) {
+    for (i <- trees.indices) {
       val tree = trees(i)
-      val leaf = trees(i).getLeafIndex(floatFeatures);
+      val leaf = trees(i).getLeafIndex(item)
       if (leaf >= 0) {
-        val stump = tree.getStumps().get(leaf);
-        val weight = stump.featureWeight
+        val stump = tree.stumps.get(leaf);
+        val weight = stump.getFeatureWeight
         sum = sum + weight
-        if (params.multiclass && stump.labelDistribution != null) {
-          val dist = stump.labelDistribution.asScala
+        if (params.multiclass && stump.getLabelDistribution != null) {
+          val dist = stump.getLabelDistribution.asScala
           for (kv <- dist) {
             val v = sumResponses.getOrElse(kv._1, 0.0)
             sumResponses.put(kv._1, v + kv._2)
@@ -378,16 +371,19 @@ object BoostedForestTrainer {
         result.append(response)
       }      
     }
-    val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
-    val labels = TrainingUtils.getLabelDistribution(item, params.rankKey)
+    val label = TrainingUtils.getLabel(item, params.labelFamily, params.rankThreshold)
+    val labels: Map[String, Double] = TrainingUtils.getLabelDistribution(item, params.labelFamily)
+      .map(kv => (kv._1.name, kv._2))
+      .toMap
     ForestResult(label, labels, sum, sumResponses, result.toArray)
   }
   
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                         registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

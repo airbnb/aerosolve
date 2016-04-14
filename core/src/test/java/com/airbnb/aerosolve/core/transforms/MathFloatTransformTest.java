@@ -1,21 +1,16 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.Map;
-import java.util.Set;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+public class MathFloatTransformTest extends BaseTransformTest {
 
-public class MathFloatTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(MathFloatTransformTest.class);
+  public String makeConfig() {
+    return makeConfig("log10");
+  }
 
   public String makeConfig(String functionName) {
     return "test_math {\n" +
@@ -27,54 +22,51 @@ public class MathFloatTransformTest {
         "}";
   }
 
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig("log10"));
-    Transform transform = TransformFactory.createTransform(config, "test_math");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getFloatFeatures() == null);
+  @Override
+  public String configKey() {
+    return "test_math";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig("log10"));
-    Transform transform = TransformFactory.createTransform(config, "test_math");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
 
-    Map<String, Double> feat1 = featureVector.getFloatFeatures().get("loc");
-    // the original features are not changed
-    assertEquals(3, feat1.size());
-    assertEquals(37.7, feat1.get("lat"), 0.1);
-    assertEquals(40.0, feat1.get("long"), 0.1);
-    assertEquals(-20.0, feat1.get("z"), 0.1);
+    assertTrue(featureVector.numFamilies() == 4);
 
-    Map<String, Double> feat2 = featureVector.getFloatFeatures().get("bar");
-    assertEquals(3, feat2.size());
-    assertEquals(Math.log10(37.7), feat2.get("lat"), 0.1);
-    assertEquals(Math.log10(40.0), feat2.get("long"), 0.1);
-    // for negative value, it would be a missing feature
-    assertTrue(!feat2.containsKey("z"));
-    // existing feature in 'bar' should not change
-    assertEquals(1.0, feat2.get("bar_fv"), 0.1);
-
-    // test an undefined function
-    Config config2 = ConfigFactory.parseString(makeConfig("tan"));
-    Transform transform2 = TransformFactory.createTransform(config2, "test_math");
-    FeatureVector featureVector2 = TransformTestingHelper.makeFeatureVector();
-    transform2.doTransform(featureVector2);
     // the original features are unchanged
-    Map<String, Double> feat3 = featureVector2.getFloatFeatures().get("loc");
-    assertEquals(3, feat3.size());
-    assertEquals(37.7, feat3.get("lat"), 0.1);
-    assertEquals(40.0, feat3.get("long"), 0.1);
-    assertEquals(-20.0, feat3.get("z"), 0.1);
+    assertSparseFamily(featureVector, "loc", 3,
+                       ImmutableMap.of("lat", 37.7,
+                                       "long", 40.0,
+                                       "z", -20.0));
+
+    assertSparseFamily(featureVector, "bar", 3,
+                       ImmutableMap.of("lat", Math.log10(37.7),
+                                       "long", Math.log10(40.0),
+                                       // existing feature in 'bar' should not change
+                                       "bar_fv", 1.0),
+                       // for negative value, it would be a missing feature
+                       ImmutableSet.of("z"));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testUndefinedFunction() {
+    Transform<MultiFamilyVector> transform = getTransform(makeConfig("tan"), configKey());
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+
+    // TODO (Brad): I made this throw an exception.  Does it really make sense to just continue
+    // as usual doing nothing if the function is unknown?
+    assertTrue(featureVector.numFamilies() == 4);
+
+    // the original features are unchanged
+    assertSparseFamily(featureVector, "loc", 3,
+                       ImmutableMap.of("lat", 37.7,
+                                       "long", 40.0,
+                                       "z", -20.0));
     // new features should not exist
-    Map<String, Double> feat4 = featureVector2.getFloatFeatures().get("bar");
-    assertEquals(1, feat4.size());
-    assertEquals(1.0, feat4.get("bar_fv"), 0.1);
+    assertSparseFamily(featureVector, "bar", 1,
+                       ImmutableMap.of("bar_fv", 1.0));
   }
 }

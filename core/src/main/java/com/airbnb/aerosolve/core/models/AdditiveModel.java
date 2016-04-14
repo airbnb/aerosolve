@@ -4,115 +4,146 @@ import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.function.AbstractFunction;
-import com.airbnb.aerosolve.core.function.Function;
-import com.airbnb.aerosolve.core.function.FunctionUtil;
-import com.airbnb.aerosolve.core.function.MultiDimensionSpline;
+import com.airbnb.aerosolve.core.features.Family;
+import com.airbnb.aerosolve.core.features.FamilyVector;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.functions.AbstractFunction;
+import com.airbnb.aerosolve.core.functions.Function;
+import com.airbnb.aerosolve.core.functions.MultiDimensionSpline;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.FeatureValue;
 import com.airbnb.aerosolve.core.util.Util;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-
+import com.google.common.primitives.Doubles;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.*;
-
-import static com.airbnb.aerosolve.core.function.FunctionUtil.toFloat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 
 // A generalized additive model with a parametric function per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
 @Slf4j
+@Accessors(fluent = true, chain = true)
 public class AdditiveModel extends AbstractModel {
-  private static final String DENSE_FAMILY = "dense";
+
   @Getter @Setter
-  private Map<String, Map<String, Function>> weights = new HashMap<>();
+  private Map<Feature, Function> weights =
+      new Object2ObjectOpenHashMap<>();
 
-  // only MultiDimensionSpline using denseWeights
-  // whole dense features belongs to feature family DENSE_FAMILY
-  private Map<String, Function> denseWeights;
+  @Getter
+  private Map<Family, Function> familyWeights =
+      new Object2ObjectOpenHashMap<>();
 
-  private Map<String, Function> getOrCreateDenseWeights() {
-    if (denseWeights == null) {
-      denseWeights = weights.get(DENSE_FAMILY);
-      if (denseWeights == null) {
-        denseWeights = new HashMap<>();
-        weights.put(DENSE_FAMILY, denseWeights);
-      }
-    }
-    return denseWeights;
+  public AdditiveModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlatFeatures(flatFeatures) + scoreDenseFeatures(combinedItem.getDenseFeatures());
+  public boolean needsFeature(Feature feature) {
+    return weights.containsKey(feature);
   }
 
-  public float scoreDenseFeatures(Map<String, List<Double>> denseFeatures) {
-    float sum = 0;
-    if (denseFeatures != null && !denseFeatures.isEmpty()) {
-      assert (denseWeights != null);
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function fun = denseWeights.get(featureName);
-        sum += fun.evaluate(toFloat(feature.getValue()));
+  @Override
+  public double scoreItem(FeatureVector combinedItem) {
+    return scoreItemInternal(combinedItem, null, null);
+  }
+
+  public double scoreItemInternal(FeatureVector combinedItem,
+                                  PriorityQueue<Map.Entry<String, Double>> scores,
+                                  List<DebugScoreRecord> scoreRecordsList) {
+    double sum = 0.0d;
+
+    if (combinedItem instanceof MultiFamilyVector && familyWeights != null
+        && !familyWeights.isEmpty()) {
+      MultiFamilyVector multiFamilyVector = ((MultiFamilyVector) combinedItem);
+      for (FamilyVector familyVector : multiFamilyVector.families()) {
+        Function familyFunction = familyWeights.get(familyVector.family());
+
+        if (familyFunction == null) {
+          sum += scoreVector(familyVector, scores, scoreRecordsList);
+        } else {
+          double[] val = familyVector.denseArray();
+          double subscore = familyFunction.evaluate(val);
+          sum += subscore;
+          if (scores != null) {
+            String str = familyVector.family().name() + ":null=" + Arrays.toString(val)
+                         + " = " + subscore + "<br>\n";
+            scores.add(Pair.of(str, subscore));
+          }
+          if (scoreRecordsList != null) {
+            DebugScoreRecord record = new DebugScoreRecord();
+            record.setFeatureFamily(familyVector.family().name());
+            record.setFeatureName(null);
+            record.setDenseFeatureValue(Doubles.asList(val));
+            record.setFeatureWeight(subscore);
+            scoreRecordsList.add(record);
+          }
+        }
+      }
+    } else {
+      sum = scoreVector(combinedItem, scores, scoreRecordsList);
+    }
+
+    return sum;
+  }
+
+  private double scoreVector(FeatureVector combinedItem,
+                             PriorityQueue<Map.Entry<String, Double>> scores,
+                             List<DebugScoreRecord> scoreRecordsList) {
+    double sum = 0.0d;
+    for (FeatureValue value : combinedItem) {
+      Function func = weights.get(value.feature());
+      if (func == null)
+        continue;
+      double subscore = func.evaluate(value.value());
+      sum += subscore;
+      if (scores != null) {
+        String str = value.feature().family().name() + ":" + value.feature().name() +
+                     "=" + value.value() + " = " +subscore + "<br>\n";
+        scores.add(Pair.of(str, subscore));
+      }
+      if (scoreRecordsList != null) {
+        DebugScoreRecord record = new DebugScoreRecord();
+        record.setFeatureFamily(value.feature().family().name());
+        record.setFeatureName(value.feature().name());
+        record.setFeatureValue(value.value());
+        record.setFeatureWeight(subscore);
+        scoreRecordsList.add(record);
       }
     }
     return sum;
   }
 
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-
-    float sum = 0.0f;
     // order by the absolute value
-    PriorityQueue<Map.Entry<String, Float>> scores =
+    PriorityQueue<Map.Entry<String, Double>> scores =
         new PriorityQueue<>(100, new LinearModel.EntryComparator());
 
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null)
-        continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        Function func = familyWeightMap.get(feature.getKey());
-        if (func == null)
-          continue;
-        float val = feature.getValue().floatValue();
-        float subScore = func.evaluate(val);
-        sum += subScore;
-        String str = featureFamily.getKey() + ":" + feature.getKey() + "=" + val
-                     + " = " + subScore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
-      }
-    }
-
-    Map<String, List<Double>> denseFeatures = combinedItem.getDenseFeatures();
-    if (denseFeatures != null) {
-      assert (denseWeights != null);
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function fun = denseWeights.get(featureName);
-        float[] val = toFloat(feature.getValue());
-        float subScore = fun.evaluate(val);
-        sum += subScore;
-        String str = DENSE_FAMILY + ":" + featureName + "=" + val
-            + " = " + subScore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
-      }
-    }
+    double sum = scoreItemInternal(combinedItem, scores, null);
 
     final int MAX_COUNT = 100;
     builder.append("Top scores ===>\n");
     if (!scores.isEmpty()) {
       int count = 0;
-      float subsum = 0.0f;
+      double subsum = 0.0d;
       while (!scores.isEmpty()) {
-        Map.Entry<String, Float> entry = scores.poll();
-        builder.append(entry.getKey());
-        float val = entry.getValue();
+        Map.Entry<String, Double> entry = scores.poll();
+        String str = entry.getKey();
+        builder.append(str);
+        double val = entry.getValue();
         subsum += val;
         count = count + 1;
         if (count >= MAX_COUNT) {
@@ -128,43 +159,8 @@ public class AdditiveModel extends AbstractModel {
 
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
-
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        Function func = familyWeightMap.get(feature.getKey());
-        if (func == null) continue;
-        float val = feature.getValue().floatValue();
-        float weight = func.evaluate(val);
-        DebugScoreRecord record = new DebugScoreRecord();
-        record.setFeatureFamily(featureFamily.getKey());
-        record.setFeatureName(feature.getKey());
-        record.setFeatureValue(val);
-        record.setFeatureWeight(weight);
-        scoreRecordsList.add(record);
-      }
-    }
-
-    Map<String, List<Double>> denseFeatures = combinedItem.getDenseFeatures();
-    if (denseFeatures != null) {
-      assert (denseWeights != null);
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function fun = denseWeights.get(featureName);
-        float[] val = toFloat(feature.getValue());
-        float weight = fun.evaluate(val);
-        DebugScoreRecord record = new DebugScoreRecord();
-        record.setFeatureFamily(DENSE_FAMILY);
-        record.setFeatureName(feature.getKey());
-        record.setDenseFeatureValue(feature.getValue());
-        record.setFeatureWeight(weight);
-        scoreRecordsList.add(record);
-      }
-    }
-
+    scoreItemInternal(combinedItem, null, scoreRecordsList);
     return scoreRecordsList;
   }
 
@@ -173,18 +169,20 @@ public class AdditiveModel extends AbstractModel {
     long rows = header.getNumRecords();
     slope = header.getSlope();
     offset = header.getOffset();
-    weights = new HashMap<>();
+    weights = new Reference2ObjectOpenHashMap<>();
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
       String family = record.getFeatureFamily();
       String name = record.getFeatureName();
-      Map<String, Function> inner = weights.get(family);
-      if (inner == null) {
-        inner = new HashMap<>();
-        weights.put(family, inner);
+      Function function = AbstractFunction.buildFunction(record);
+      // TODO (Brad): Do we need to check the type? I did it for safety in case some null names have
+      // been serialized. But it's a bit brittle to use instanceof.
+      if (name == null && function instanceof MultiDimensionSpline) {
+        familyWeights.put(registry.family(family), function);
+      } else {
+        weights.put(registry.feature(family, name), function);
       }
-      inner.put(name, AbstractFunction.buildFunction(record));
     }
   }
 
@@ -194,102 +192,62 @@ public class AdditiveModel extends AbstractModel {
     header.setModelType("additive");
     header.setSlope(slope);
     header.setOffset(offset);
-    long count = 0;
-    for (Map.Entry<String, Map<String, Function>> familyMap : weights.entrySet()) {
-      count += familyMap.getValue().size();
-    }
-    header.setNumRecords(count);
+    header.setNumRecords(weights.size());
     ModelRecord headerRec = new ModelRecord();
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
-    for (Map.Entry<String, Map<String, Function>> familyMap : weights.entrySet()) {
-      String featureFamily = familyMap.getKey();
-      for (Map.Entry<String, Function> feature : familyMap.getValue().entrySet()) {
-        Function func = feature.getValue();
-        String featureName = feature.getKey();
-        writer.write(Util.encode(func.toModelRecord(featureFamily, featureName)));
-        writer.newLine();
-      }
+    for (Map.Entry<Feature, Function> entry : weights.entrySet()) {
+      Function func = entry.getValue();
+      String featureName = entry.getKey().name();
+      writer.write(Util.encode(func.toModelRecord(entry.getKey().family().name(), featureName)));
+      writer.newLine();
+    }
+    // TODO (Brad): Talk to Julian.  This changes the serialization from what he was using but
+    // I don't think it should be a problem since we're still training.
+    for (Map.Entry<Family, Function> entry : familyWeights.entrySet()) {
+      Function func = entry.getValue();
+      writer.write(Util.encode(func.toModelRecord(entry.getKey().name(), null)));
+      writer.newLine();
     }
     writer.flush();
   }
 
-  public float scoreFlatFeatures(Map<String, Map<String, Double>> flatFeatures) {
-    float sum = 0.0f;
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null) {
-        // not important families/features are removed from model
-        log.debug("miss featureFamily {}", featureFamily.getKey());
-        continue;
-      }
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        Function func = familyWeightMap.get(feature.getKey());
-        if (func == null)
-          continue;
-        float val = feature.getValue().floatValue();
-        sum += func.evaluate(val);
-      }
-    }
-    return sum;
-  }
-
-  public Map<String, Function> getOrCreateFeatureFamily(String featureFamily) {
-    Map<String, Function> featFamily = weights.get(featureFamily);
-    if (featFamily == null) {
-      featFamily = new HashMap<String, Function>();
-      weights.put(featureFamily, featFamily);
-    }
-    return featFamily;
-  }
-
-  public void addFunction(String featureFamily, String featureName,
-                          Function function, boolean overwrite) {
+  public void addFunction(Feature feature, Function function, boolean overwrite) {
     if (function == null) {
-      throw new RuntimeException(featureFamily + " " + featureName + " function null");
+      throw new RuntimeException(feature + " function null");
     }
-    Map<String, Function> featFamily = getOrCreateFeatureFamily(featureFamily);
-    if (overwrite || !featFamily.containsKey(featureName)) {
-      featFamily.put(featureName, function);
+    if (overwrite || !weights.containsKey(feature)) {
+      weights.put(feature, function);
     }
   }
 
-  public void addDenseFunction(String featureName, NDTreeModel ndtreeModel) {
-    MultiDimensionSpline spline = new MultiDimensionSpline(ndtreeModel);
-    Map<String, Function> dense = getOrCreateDenseWeights();
-    dense.put(featureName, spline);
+  public void addFunction(Family family, Function function, boolean overwrite) {
+    if (function == null) {
+      throw new RuntimeException(family + " function null");
+    }
+    if (overwrite || !familyWeights.containsKey(family)) {
+      familyWeights.put(family, function);
+    }
   }
 
   // Update weights based on gradient and learning rate
-  public void update(float gradWithLearningRate,
-                     float cap,
-                     Map<String, Map<String, Double>> flatFeatures) {
-    // update with lInfinite cap
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        Function func = familyWeightMap.get(feature.getKey());
-        if (func == null) continue;
-        float val = feature.getValue().floatValue();
-        func.update(-gradWithLearningRate, val);
-        func.LInfinityCap(cap);
-      }
-    }
-  }
-
-  public void updateDense(float gradWithLearningRate,
-                          float cap,
-                          Map<String, List<Double>> denseFeatures) {
-    // update with lInfinite cap
-    if (denseFeatures != null && !denseFeatures.isEmpty()) {
-      assert (denseWeights != null);
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function func = denseWeights.get(featureName);
-        float[] val = FunctionUtil.toFloat(feature.getValue());
-        func.update(-gradWithLearningRate, val);
+  public void update(double gradWithLearningRate,
+                     double cap,
+                     MultiFamilyVector vector) {
+    for (FamilyVector familyVector : vector.families()) {
+      Function func = familyWeights.get(familyVector.family());
+      if (func == null) {
+        for (FeatureValue value : familyVector) {
+          func = weights.get(value.feature());
+          if (func == null) continue;
+          // update with lInfinite cap
+          func.update(-gradWithLearningRate, value.value());
+          func.LInfinityCap(cap);
+        }
+      } else {
+        // update with lInfinite cap
+        func.update(-gradWithLearningRate, vector.denseArray());
         func.LInfinityCap(cap);
       }
     }

@@ -1,8 +1,10 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.airbnb.aerosolve.core.{EvaluationRecord, Example}
+import com.airbnb.aerosolve.core.features.Family
+import com.airbnb.aerosolve.core.{FeatureVector, EvaluationRecord, Example}
 import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.transforms.Transformer
+import com.airbnb.aerosolve.training.LinearRankerUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
@@ -20,7 +22,7 @@ object EvalUtil {
       transformer: Transformer,
       modelOpt: AbstractModel,
       examples: RDD[Example],
-      label: String,
+      labelFamily: Family,
       useProb: Boolean,
       isMulticlass: Boolean,
       isTraining: Example => Boolean): RDD[EvaluationRecord] = {
@@ -28,7 +30,7 @@ object EvalUtil {
     val transformerBC = sc.broadcast(transformer)
     examples.map(example => exampleToEvaluationRecord(
       example, transformerBC.value,
-      modelBC.value, useProb, isMulticlass, label, isTraining)
+      modelBC.value, useProb, isMulticlass, labelFamily, isTraining)
     )
   }
 
@@ -38,15 +40,15 @@ object EvalUtil {
       model: AbstractModel,
       useProb: Boolean,
       isMulticlass: Boolean,
-      label: String,
+      labelFamily: Family,
       isTraining: Example => Boolean): EvaluationRecord = {
     val result = new EvaluationRecord
     result.setIs_training(isTraining(example))
-    transformer.combineContextAndItems(example)
+    example.transform(transformer)
 
     if (isMulticlass) {
-      val score = model.scoreItemMulticlass(example.example.get(0)).asScala
-      val multiclassLabel = example.example.get(0).floatFeatures.get(label).asScala
+      val score = model.scoreItemMulticlass(example.only).asScala
+      val multiclassLabel: FeatureVector = example.only.get(labelFamily)
       val evalScores = new java.util.HashMap[java.lang.String, java.lang.Double]()
       val evalLabels = new java.util.HashMap[java.lang.String, java.lang.Double]()
 
@@ -54,16 +56,16 @@ object EvalUtil {
       result.setLabels(evalLabels)
 
       for (s <- score) {
-        evalScores.put(s.label, s.score)
+        evalScores.put(s.getLabel, s.getScore)
       }
 
-      for (l <- multiclassLabel) {
-        evalLabels.put(l._1, l._2)
+      for (fv <- multiclassLabel.iterator.asScala) {
+        evalLabels.put(fv.feature.name, fv.value)
       }
     } else {
-      val score = model.scoreItem(example.example.get(0))
+      val score = model.scoreItem(example.only)
       val prob = if (useProb) model.scoreProbability(score) else score
-      val rank = example.example.get(0).floatFeatures.get(label).values().iterator().next()
+      val rank = LinearRankerUtils.getLabel(example.only, labelFamily)
 
       result.setScore(prob)
       result.setLabel(rank)
@@ -83,10 +85,10 @@ object EvalUtil {
     val result = new EvaluationRecord
     result.setIs_training(isTraining(example))
 
-    transformerBC.value.combineContextAndItems(example)
-    val score = modelBC.value.scoreItem(example.example.get(0))
+    example.transform(transformerBC.value)
+    val score = modelBC.value.scoreItem(example.only)
     val prob = modelBC.value.scoreProbability(score)
-    val rank = example.example.get(0).floatFeatures.get("$rank").get("")
+    val rank = example.only.get("$rank", "")
 
     result.setScore(prob)
     result.setLabel(rank)

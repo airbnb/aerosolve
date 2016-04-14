@@ -1,39 +1,31 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class FeatureVectorUtilTest {
-  private static final Logger log = LoggerFactory.getLogger(FeatureVectorUtilTest.class);
+  private final FeatureRegistry registry = new FeatureRegistry();
 
-  public FeatureVector makeFeatureVector(String key, double v1, double v2) {
-    ArrayList list = new ArrayList<Double>();
-    list.add(v1);
-    list.add(v2);
-    HashMap denseFeatures = new HashMap<String, List<Double>>();
-    denseFeatures.put(key, list);
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setDenseFeatures(denseFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector(String key, double v1, double v2) {
+    MultiFamilyVector vector = TransformTestingHelper.makeEmptyVector(registry);
+    vector.putDense(registry.family(key), new double[]{v1, v2});
+    return vector;
   }
 
   @Test
   public void testEmptyFeatureVectorMinKernel() {
-    FeatureVector a = new FeatureVector();
-    FeatureVector b = new FeatureVector();
+    FeatureVector a = TransformTestingHelper.makeEmptyVector(registry);
+    FeatureVector b = TransformTestingHelper.makeEmptyVector(registry);
     assertEquals(0.0, FeatureVectorUtil.featureVectorMinKernel(a, b), 0.1);
   }
 

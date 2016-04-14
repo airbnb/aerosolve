@@ -24,27 +24,27 @@ class KDTreeTest {
     val nodes = tree.nodes
     log.info("Num nodes = %d".format(nodes.size))
     // Since the x dimension is largest we expect the first node to be an xsplit
-    assertEquals(KDTreeNodeType.X_SPLIT, nodes(0).nodeType)
-    assertEquals(-1.81, nodes(0).splitValue, 0.1)
-    assertEquals(1, nodes(0).leftChild)
-    assertEquals(2, nodes(0).rightChild)    // Ensure every point is bounded in the box of the kdtree
+    assertEquals(KDTreeNodeType.X_SPLIT, nodes(0).getNodeType)
+    assertEquals(-1.81, nodes(0).getSplitValue, 0.1)
+    assertEquals(1, nodes(0).getLeftChild)
+    assertEquals(2, nodes(0).getRightChild)    // Ensure every point is bounded in the box of the kdtree
     for (pt <- pts) {
       val res = tree.query(pt)
       for (idx <- res) {
-        assert(pt._1 >= nodes(idx).minX)
-        assert(pt._1 <= nodes(idx).maxX)
-        assert(pt._2 >= nodes(idx).minY)
-        assert(pt._2 <= nodes(idx).maxY)
+        assert(pt._1 >= nodes(idx).getMinX)
+        assert(pt._1 <= nodes(idx).getMaxX)
+        assert(pt._2 >= nodes(idx).getMinY)
+        assert(pt._2 <= nodes(idx).getMaxY)
       }
     }
     // Ensure all nodes are sensible
     for (node <- nodes) {
-      assert(node.count > 0)
-      assert(node.minX <= node.maxX)
-      assert(node.minY <= node.maxY)
-      if (node.nodeType != KDTreeNodeType.LEAF) {
-        assert(node.leftChild >= 0 && node.leftChild < nodes.size)
-        assert(node.rightChild >= 0 && node.rightChild < nodes.size)
+      assert(node.getCount > 0)
+      assert(node.getMinX <= node.getMaxX)
+      assert(node.getMinY <= node.getMaxY)
+      if (node.getNodeType != KDTreeNodeType.LEAF) {
+        assert(node.getLeftChild >= 0 && node.getLeftChild < nodes.size)
+        assert(node.getRightChild >= 0 && node.getRightChild < nodes.size)
       }
     }
   }

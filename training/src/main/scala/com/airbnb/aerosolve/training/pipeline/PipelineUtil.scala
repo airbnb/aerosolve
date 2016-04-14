@@ -115,14 +115,14 @@ object PipelineUtil {
                     modelOpt: AbstractModel,
                     examples: RDD[Example],
                     isTraining: Example => Boolean,
-                    labelKey: String): RDD[(Float, String)] = {
+                    labelKey: String): RDD[(Double, String)] = {
     val modelBC = sc.broadcast(modelOpt)
     val transformerBC = sc.broadcast(transformer)
     val scoreAndLabel = examples
       .map(example => {
-        transformerBC.value.combineContextAndItems(example)
-        val score = modelBC.value.scoreItem(example.example.get(0))
-        val rank = example.example.get(0).floatFeatures.get(labelKey).get("")
+        example.transform(transformerBC.value)
+        val score = modelBC.value.scoreItem(example.only)
+        val rank = example.only.get(labelKey, "")
         val label = (if (isTraining(example)) "TRAIN_" else "HOLD_") + (if (rank > 0) "P" else "N")
         (score, label)
       })

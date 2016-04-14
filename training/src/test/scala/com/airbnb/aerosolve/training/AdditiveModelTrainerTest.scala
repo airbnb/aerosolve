@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.{ModelFactory, AdditiveModel}
 import com.airbnb.aerosolve.core.Example
 import com.typesafe.config.ConfigFactory
@@ -13,6 +14,8 @@ import scala.collection.mutable.ArrayBuffer
 
 class AdditiveModelTrainerTest {
   val log = LoggerFactory.getLogger("AdditiveModelTrainerTest")
+  val registry = new FeatureRegistry
+
   def makeConfig(loss : String, dropout : Double, extraArgs : String) : String = {
     """
       |identity_transform {
@@ -191,13 +194,13 @@ class AdditiveModelTrainerTest {
     var sc = new SparkContext("local", "AdditiveModelTest")
     try {
       val (examples, label, numPos) = if (exampleFunc.equals("poly")) {
-      TrainingTestHelper.makeClassificationExamples
+      TrainingTestHelper.makeClassificationExamples(registry)
       } else {
-      TrainingTestHelper.makeLinearClassificationExamples
+      TrainingTestHelper.makeLinearClassificationExamples(registry)
       }
       val config = ConfigFactory.parseString(makeConfig(loss, dropout, extraArgs))
       val input = sc.parallelize(examples)
-      val model = AdditiveModelTrainer.train(sc, input, config, "model_config")
+      val model = AdditiveModelTrainer.train(sc, input, config, "model_config", registry)
       testClassificationModel(model, examples, label, numPos)
     } finally {
       sc.stop
@@ -211,15 +214,15 @@ class AdditiveModelTrainerTest {
     var sc = new SparkContext("local", "AdditiveModelTest")
     try {
       val (examples, label) = if (exampleFunc.equals("linear")) {
-        TrainingTestHelper.makeLinearRegressionExamples()
+        TrainingTestHelper.makeLinearRegressionExamples(registry)
       } else {
-        TrainingTestHelper.makeRegressionExamples()
+        TrainingTestHelper.makeRegressionExamples(registry)
       }
 
       val (testingExample, testingLabel) = if (exampleFunc.equals("linear")) {
-        TrainingTestHelper.makeLinearRegressionExamples(25)
+        TrainingTestHelper.makeLinearRegressionExamples(registry, 25)
       } else {
-        TrainingTestHelper.makeRegressionExamples(25)
+        TrainingTestHelper.makeRegressionExamples(registry, 25)
       }
 
       val threshold = if (exampleFunc.equals("linear")) {
@@ -230,7 +233,7 @@ class AdditiveModelTrainerTest {
 
       val config = ConfigFactory.parseString(makeRegressionConfig(extraArgs))
       val input = sc.parallelize(examples)
-      val model = AdditiveModelTrainer.train(sc, input, config, "model_config")
+      val model = AdditiveModelTrainer.train(sc, input, config, "model_config", registry)
 
       testRegressionModel(model, examples, label, testingExample, testingLabel, threshold)
     } finally {
@@ -250,7 +253,7 @@ class AdditiveModelTrainerTest {
     var i : Int = 0
     val labelArr = label.toArray
     for (ex <- examples) {
-      val score = model.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
       if (score * labelArr(i) > 0) {
         numCorrect += 1
       }
@@ -269,12 +272,12 @@ class AdditiveModelTrainerTest {
     val sreader = new StringReader(str)
     val reader = new BufferedReader(sreader)
     log.info(str)
-    val model2Opt = ModelFactory.createFromReader(reader)
+    val model2Opt = ModelFactory.createFromReader(reader, registry)
     assertTrue(model2Opt.isPresent())
     val model2 = model2Opt.get()
     for (ex <- examples) {
-      val score = model.scoreItem(ex.example.get(0))
-      val score2 = model2.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
+      val score2 = model2.scoreItem(ex.only)
       assertEquals(score, score2, 0.01f)
     }
   }
@@ -291,7 +294,7 @@ class AdditiveModelTrainerTest {
     var i = 0
     // compute training error
     for (ex <- trainingExample) {
-      val score = model.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
       val label = trainLabelArr(i)
       trainTotalError += math.abs(score - label)
       i += 1
@@ -306,7 +309,7 @@ class AdditiveModelTrainerTest {
     // compute training error
     i = 0
     for (ex <- testingExample) {
-      val score = model.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
       val label = testLabelArr(i)
       testTotalError += math.abs(score - label)
       i += 1

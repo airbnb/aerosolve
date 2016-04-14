@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.training
 
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+
 import scala.collection.mutable.ArrayBuffer
 
 // Calibrates scores into the [0 .. 1] range by taking a histogram of scores

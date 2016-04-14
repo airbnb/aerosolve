@@ -1,34 +1,28 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.PriorityQueue;
-import java.util.AbstractMap;
-
-import com.airbnb.aerosolve.core.DictionaryRecord;
+import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.DebugScoreRecord;
-import com.airbnb.aerosolve.core.FunctionForm;
-import com.airbnb.aerosolve.core.util.Util;
-import com.airbnb.aerosolve.core.util.StringDictionary;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
 import com.airbnb.aerosolve.core.util.FloatVector;
+import com.airbnb.aerosolve.core.util.StringDictionary;
 import com.airbnb.aerosolve.core.util.SupportVector;
-
+import com.airbnb.aerosolve.core.util.Util;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 // A kernel machine with arbitrary kernels. Different support vectors can have different kernels.
 // The conversion from sparse features to dense features is done by dictionary lookup. Also since
 // non-linear kernels are used there is no need to cross features, the feature interactions are done by
 // considering kernel responses to the support vectors. Try to keep features under a thousand.
+@Accessors(fluent = true, chain = true)
 public class KernelModel extends AbstractModel {
   private static final long serialVersionUID = 7651061358422885397L;
   
@@ -38,25 +32,24 @@ public class KernelModel extends AbstractModel {
   @Getter @Setter
   List<SupportVector> supportVectors;
 
-  public KernelModel() {
+  public KernelModel(FeatureRegistry registry) {
+    super(registry);
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
+  public double scoreItem(FeatureVector combinedItem) {
+    FloatVector vec = dictionary.makeVectorFromSparseFloats(combinedItem);
     float sum = 0.0f;
-    for (int i = 0; i < supportVectors.size(); i++) {
-      SupportVector sv = supportVectors.get(i);
+    for (SupportVector sv : supportVectors) {
       sum += sv.evaluate(vec);
     }
     return sum;
   }
   
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
     return 0.0f;
   }
@@ -64,18 +57,17 @@ public class KernelModel extends AbstractModel {
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
     // (TODO) implement debugScoreComponents
-    List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
-    return scoreRecordsList;
+    return new ArrayList<>();
   }
 
   @Override
-  public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
-    FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
-    float deltaG = - learningRate * grad;
+  public void onlineUpdate(double grad, double learningRate, FeatureVector vector) {
+    FloatVector vec = dictionary.makeVectorFromSparseFloats(vector);
+    double deltaG = - learningRate * grad;
     for (SupportVector sv : supportVectors) {
-      float response = sv.evaluateUnweighted(vec);
-      float deltaW = deltaG * response;
-      sv.setWeight(sv.getWeight() + deltaW);
+      double response = sv.evaluateUnweighted(vec);
+      double deltaW = deltaG * response;
+      sv.setWeight((float) (sv.getWeight() + deltaW));
     }
   }
 

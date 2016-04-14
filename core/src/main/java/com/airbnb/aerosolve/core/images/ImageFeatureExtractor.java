@@ -1,10 +1,12 @@
 package com.airbnb.aerosolve.core.images;
 
+import com.airbnb.aerosolve.core.features.BasicMultiFamilyVector;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
 import java.awt.image.BufferedImage;
 import java.io.Serializable;
-import java.util.*;
-
-import com.airbnb.aerosolve.core.FeatureVector;
+import java.util.ArrayList;
+import java.util.List;
 
 /*
   Calls all known features and adds them as dense features in a feature vector.
@@ -31,17 +33,15 @@ public class ImageFeatureExtractor implements Serializable {
     features.add(new HSVFeature());
   }
 
-  public FeatureVector getFeatureVector(BufferedImage image) {
-    FeatureVector featureVector = new FeatureVector();
-    Map<String, List<Double>> denseFeatures = new HashMap<>();
-    featureVector.setDenseFeatures(denseFeatures);
+  public MultiFamilyVector getFeatureVector(BufferedImage image, FeatureRegistry registry) {
+    MultiFamilyVector featureVector = new BasicMultiFamilyVector(registry);
     for (ImageFeature feature : features) {
       List<Float> values = feature.extractFeatureSPMK(image);
-      List<Double> dblValues = new ArrayList<>();
-      for (Float f : values) {
-        dblValues.add(f.doubleValue());
+      double[] dblValues = new double[values.size()];
+      for (int i = 0; i < values.size(); i++) {
+        dblValues[i] = values.get(i);
       }
-      denseFeatures.put(feature.featureName(), dblValues);
+      featureVector.putDense(feature.featureName(), dblValues);
     }
     return featureVector;
   }

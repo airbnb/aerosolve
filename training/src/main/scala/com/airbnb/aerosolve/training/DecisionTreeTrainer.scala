@@ -2,19 +2,16 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
-import com.airbnb.aerosolve.core.models.BoostedStumpsModel
-import com.airbnb.aerosolve.core.models.DecisionTreeModel
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.ModelRecord
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, ModelRecord}
+import com.airbnb.aerosolve.core.features.{Family, Feature, FeatureRegistry, MultiFamilyVector}
+import com.airbnb.aerosolve.core.models.{BoostedStumpsModel, DecisionTreeModel}
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.util.Random
-import scala.util.Try
 import scala.collection.JavaConversions._
+import scala.util.{Random, Try}
 
 // Types of split criteria
 object SplitCriteriaTypes extends Enumeration {
@@ -56,9 +53,10 @@ object DecisionTreeTrainer {
       sc : SparkContext,
       input : RDD[Example],
       config : Config,
-      key : String) : DecisionTreeModel = {
+      key : String,
+      registry: FeatureRegistry) : DecisionTreeModel = {
     val candidateSize : Int = config.getInt(key + ".num_candidates")
-    val rankKey : String = config.getString(key + ".rank_key")
+    val labelFamily : Family = registry.family(config.getString(key + ".rank_key"))
     val rankThreshold : Double = config.getDouble(key + ".rank_threshold")
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
@@ -67,9 +65,9 @@ object DecisionTreeTrainer {
       .getOrElse("gini")
 
     val examples = LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
-        .map(x => Util.flattenFeature(x.example(0)))
-        .filter(x => x.contains(rankKey))
+        .makePointwiseFloat(input, config, key, registry)
+        .map(example => example.only)
+        .filter(vector => vector.contains(labelFamily))
         .take(candidateSize)
 
     val stumps = new util.ArrayList[ModelRecord]()
@@ -81,38 +79,38 @@ object DecisionTreeTrainer {
       0,
       0,
       maxDepth,
-      rankKey,
+      labelFamily,
       rankThreshold,
       numTries,
       minLeafCount,
       SplitCriteria.splitCriteriaFromName(splitCriteriaName)
     )
     
-    val model = new DecisionTreeModel()
-    model.setStumps(stumps)
+    val model = new DecisionTreeModel(registry)
+    model.stumps(stumps)
 
     model
   }
   
   def buildTree(
       stumps : util.ArrayList[ModelRecord],
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
+      vectors : Array[MultiFamilyVector],
       currIdx : Int,
       currDepth : Int,
       maxDepth : Int,
-      rankKey : String,
+      labelFamily: Family,
       rankThreshold : Double,
       numTries : Int,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value) : Unit = {
     if (currDepth >= maxDepth) {
-      stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold, splitCriteria)
+      stumps(currIdx) = makeLeaf(vectors, labelFamily, rankThreshold, splitCriteria)
       return
     }
 
     val split = getBestSplit(
-      examples,
-      rankKey,
+      vectors,
+      labelFamily,
       rankThreshold,
       numTries,
       minLeafCount,
@@ -120,7 +118,7 @@ object DecisionTreeTrainer {
     )
 
     if (split.isEmpty) {
-      stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold, splitCriteria)
+      stumps(currIdx) = makeLeaf(vectors, labelFamily, rankThreshold, splitCriteria)
       return
     }
 
@@ -133,16 +131,16 @@ object DecisionTreeTrainer {
     stumps(currIdx).setLeftChild(left)
     stumps(currIdx).setRightChild(right)
 
-    val (rightExamples, leftExamples) = examples.partition(
-      x => BoostedStumpsModel.getStumpResponse(stumps(currIdx), x))
+    val (rightVectors, leftVectors) = vectors.partition(
+      vector => BoostedStumpsModel.getStumpResponse(stumps(currIdx), vector))
 
     buildTree(
       stumps,
-      leftExamples,
+      leftVectors,
       left,
       currDepth + 1,
       maxDepth,
-      rankKey,
+      labelFamily,
       rankThreshold,
       numTries,
       minLeafCount,
@@ -151,11 +149,11 @@ object DecisionTreeTrainer {
 
     buildTree(
       stumps,
-      rightExamples,
+      rightVectors,
       right,
       currDepth + 1,
       maxDepth,
-      rankKey,
+      labelFamily,
       rankThreshold,
       numTries,
       minLeafCount,
@@ -164,8 +162,8 @@ object DecisionTreeTrainer {
   }
 
   def makeLeaf(
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
-      rankKey : String,
+      vectors : Array[MultiFamilyVector],
+      labelFamily : Family,
       rankThreshold : Double,
       splitCriteria : SplitCriteria.Value) = {
     val rec = new ModelRecord()
@@ -175,8 +173,9 @@ object DecisionTreeTrainer {
         var numPos = 0.0
         var numNeg = 0.0
 
-        for (example <- examples) {
-          val label = example.get(rankKey).values().iterator().next() > rankThreshold
+        for (vector <- vectors) {
+          // This assumes there's only one label and the family exists
+          val label = vector.get(labelFamily).iterator().next().value() > rankThreshold
           if (label) numPos += 1.0 else numNeg += 1.0
         }
 
@@ -194,8 +193,8 @@ object DecisionTreeTrainer {
         var count : Double = 0.0
         var sum : Double = 0.0
 
-        for (example <- examples) {
-          val labelValue = example.get(rankKey).values().iterator().next()
+        for (vector <- vectors) {
+          val labelValue = vector.get(labelFamily).iterator().next().value()
 
           count += 1.0
           sum += labelValue
@@ -210,10 +209,10 @@ object DecisionTreeTrainer {
 
         var sum = 0.0
 
-        for (example <- examples) {
-          for (kv <- example.get(rankKey).entrySet()) {
-            val key = kv.getKey
-            val value = kv.getValue
+        for (vector <- vectors) {
+          for (fv <- vector.get(labelFamily).iterator) {
+            val key = fv.feature.name
+            val value = fv.value
 
             val count = if (labelDistribution.containsKey(key)) {
               labelDistribution.get(key)
@@ -243,13 +242,13 @@ object DecisionTreeTrainer {
 
   // Returns the best split if one exists.
   def getBestSplit(
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
-      rankKey : String,
+      vectors : Array[MultiFamilyVector],
+      labelFamily : Family,
       rankThreshold : Double,
       numTries : Int,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value) : Option[ModelRecord] = {
-    if (examples.length <= minLeafCount) {
+    if (vectors.length <= minLeafCount) {
       // If we're at or below the minLeafCount, then there's no point in splitting
       None
     } else {
@@ -259,28 +258,28 @@ object DecisionTreeTrainer {
 
       for (i <- 0 until numTries) {
         // Pick an example index randomly
-        val idx = rnd.nextInt(examples.length)
-        val ex = examples(idx)
-        val candidateOpt = getCandidateSplit(ex, rankKey, rnd)
+        val idx = rnd.nextInt(vectors.length)
+        val vec = vectors(idx)
+        val candidateOpt = getCandidateSplit(vec, labelFamily, rnd)
 
         if (candidateOpt.isDefined) {
           val candidateValue = SplitCriteria.getCriteriaType(splitCriteria) match {
             case SplitCriteriaTypes.Classification =>
               evaluateClassificationSplit(
-                examples, rankKey,
+                vectors, labelFamily,
                 rankThreshold,
                 minLeafCount,
                 splitCriteria, candidateOpt
               )
             case SplitCriteriaTypes.Regression =>
               evaluateRegressionSplit(
-                examples, rankKey,
+                vectors, labelFamily,
                 minLeafCount,
                 splitCriteria, candidateOpt
               )
             case SplitCriteriaTypes.Multiclass =>
               evaluateMulticlassSplit(
-                examples, rankKey,
+                vectors, labelFamily,
                 minLeafCount,
                 splitCriteria, candidateOpt
               )
@@ -299,8 +298,8 @@ object DecisionTreeTrainer {
 
   // Evaluate a classification-type split
   def evaluateClassificationSplit(
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
-      rankKey : String,
+      vectors : Array[MultiFamilyVector],
+      labelFamily: Family,
       rankThreshold : Double,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value,
@@ -310,9 +309,9 @@ object DecisionTreeTrainer {
     var leftNeg : Double = 0.0
     var rightNeg : Double = 0.0
 
-    for (example <- examples) {
-      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      val label = example.get(rankKey).values().iterator().next() > rankThreshold
+    for (vector <- vectors) {
+      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, vector)
+      val label = vector.get(labelFamily).iterator.next.value > rankThreshold
 
       if (response) {
         if (label) {
@@ -399,8 +398,8 @@ object DecisionTreeTrainer {
 
   // Evaluate a multiclass classification-type split
   def evaluateMulticlassSplit(
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
-      rankKey : String,
+      vectors : Array[MultiFamilyVector],
+      labelFamily : Family,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value,
       candidateOpt : Option[ModelRecord]): Option[Double] = {
@@ -410,11 +409,11 @@ object DecisionTreeTrainer {
     var leftCount = 0
     var rightCount = 0
 
-    for (example <- examples) {
-      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      for (kv <- example.get(rankKey).entrySet()) {
-        val key = kv.getKey
-        val value = kv.getValue
+    for (vector <- vectors) {
+      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, vector)
+      for (fv <- vector.get(labelFamily).iterator) {
+        val key = fv.feature.name
+        val value = fv.value
 
         if (response) {
           val v = rightDist.getOrElse(key, 0.0)
@@ -453,8 +452,8 @@ object DecisionTreeTrainer {
   // Evaluate a regression-type split
   // See http://www.stat.cmu.edu/~cshalizi/350-2006/lecture-10.pdf for overview of algorithm used
   def evaluateRegressionSplit(
-      examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
-      rankKey : String,
+      vectors : Array[MultiFamilyVector],
+      labelFamily : Family,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value,
       candidateOpt : Option[ModelRecord]): Option[Double] = {
@@ -465,9 +464,9 @@ object DecisionTreeTrainer {
     var leftMean : Double = 0.0
     var leftSumSq : Double = 0.0
 
-    for (example <- examples) {
-      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      val labelValue = example.get(rankKey).values().iterator().next()
+    for (vector <- vectors) {
+      val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, vector)
+      val labelValue = vector.get(labelFamily).iterator.next.value
 
       // Using Welford's Method for computing mean and sum-squared errors in numerically stable way;
       // more details can be found in
@@ -499,17 +498,15 @@ object DecisionTreeTrainer {
 
   // Returns a candidate split sampled from an example.
   def getCandidateSplit(
-      ex : util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]],
-      rankKey : String,
+      vector : MultiFamilyVector,
+      labelFamily : Family,
       rnd : Random) : Option[ModelRecord] = {
     // Flatten the features and pick one randomly.
-    val features = collection.mutable.ArrayBuffer[(String, String, Double)]()
+    val features = collection.mutable.ArrayBuffer[(Feature, Double)]()
 
-    for (family <- ex) {
-      if (!family._1.equals(rankKey)) {
-        for (feature <- family._2) {
-          features.append((family._1, feature._1, feature._2))
-        }
+    for (featureValue <- vector.iterator()) {
+      if (!featureValue.feature().family().equals(labelFamily)) {
+        features.append((featureValue.feature, featureValue.value))
       }
     }
 
@@ -519,9 +516,9 @@ object DecisionTreeTrainer {
       val idx = rnd.nextInt(features.size)
       val rec = new ModelRecord()
 
-      rec.setFeatureFamily(features(idx)._1)
-      rec.setFeatureName(features(idx)._2)
-      rec.setThreshold(features(idx)._3)
+      rec.setFeatureFamily(features(idx)._1.family.name)
+      rec.setFeatureName(features(idx)._1.name)
+      rec.setThreshold(features(idx)._2)
 
       Some(rec)
     }
@@ -531,8 +528,9 @@ object DecisionTreeTrainer {
       sc : SparkContext,
       input : RDD[Example],
       config : Config,
-      key : String) = {
-    val model = train(sc, input, config, key)
+      key : String,
+      registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

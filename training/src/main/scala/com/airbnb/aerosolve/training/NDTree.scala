@@ -309,14 +309,14 @@ class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
     builder.append("%d,".format(current))
 
     // TODO: instead of converting entire collection to Scala, use a Java to Scala foreach iterator
-    node.min.asScala.map(_.doubleValue()).foreach((minimum: Double) => {
+    node.getMin.asScala.map(_.doubleValue()).foreach((minimum: Double) => {
       builder.append("%f,".format(minimum))
     })
-    node.max.asScala.map(_.doubleValue()).foreach((maximum: Double) => {
+    node.getMax.asScala.map(_.doubleValue()).foreach((maximum: Double) => {
       builder.append("%f,".format(maximum))
     })
 
-    builder.append("%d".format(node.count))
+    builder.append("%d".format(node.getCount))
 
     if (parent < 0) {
       builder.append(",")
@@ -324,22 +324,22 @@ class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
       builder.append(",%d".format(parent))
     }
 
-    if (node.axisIndex == NDTreeModel.LEAF) {
+    if (node.getAxisIndex == NDTreeModel.LEAF) {
       builder.append(",TRUE,,,,")
     } else {
       builder.append(",FALSE,%d,%d,%d,%f".format(
-        node.leftChild,
-        node.rightChild,
-        node.axisIndex,
-        node.splitValue
+        node.getLeftChild,
+        node.getRightChild,
+        node.getAxisIndex,
+        node.getSplitValue
       ))
     }
 
     csv.append(builder.toString)
 
-    if (node.axisIndex != NDTreeModel.LEAF) {
-      getCSVRecursive(node.leftChild, current, csv)
-      getCSVRecursive(node.rightChild, current, csv)
+    if (node.getAxisIndex != NDTreeModel.LEAF) {
+      getCSVRecursive(node.getLeftChild, current, csv)
+      getCSVRecursive(node.getRightChild, current, csv)
     }
   }
 }

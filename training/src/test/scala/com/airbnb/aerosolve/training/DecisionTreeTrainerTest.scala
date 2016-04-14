@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{BufferedReader, BufferedWriter, StringReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.{MultiFamilyVector, BasicMultiFamilyVector, FeatureRegistry}
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.training.pipeline.PipelineTestingUtil
@@ -16,6 +17,7 @@ import scala.collection.JavaConversions
 
 class DecisionTreeTrainerTest {
   val log = LoggerFactory.getLogger("DecisionTreeModelTest")
+  val registry = new FeatureRegistry
 
   def makeConfig(splitCriteria : String) : String = {
     """
@@ -72,15 +74,15 @@ class DecisionTreeTrainerTest {
   def testDecisionTreeClassificationTrainer(
       splitCriteria : String,
       expectedCorrect : Double) = {
-    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
+    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples(registry)
 
     PipelineTestingUtil.withSparkContext(sc => {
       val config = ConfigFactory.parseString(makeConfig(splitCriteria))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", registry)
 
-      val stumps = model.getStumps.asScala
+      val stumps = model.stumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
 
       var numCorrect : Int = 0
@@ -88,7 +90,7 @@ class DecisionTreeTrainerTest {
       val labelArr = label.toArray
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         if (score * labelArr(i) > 0) {
           numCorrect += 1
         }
@@ -110,13 +112,13 @@ class DecisionTreeTrainerTest {
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
       assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
-        val score2 = model2.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
+        val score2 = model2.scoreItem(ex.only)
         assertEquals(score, score2, 0.01f)
       }
     })
@@ -125,15 +127,16 @@ class DecisionTreeTrainerTest {
   def testDecisionTreeMulticlassTrainer(
       splitType : String,
       expectedCorrect : Double) = {
-    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false)
+    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false,
+                                                                                           registry)
 
     PipelineTestingUtil.withSparkContext(sc => {
       val config = ConfigFactory.parseString(makeConfig(splitType))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", registry)
 
-      val stumps = model.getStumps.asScala
+      val stumps = model.stumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
 
       log.info(model.toDot)
@@ -142,9 +145,9 @@ class DecisionTreeTrainerTest {
 
       for (i <- examples.indices) {
         val ex = examples(i)
-        val scores = model.scoreItemMulticlass(ex.example.get(0))
-        val best = scores.asScala.sortWith((a, b) => a.score > b.score).head
-        if (best.label == labels(i)) {
+        val scores = model.scoreItemMulticlass(ex.only)
+        val best = scores.asScala.sortWith((a, b) => a.getScore > b.getScore).head
+        if (best.getLabel == labels(i)) {
           numCorrect = numCorrect + 1
         }
       }
@@ -164,31 +167,31 @@ class DecisionTreeTrainerTest {
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
       assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
 
       for (ex <- examples) {
-        val score = model.scoreItemMulticlass(ex.example.get(0))
-        val score2 = model2.scoreItemMulticlass(ex.example.get(0))
+        val score = model.scoreItemMulticlass(ex.only)
+        val score2 = model2.scoreItemMulticlass(ex.only)
         assertEquals(score.size, score2.size)
         for (i <- 0 until score.size) {
-          assertEquals(score.get(i).score, score2.get(i).score, 0.1f)
+          assertEquals(score.get(i).getScore, score2.get(i).getScore, 0.1f)
         }
       }
     })
   }
 
   def testDecisionTreeRegressionTrainer(splitCriteria : String) = {
-    val (examples, label) = TrainingTestHelper.makeRegressionExamples()
+    val (examples, label) = TrainingTestHelper.makeRegressionExamples(registry)
 
     PipelineTestingUtil.withSparkContext(sc => {
       val config = ConfigFactory.parseString(makeConfig(splitCriteria))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", registry)
 
-      val stumps = model.getStumps.asScala
+      val stumps = model.stumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
 
       val labelArr = label.toArray
@@ -196,7 +199,7 @@ class DecisionTreeTrainerTest {
       var totalError : Double = 0
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val exampleLabel = labelArr(i)
 
         totalError += math.abs(score - exampleLabel)
@@ -210,12 +213,12 @@ class DecisionTreeTrainerTest {
 
       // Points in flat region result in score of min value (-8.0)
       val flatRegionExamples = List(
-        TrainingTestHelper.makeExample(0, -3.5, 0),
-        TrainingTestHelper.makeExample(0, 3.2, 0)
+        TrainingTestHelper.makeExample(0, -3.5, 0, registry),
+        TrainingTestHelper.makeExample(0, 3.2, 0, registry)
       )
 
       flatRegionExamples.foreach { flatRegionExample =>
-        val score = model.scoreItem(flatRegionExample.example.get(0))
+        val score = model.scoreItem(flatRegionExample.only)
 
         assertEquals(score, -8.0, 2.0f)
       }
@@ -224,14 +227,14 @@ class DecisionTreeTrainerTest {
 
   @Test
   def testEvaluateRegressionSplit() = {
-    val examples = Array(
-      createJavaExample(1.1, 5.0),
-      createJavaExample(1.2, 5.6),
-      createJavaExample(1.25, 11.9),
-      createJavaExample(1.5, 10.2),
-      createJavaExample(1.8, 12.5),
-      createJavaExample(2.5, 8.3),
-      createJavaExample(2.9, 18.4)
+    val vectors = Array(
+      createVector(1.1, 5.0),
+      createVector(1.2, 5.6),
+      createVector(1.25, 11.9),
+      createVector(1.5, 10.2),
+      createVector(1.8, 12.5),
+      createVector(2.5, 8.3),
+      createVector(2.9, 18.4)
     )
     val testSplit = new ModelRecord()
 
@@ -240,7 +243,7 @@ class DecisionTreeTrainerTest {
     testSplit.setThreshold(1.3)
 
     val result = DecisionTreeTrainer.evaluateRegressionSplit(
-      examples, "$rank", 1, SplitCriteria.Variance, Some(testSplit)
+      vectors, registry.family("$rank"), 1, SplitCriteria.Variance, Some(testSplit)
     )
 
     // Verify that Welford's Method is consistent with standard, two-pass calculation
@@ -256,14 +259,11 @@ class DecisionTreeTrainerTest {
     assertEquals(result.get, -1.0 * (leftSumSq + rightSumSq), 0.000001f)
   }
 
-  def createJavaExample(x : Double, rank : Double) = {
-    JavaConversions.mapAsJavaMap(
-      Map(
-        "loc" -> JavaConversions.mapAsJavaMap(Map("x" -> x)),
-        "$rank" -> JavaConversions.mapAsJavaMap(Map("" -> rank))
-      )
-    ).asInstanceOf[
-        java.util.Map[java.lang.String, java.util.Map[java.lang.String, java.lang.Double]]]
+  def createVector(x : Double, rank : Double) : MultiFamilyVector = {
+    val vector = new BasicMultiFamilyVector(registry)
+    vector.put("loc", "x", x)
+    vector.put("$rank", "", rank)
+    vector
   }
 
 }

@@ -1,33 +1,28 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 
-public class WtaTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(WtaTransformTest.class);
+@Slf4j
+public class WtaTransformTest extends BaseTransformTest {
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, List<Double>> denseFeatures = new HashMap<>();
-
-    List<Double> feature = new ArrayList<>();
-    List<Double> feature2 = new ArrayList<>();
-    for (int i = 0; i < 100; i++) {
-      feature.add(0.1 * i);
-      feature2.add(-0.1 * i);
+  public MultiFamilyVector makeFeatureVector() {
+    int max = 100;
+    double[] feature = new double[max];
+    double[] feature2 = new double[max];
+    for (int i = 0; i < max; i++) {
+      feature[i] = 0.1 * i;
+      feature2[i] = -0.1 * i;
     }
-    denseFeatures.put("a", feature);
-    denseFeatures.put("b", feature2);
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setDenseFeatures(denseFeatures);
-    return featureVector;
+
+    return TransformTestingHelper.builder(registry)
+        .dense("a", feature)
+        .dense("b", feature2)
+        .build();
   }
 
   public String makeConfig() {
@@ -40,34 +35,27 @@ public class WtaTransformTest {
            " num_tokens_per_word : 4\n"  +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_wta");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_wta";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_wta");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
+
     log.info(featureVector.toString());
-    assertTrue(featureVector.stringFeatures != null);
-    Set<String> wta = featureVector.stringFeatures.get("wta");
-    assertTrue(wta != null);
-    assertTrue(wta.size() == 8);
-    assertTrue(wta.contains("a0:71"));
-    assertTrue(wta.contains("a1:60"));
-    assertTrue(wta.contains("a2:81"));
-    assertTrue(wta.contains("a3:103"));
-    assertTrue(wta.contains("b0:34"));
-    assertTrue(wta.contains("b1:107"));
-    assertTrue(wta.contains("b2:7"));
-    assertTrue(wta.contains("b3:193"));
+
+    assertTrue(featureVector.numFamilies() == 3);
+
+    // TODO (Brad): Because of the change to not re-seed the random on each family, this now
+    // produces different result for the second family ("b").  Maybe revisit but this seems
+    // reasonable to change the values.
+    assertStringFamily(featureVector, "wta", 8, ImmutableSet.of(
+        "a0:71", "a1:60", "a2:81", "a3:103", "b0:254", "b1:104", "b2:134", "b3:21"
+    ));
   }
 }

@@ -1,13 +1,12 @@
 package com.airbnb.aerosolve.training
 
-import org.slf4j.{Logger, LoggerFactory}
-import org.apache.spark.rdd.RDD
 import com.airbnb.aerosolve.core.EvaluationRecord
-import org.apache.spark.SparkContext._
-import scala.collection.{mutable, Map}
-import scala.collection.mutable.{ArrayBuffer, Buffer}
-import scala.collection.JavaConversions._
+import org.apache.spark.rdd.RDD
+import org.slf4j.{Logger, LoggerFactory}
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.{Map, mutable}
 
 /*
 * Given an RDD of EvaluationRecord return standard evaluation metrics
@@ -21,7 +20,7 @@ object Evaluation {
                                    evalMetric : String) : Array[(String, Double)] = {
     var metrics  = mutable.Buffer[(String, Double)]()
     var bestF1 = -1.0
-    val thresholds = records.map(x => x.score).histogram(buckets)._1
+    val thresholds = records.map(x => x.getScore).histogram(buckets)._1
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
     val trainPR = new ArrayBuffer[(Double, Double)]()
@@ -55,7 +54,7 @@ object Evaluation {
                                    evalMetric : String) : Array[(String, Double)] = {
     var metrics  = mutable.Buffer[(String, Double)]()
     var bestF1 = -1.0
-    val scores: List[Double] = records.map(x => x.score)
+    val scores: List[Double] = records.map(x => x.getScore)
     val thresholds = getThresholds(scores, buckets)
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
@@ -90,20 +89,20 @@ object Evaluation {
     records.flatMap(rec => {
       // Metric, value, count
       val metrics = scala.collection.mutable.ArrayBuffer[(String, (Double, Double))]()
-      if (rec.scores != null && rec.labels != null) {
-        val prefix = if (rec.is_training) "TRAIN_" else "HOLD_"
+      if (rec.getScores != null && rec.getLabels != null) {
+        val prefix = if (rec.isIs_training) "TRAIN_" else "HOLD_"
         // Order by top scores.
-        val sorted = rec.scores.asScala.toBuffer.sortWith((a, b) => a._2 > b._2)
+        val sorted = rec.getScores.asScala.toBuffer.sortWith((a, b) => a._2 > b._2)
         // All pairs hinge loss
         val count = sorted.size
         var hingeLoss = 0.0
-        for (label <- rec.labels.asScala) {
+        for (label <- rec.getLabels.asScala) {
           for (j <- 0 until count) {
             if (label._1 != sorted(j)._1) {
-              val scorei = rec.scores.get(label._1)
+              val scorei = rec.getScores.get(label._1)
               val scorej = sorted(j)._2
               val truei = label._2
-              var truej = rec.labels.get(sorted(j)._1)
+              var truej = rec.getLabels.get(sorted(j)._1)
               if (truej == null) truej = 0.0
               if (truei > truej) {
                 val margin = truei - truej
@@ -118,7 +117,7 @@ object Evaluation {
         metrics.append((prefix + "ALL_PAIRS_HINGE_LOSS", (hingeLoss, 1.0)))
         var inTopK = false
         for (i <- 0 until sorted.size) {
-          if (rec.labels.containsKey(sorted(i)._1)) {
+          if (rec.getLabels.containsKey(sorted(i)._1)) {
             inTopK = true
             metrics.append((prefix + "MEAN_RECIPROCAL_RANK", (1.0 / (i + 1), 1.0)))
           }
@@ -299,10 +298,10 @@ object Evaluation {
 
   private def getClassificationAUCTrainHold(records : RDD[EvaluationRecord]) : (Double, Double) = {
     // find minimal and maximal scores
-    var minScore = records.take(1).apply(0).score
+    var minScore = records.take(1).apply(0).getScore
     var maxScore = minScore
     records.foreach(record => {
-      val score = record.score
+      val score = record.getScore
       minScore = Math.min(minScore, score)
       maxScore = Math.max(maxScore, score)
     })
@@ -335,7 +334,7 @@ object Evaluation {
 
   private def getClassificationAUCTrainHold(records : List[EvaluationRecord]) : (Double, Double) = {
     // find minimal and maximal scores
-    val scores = records.map(rec => rec.score)
+    val scores = records.map(rec => rec.getScore)
     val minScore = scores.min
     var maxScore = scores.max
     if(minScore >= maxScore) {
@@ -392,12 +391,12 @@ object Evaluation {
   private def evaluateRecordForAUC(record : EvaluationRecord,
                                    minScore : Double,
                                    maxScore : Double) : (Long, (Long, Long, Long, Long)) = {
-    var offset = if (record.is_training) 0 else 2
-    if (record.label <= 0) {
+    var offset = if (record.isIs_training) 0 else 2
+    if (record.getLabel <= 0) {
       offset += 1
     }
 
-    val score : Long = ((record.score - minScore) / (maxScore - minScore) * 100).toLong
+    val score : Long = ((record.getScore - minScore) / (maxScore - minScore) * 100).toLong
 
     offset match {
       case 0 => (score, (1, 0, 0, 0))
@@ -410,12 +409,12 @@ object Evaluation {
   private def evaluateRecordRegression(record : EvaluationRecord) : Iterator[(String, Double)] = {
     val out = collection.mutable.ArrayBuffer[(String, Double)]()
 
-    val prefix = if (record.is_training) "TRAIN_" else "HOLD_"
-    val diff = record.label - record.score
+    val prefix = if (record.isIs_training) "TRAIN_" else "HOLD_"
+    val diff = record.getLabel - record.getLabel
     val sqErr = diff * diff
     // to compute SMAPE third version https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
     val absLabelMinusScore = Math.abs(diff)
-    val labelPlusScore = record.label + record.score
+    val labelPlusScore = record.getLabel + record.getScore
     out.append((prefix + "SQERR", sqErr))
     out.append((prefix + "ABS_LABEL_MINUS_SCORE", absLabelMinusScore))
     out.append((prefix + "LABEL_PLUS_SCORE", labelPlusScore))
@@ -429,25 +428,25 @@ object Evaluation {
                                                  threshold : Double) : Iterator[(String, Double)] = {
     val out = collection.mutable.ArrayBuffer[(String, Double)]()
 
-    val prefix = if (record.is_training) "TRAIN_" else "HOLD_"
-    if (record.score > threshold) {
-      if (record.label > 0) {
+    val prefix = if (record.isIs_training) "TRAIN_" else "HOLD_"
+    if (record.getScore > threshold) {
+      if (record.getLabel > 0) {
         out.append((prefix + "TP", 1.0))
       } else {
         out.append((prefix + "FP", 1.0))
       }
     } else {
-      if (record.label <= 0) {
+      if (record.getLabel <= 0) {
         out.append((prefix + "TN", 1.0))
       } else {
         out.append((prefix + "FN", 1.0))
       }
     }
 
-    val error = if (record.label > 0) {
-      (1.0 - record.score) * (1.0 - record.score)
+    val error = if (record.getLabel > 0) {
+      (1.0 - record.getScore) * (1.0 - record.getScore)
     } else {
-      record.score * record.score
+      record.getScore * record.getScore
     }
     out.append((prefix + "SQERR", error))
     out.append((prefix + "COUNT", 1.0))

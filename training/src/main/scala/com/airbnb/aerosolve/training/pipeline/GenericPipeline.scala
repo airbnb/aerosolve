@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training.pipeline
 
 import java.io.{BufferedWriter, OutputStreamWriter}
 
+import com.airbnb.aerosolve.core.features.{FeatureRegistry, SimpleExample}
 import com.airbnb.aerosolve.core.models.{AbstractModel, ForestModel, FullRankLinearModel}
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.Util
@@ -39,7 +40,7 @@ object GenericPipeline {
 
     training
       .coalesce(numShards, true)
-      .map(Util.encode)
+      .map(Util.encodeExample)
       .saveAsTextFile(output, classOf[GzipCodec])
   }
 
@@ -60,11 +61,12 @@ object GenericPipeline {
     val count = cfg.getInt("count")
     val key = cfg.getString("model_config")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
+    val registry = new FeatureRegistry
 
     val input = makeTraining(sc, query, isMulticlass)
 
     LinearRankerUtils
-      .makePointwiseFloat(input, config, key)
+      .makePointwiseFloat(input, config, key, registry)
       .take(count)
       .foreach(logPrettyExample)
   }
@@ -77,27 +79,29 @@ object GenericPipeline {
     val inputPattern = cfg.getString("input")
     val subsample = cfg.getDouble("subsample")
     val modelConfig = cfg.getString("model_config")
+    val registry = new FeatureRegistry
 
-    val input = getExamples(sc, inputPattern)
+    val input = getExamples(sc, inputPattern, registry)
       .filter(isTraining)
 
     val filteredInput = input.sample(false, subsample)
 
-    TrainingUtils.trainAndSaveToFile(sc, filteredInput, config, modelConfig)
+    TrainingUtils.trainAndSaveToFile(sc, filteredInput, config, modelConfig, registry)
   }
 
   def getModelAndTransform(
       config : Config,
       modelCfgName : String,
-      modelName : String ) = {
-    val modelOpt = TrainingUtils.loadScoreModel(modelName)
+      modelName : String,
+      registry: FeatureRegistry) = {
+    val modelOpt = TrainingUtils.loadScoreModel(modelName, registry)
 
     if (modelOpt.isEmpty) {
       log.error("Could not load model")
       System.exit(-1)
     }
 
-    val transformer = new Transformer(config, modelCfgName)
+    val transformer = new Transformer(config, modelCfgName, registry)
 
     (modelOpt.get, transformer)
   }
@@ -126,7 +130,8 @@ object GenericPipeline {
     val isRegression = Try(cfg.getBoolean("is_regression")).getOrElse(false)
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
     val metric = cfg.getString("metric_to_maximize")
-    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
+    val registry = new FeatureRegistry
+    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName, registry)
 
     val metrics = evalModelInternal(
       sc,
@@ -139,7 +144,8 @@ object GenericPipeline {
       isRegression,
       isMulticlass,
       metric,
-      isTraining
+      isTraining,
+      registry
     )
 
     metrics
@@ -152,11 +158,12 @@ object GenericPipeline {
     val plattsConfig = config.getConfig("calibrate_model")
     val modelCfgName = plattsConfig.getString("model_config")
     val modelName = plattsConfig.getString("model_name")
+    val registry = new FeatureRegistry
 
-    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
+    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName, registry)
     val input = plattsConfig.getString("input") // training_data_with_ds
     // get calibration training data
-    val data = getExamples(sc, input)
+    val data = getExamples(sc, input, registry)
         .sample(false, plattsConfig.getDouble("subsample"))
 
     val scoresAndLabel = PipelineUtil.scoreExamples(sc, transformer, model, data, isTraining, LABEL)
@@ -205,8 +212,8 @@ object GenericPipeline {
     if (success) {
       // If calibration is successful, update offset and slope of the model
       // otherwise, use the default offset = 0 and slope = 1 in the model
-      model.setOffset(offset)
-      model.setSlope(slope)
+      model.offset(offset)
+      model.slope(slope)
     }
 
     // Save the model with updated calibration parameters
@@ -224,11 +231,11 @@ object GenericPipeline {
   }
 
   def modelRecordToString(x: ModelRecord) : String = {
-    if (x.weightVector != null && !x.weightVector.isEmpty) {
+    if (x.getWeightVector != null && !x.getWeightVector.isEmpty) {
       "%s\t%s\t%f\t%f\t%s".format(
-        x.featureFamily, x.featureName, x.minVal, x.maxVal, x.weightVector.toString)
+        x.getFeatureFamily, x.getFeatureName, x.getMinVal, x.getMaxVal, x.getWeightVector.toString)
     } else {
-      "%s\t%s\t%f".format(x.featureFamily, x.featureName, x.featureWeight)
+      "%s\t%s\t%f".format(x.getFeatureFamily, x.getFeatureName, x.getFeatureWeight)
     }
   }
 
@@ -240,7 +247,7 @@ object GenericPipeline {
     val model = sc
       .textFile(modelName)
       .map(Util.decodeModel)
-      .filter(x => x.featureName != null)
+      .filter(x => x.getFeatureName != null)
       .map(modelRecordToString)
 
     PipelineUtil.saveAndCommitAsTextFile(model, modelDump)
@@ -250,10 +257,11 @@ object GenericPipeline {
     val cfg = config.getConfig("dump_forest")
     val modelName = cfg.getString("model_name")
     val modelDump = cfg.getString("model_dump")
-    val model = TrainingUtils.loadScoreModel(modelName).get
+    val registry = new FeatureRegistry
+    val model = TrainingUtils.loadScoreModel(modelName, registry).get
 
     val forest = model.asInstanceOf[ForestModel]
-    val trees = forest.getTrees().asScala.toArray
+    val trees = forest.trees().asScala.toArray
 
     val builder = new StringBuilder()
     val count = trees.size
@@ -271,30 +279,29 @@ object GenericPipeline {
     val modelName = cfg.getString("model_name")
     val modelDump = cfg.getString("model_dump")
     val featuresPerLabel = cfg.getInt("features_per_label")
-    val model = TrainingUtils.loadScoreModel(modelName).get.asInstanceOf[FullRankLinearModel]
+    val registry = new FeatureRegistry
+    val model = TrainingUtils.loadScoreModel(modelName, registry)
+      .get.asInstanceOf[FullRankLinearModel]
 
     val builder = new StringBuilder()
 
-    model.getLabelDictionary.asScala.foreach(entry => {
+    model.labelDictionary.asScala.foreach(entry => {
       val label = entry.getLabel
       val count = entry.getCount
-      val index = model.getLabelToIndex.get(label)
+      val index = model.labelToIndex.get(label)
 
-      val weights = model.getWeightVector.asScala.flatMap({
-        case (family, features) => features.asScala.map({
-          case (feature, fv) =>
-            Tuple3(family, feature, fv.getValues.apply(index))
-        })
-      }).toSeq
+      val weights = model.weightVector.asScala.mapValues(
+        floatVector => floatVector.getValues.apply(index)
+      ).toSeq
 
       // Sort by weight, descending and take top featuresPerLabel
-      val sortedWeights = weights.sortBy(entry => -1.0 * entry._3).take(featuresPerLabel)
+      val sortedWeights = weights.sortBy(entry => -1.0 * entry._2).take(featuresPerLabel)
 
-      sortedWeights.foreach(weightTuple => {
+      sortedWeights.foreach{ case (feature, value) => {
         builder ++= "%s\t%s\t%s\t%f\n".format(
-          label, weightTuple._1, weightTuple._2, weightTuple._3
+          label, feature.family.name, feature.name, value
         )
-      })
+      }}
     })
 
     PipelineUtil.writeStringToFile(builder.toString, modelDump)
@@ -308,8 +315,9 @@ object GenericPipeline {
     val modelCfgName = cfg.getString("model_config")
     val modelName = cfg.getString("model_name")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
+    val registry = new FeatureRegistry
 
-    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
+    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName, registry)
 
     val hc = new HiveContext(sc)
     val hiveTraining = hc.sql(query)
@@ -329,7 +337,7 @@ object GenericPipeline {
 
     val examples = hiveTraining
       // ID, example
-      .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, isMulticlass)))
+      .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, registry, isMulticlass)))
       .coalesce(numShards, true)
 
     if (isMulticlass) {
@@ -353,8 +361,9 @@ object GenericPipeline {
     val modelName = cfg.getString("model_name")
     val count = cfg.getInt("count")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
+    val registry = new FeatureRegistry
 
-    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
+    val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName, registry)
 
     val hc = new HiveContext(sc)
     val hiveTraining = hc.sql(query)
@@ -371,13 +380,13 @@ object GenericPipeline {
 
     val ex = hiveTraining
       // ID, example
-      .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, isMulticlass)))
+      .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, registry, isMulticlass)))
       .take(count)
 
     ex.foreach(ex => {
-      transformer.combineContextAndItems(ex._2)
+      ex._2.transform(transformer)
       val builder = new java.lang.StringBuilder()
-      val score = model.debugScoreItem(ex._2.example.get(0), builder)
+      val score = model.debugScoreItem(ex._2.only, builder)
       builder.append("Debug score for %s\n".format(ex._1))
       log.info(builder.toString)
     })
@@ -387,9 +396,9 @@ object GenericPipeline {
       example: Example,
       model: AbstractModel,
       transformer: Transformer) = {
-    transformer.combineContextAndItems(example)
+    example.transform(transformer)
 
-    val score = model.scoreItem(example.example.get(0))
+    val score = model.scoreItem(example.only)
     val prob = model.scoreProbability(score)
 
     (score, prob)
@@ -399,9 +408,9 @@ object GenericPipeline {
       example: Example,
       model: AbstractModel,
       transformer: Transformer) = {
-    transformer.combineContextAndItems(example)
+    example.transform(transformer)
 
-    val multiclassResults = model.scoreItemMulticlass(example.example.get(0))
+    val multiclassResults = model.scoreItemMulticlass(example.only)
     model.scoreToProbability(multiclassResults)
 
     multiclassResults.asScala
@@ -418,9 +427,10 @@ object GenericPipeline {
       isRegression: Boolean,
       isMulticlass: Boolean,
       metric: String,
-      isTraining: Example => Boolean) : Array[(String, Double)] = {
+      isTraining: Example => Boolean,
+      registry: FeatureRegistry) : Array[(String, Double)] = {
     val examples = sc.textFile(inputPattern)
-      .map(Util.decodeExample)
+      .map(example => Util.decodeExample(example, registry))
       .sample(false, subSample)
 
     val records = EvalUtil
@@ -429,7 +439,7 @@ object GenericPipeline {
         transformer,
         modelOpt,
         examples,
-        LABEL,
+        registry.family(LABEL),
         isProb,
         isMulticlass,
         isTraining)
@@ -449,26 +459,15 @@ object GenericPipeline {
   }
 
   def logPrettyExample(ex : Example) = {
-    val fv = ex.example.get(0)
+    val fv = ex.only
     val builder = new StringBuilder()
 
-    builder ++= "\nString Features:"
+    builder ++= "\nFeatures:"
 
-    if (fv.stringFeatures != null) {
-      fv.stringFeatures.asScala.foreach(x => {
-        builder ++= "FAMILY : " + x._1 + '\n'
-        x._2.asScala.foreach(y => {builder ++= "--> " + y + '\n'})
-      })
-    }
-
-    builder ++= "\nFloat Features:"
-
-    if (fv.floatFeatures != null) {
-      fv.floatFeatures.asScala.foreach(x =>  {
-        builder ++= "FAMILY : " + x._1 + '\n'
-        x._2.asScala.foreach(y => {builder ++= "--> " + y.toString + '\n'})
-      })
-    }
+    fv.iterator.asScala.foreach(fv => {
+      builder ++= "FAMILY : " + fv.feature.family.name + '\n'
+      builder ++= "--> " + fv.feature.name + " : " + fv.value + '\n'
+    })
 
     log.info(builder.toString)
   }
@@ -480,9 +479,10 @@ object GenericPipeline {
     val hc = new HiveContext(sc)
     val hiveTraining = hc.sql(query)
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
+    val registry = new FeatureRegistry
 
     hiveTraining
-      .map(x => hiveTrainingToExample(x, schema, isMulticlass))
+      .map(x => hiveTrainingToExample(x, schema, registry, isMulticlass))
   }
 
   def isTraining(examples : Example) : Boolean = {
@@ -495,10 +495,11 @@ object GenericPipeline {
     (examples.toString.hashCode & 0xFF) <= 16
   }
 
-  def getExamples(sc : SparkContext, inputPattern : String) : RDD[Example] = {
+  def getExamples(sc : SparkContext, inputPattern : String, registry : FeatureRegistry)
+    : RDD[Example] = {
     val examples : RDD[Example] = sc
       .textFile(inputPattern)
-      .map(Util.decodeExample)
+      .map(example => Util.decodeExample(example, registry))
     examples
   }
 
@@ -644,8 +645,10 @@ object GenericPipeline {
   def hiveTrainingToExample(
       row: Row,
       schema: Array[StructField],
+      registry: FeatureRegistry,
       isMulticlass: Boolean = false): Example = {
-    val features = ExampleUtil.getFeatures(row, schema)
-    features.toExample(isMulticlass)
+    val example = new SimpleExample(registry)
+    ExampleUtil.putFeatures(example, row, schema)
+    example
   }
 }

@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.training
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 import java.util
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
@@ -18,6 +19,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class MaxoutTrainerTest {
   val log = LoggerFactory.getLogger("MaxoutTrainerTest")
+  val registry = new FeatureRegistry
 
   def makeConfig(loss : String) : String = {
     """
@@ -58,7 +60,7 @@ class MaxoutTrainerTest {
   }
 
   def testMaxoutTrainer(loss : String) = {
-    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
+    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples(registry)
 
     var sc = new SparkContext("local", "MaxoutTrainerText")
 
@@ -66,23 +68,21 @@ class MaxoutTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(loss))
 
       val input = sc.parallelize(examples)
-      val model = MaxoutTrainer.train(sc, input, config, "model_config")
+      val model = MaxoutTrainer.train(sc, input, config, "model_config", registry)
 
-      val weights = model.getWeightVector.asScala
-      for (familyMap <- weights) {
-        for (featureMap <- familyMap._2.asScala) {
-          log.info(("family=%s,feature=%s,"
-                    + "scale=%f, weights=%s")
-                     .format(familyMap._1, featureMap._1, featureMap._2.scale,
-                             featureMap._2.weights.toString()))
-        }
+      val weights = model.weightVector.asScala
+      for ((feature, vec) <- weights) {
+        log.info(("family=%s,feature=%s,"
+                  + "scale=%f, weights=%s")
+                   .format(feature.family.name, feature.name, vec.scale,
+                           vec.weights.toString))
       }
 
-      var numCorrect : Int = 0;
-      var i : Int = 0;
+      var numCorrect : Int = 0
+      var i : Int = 0
       val labelArr = label.toArray
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         if (score * labelArr(i) > 0) {
           numCorrect += 1
         }
@@ -93,23 +93,23 @@ class MaxoutTrainerTest {
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
       assertTrue(fracCorrect > 0.6)
 
-      val swriter = new StringWriter();
-      val writer = new BufferedWriter(swriter);
-      model.save(writer);
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
       writer.close()
-      val str = swriter.toString()
+      val str = swriter.toString
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
       log.info(str)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
-      assertTrue(model2Opt.isPresent())
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
+      assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
-        val score2 = model2.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
+        val score2 = model2.scoreItem(ex.only)
         assertEquals(score, score2, 0.01f)
       }
 

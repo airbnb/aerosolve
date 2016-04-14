@@ -1,10 +1,29 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.features.DenseVector;
+import com.airbnb.aerosolve.core.features.Family;
+import com.airbnb.aerosolve.core.features.FamilyVector;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.base.ConfigurableTransform;
+import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 
-import java.util.*;
+import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import org.hibernate.validator.constraints.NotEmpty;
+
+import javax.validation.constraints.Max;
+import javax.validation.constraints.NotNull;
 
 /**
  * A transform that applies the winner takes all hash to
@@ -15,34 +34,60 @@ import java.util.*;
  * to generate 2-bit tokens
  * and pack each word with num_tokens_per_word of these.
  */
-public class WtaTransform implements Transform {
-  private List<String> fieldNames;
-  private String outputName;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+@NoArgsConstructor(access = AccessLevel.PACKAGE)
+public class WtaTransform extends ConfigurableTransform<WtaTransform> {
+  private static final byte WINDOW_SIZE = 4;
+
+  @NotNull
+  @NotEmpty
+  private List<String> familyNames;
+  @NotNull
+  private String outputFamilyName;
+  // The seed of the random number generator.
   private int seed;
+  // The number of words per feature.
   private int numWordsPerFeature;
+  // The number of tokens per word.
+  @Max(16)
   private int numTokensPerWord;
-  private final byte windowSize = 4;
+
+  @Setter(AccessLevel.NONE)
+  private Random rnd;
+  @Setter(AccessLevel.NONE)
+  private List<Family> families;
+  @Setter(AccessLevel.NONE)
+  private Family outputFamily;
 
   @Override
-  public void configure(Config config, String key) {
-    // What fields to use to construct the hash.
-    fieldNames = config.getStringList(key + ".field_names");
-    // Name of field to output to.
-    outputName = config.getString(key + ".output");
-    // The seed of the random number generator.
-    seed = config.getInt(key + ".seed");
-    // The number of words per feature.
-    numWordsPerFeature = config.getInt(key + ".num_words_per_feature");
-    // The number of tokens per word.
-    numTokensPerWord = config.getInt(key + ".num_tokens_per_word");
-    assert(numTokensPerWord <= 16);
+  public WtaTransform configure(Config config, String key) {
+    return
+        familyNames(stringListFromConfig(config, key, ".field_names", true))
+            .outputFamilyName(stringFromConfig(config, key, ".output"))
+            .seed(intFromConfig(config, key, ".seed", false, (int) System.currentTimeMillis()))
+            .numWordsPerFeature(intFromConfig(config, key, ".num_words_per_feature", false))
+            .numTokensPerWord(intFromConfig(config, key, ".num_tokens_per_word", false));
+  }
+
+  @Override
+  protected void setup() {
+    // TODO (Brad): I may be introducing a bug here.  Need to confirm.  It's expensive to generate
+    // a new Random on every transform. It's also a bit weird because it will produce the same
+    // values for every transform this way. Is that intentional? Do we want "deterministic"
+    // randomness for some reason?
+    rnd = new Random(seed);
+    families = familyNames.stream()
+        .map(registry::family)
+        .collect(Collectors.toList());
+    outputFamily = registry.family(outputFamilyName);
   }
 
   // Generates a permutation of the array and appends it
   // to a given deque.
   private void generatePermutation(int size,
-                                   Random rnd,
-                                   Deque<Integer> dq) {
+                                   IntArrayFIFOQueue dq) {
     dq.clear();
     int[] permutation = new int[size];
     for (int i = 0; i < size; i++) {
@@ -55,20 +100,19 @@ public class WtaTransform implements Transform {
       permutation[other] = tmp;
     }
     for (int i = 0; i < size; i++) {
-      dq.add(permutation[i]);
+      dq.enqueue(permutation[i]);
     }
   }
 
-  private int getToken(Deque<Integer> dq,
-                       List<Double> feature,
-                       Random rnd) {
-    if (dq.size() < windowSize) {
-      generatePermutation(feature.size(), rnd, dq);
+  private int getToken(IntArrayFIFOQueue dq,
+                       double[] features) {
+    if (dq.size() < WINDOW_SIZE) {
+      generatePermutation(features.length, dq);
     }
     byte largest = 0;
-    double largestValue = feature.get(dq.pollFirst());
-    for (byte i = 1; i < windowSize; i++) {
-      double value = feature.get(dq.pollFirst());
+    double largestValue = features[dq.dequeueInt()];
+    for (byte i = 1; i < WINDOW_SIZE; i++) {
+      double value = features[dq.dequeueInt()];
       if (value > largestValue) {
         largestValue = value;
         largest = i;
@@ -77,49 +121,40 @@ public class WtaTransform implements Transform {
     return largest;
   }
 
-  private int getWord(Deque<Integer> dq,
-                      List<Double> feature,
-                      Random rnd) {
+  private int getWord(IntArrayFIFOQueue dq,
+                      double[] features) {
     int result = 0;
     for (int i = 0; i < numTokensPerWord; i++) {
-      result |= getToken(dq, feature, rnd) << 2 * i;
+      result |= getToken(dq, features) << 2 * i;
     }
     return result;
   }
 
-  // Returns the "words" for a feature.
-  // A word is compok
-  private void getWordsForFeature(Set<String> output,
-                                  String featureName,
-                                  Map<String, List<Double>> denseFeatures) {
-    List<Double> feature = denseFeatures.get(featureName);
-    if (feature == null) {
+  // Returns the "words" for a feature. Compok is not a word.
+  private void getWordsForFeature(FamilyVector vector, Set<String> outputs) {
+    if (vector == null) {
       return;
     }
-    assert (feature instanceof ArrayList);
-    Random rnd = new Random(seed);
-    Deque<Integer> dq = new ArrayDeque<>();
+    Preconditions.checkArgument(vector instanceof DenseVector,
+                                "Each family in WTAHashTransform must be a DenseVector.");
+    double[] features = ((DenseVector)vector).denseArray();
+    // We switch from Dequeue<Integer> to IntArrayFIFOQueue to avoid boxing and unboxing ints.
+    IntArrayFIFOQueue dq = new IntArrayFIFOQueue(features.length);
     for (int i = 0; i < numWordsPerFeature; i++) {
-      String word = featureName + i + ':' + getWord(dq, feature, rnd);
-      output.add(word);
+      String word = vector.family().name() + i + ':' + getWord(dq, features);
+      outputs.add(word);
     }
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
-    if (denseFeatures == null) {
-      return;
+  protected void doTransform(MultiFamilyVector featureVector) {
+    Set<String> outputs = new HashSet<>();
+    for (Family family : families) {
+      getWordsForFeature(featureVector.get(family), outputs);
     }
 
-    Set<String> output = new HashSet<>();
-
-    for (String featureName : fieldNames) {
-      getWordsForFeature(output, featureName, denseFeatures);
+    for (String output : outputs) {
+      featureVector.putString(outputFamily.feature(output));
     }
-
-    Util.optionallyCreateStringFeatures(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    stringFeatures.put(outputName, output);
   }
 }

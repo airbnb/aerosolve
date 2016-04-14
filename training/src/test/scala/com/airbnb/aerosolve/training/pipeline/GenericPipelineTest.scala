@@ -1,8 +1,11 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.google.common.collect.{ImmutableMap, ImmutableSet}
+import com.airbnb.aerosolve.core.features.FeatureRegistry
+import com.google.common.collect.ImmutableMap
 import org.junit.Assert._
 import org.junit.Test
+
+import scala.collection.JavaConverters._
 
 case class FakeDataRow(
     i_intFeature1: Int,
@@ -19,6 +22,8 @@ case class FakeDataRowMulticlass(
     LABEL: String)
 
 class GenericPipelineTest {
+  val registry = new FeatureRegistry
+
   @Test
   def hiveTrainingToExample() = {
     val fakeRow = FakeDataRow(
@@ -28,38 +33,21 @@ class GenericPipelineTest {
     PipelineTestingUtil.withSparkContext(sc => {
       val (sqlRow, schema) = PipelineTestingUtil.createFakeRowAndSchema(sc, fakeRow)
 
-      val example = GenericPipeline.hiveTrainingToExample(sqlRow, schema.fields.toArray, false)
-      val stringFeatures = example.getExample.get(0).getStringFeatures
-      val floatFeatures = example.getExample.get(0).getFloatFeatures
+      val example = GenericPipeline.hiveTrainingToExample(sqlRow, schema.fields.toArray, registry,
+                                                          false)
+      val fv = example.only
 
-      assertEquals(
-        stringFeatures.get("s"),
-        ImmutableSet.of("stringFeature:some string")
-      )
-      assertEquals(
-        stringFeatures.get("s2"),
-        ImmutableSet.of("some other string")
-      )
-      assertEquals(
-        floatFeatures.get("i"),
-        ImmutableMap.of("intFeature1", 10.0, "intFeature2", 7.0)
-      )
-      assertEquals(
-        floatFeatures.get("f"),
-        ImmutableMap.of("floatFeature", 4.1f.toDouble)
-      )
-      assertEquals(
-        floatFeatures.get("d"),
-        ImmutableMap.of("doubleFeature", 11.0)
-      )
-      assertEquals(
-        stringFeatures.get("b"),
-        ImmutableSet.of("boolFeature:F")
-      )
-      assertEquals(
-        floatFeatures.get("LABEL"),
-        ImmutableMap.of("", 4.5)
-      )
+      assertTrue(fv.containsKey("s", "stringFeature:some string"))
+      assertTrue(fv.containsKey("s2", "some other string"))
+
+      assertEquals(fv.get("i", "intFeature1"), 10.0, 0.01)
+      assertEquals(fv.get("i", "intFeature2"), 7.0, 0.01)
+      assertEquals(fv.get("f", "floatFeature"), 4.1, 0.01)
+      assertEquals(fv.get("d", "sparseFeature"), 11.0, 0.01)
+
+      assertTrue(fv.containsKey("b", "boolFeature:F"))
+
+      assertEquals(fv.get("LABEL", ""), 4.5, 0.01)
     })
   }
 
@@ -72,15 +60,18 @@ class GenericPipelineTest {
     PipelineTestingUtil.withSparkContext(sc => {
       val (sqlRow, schema) = PipelineTestingUtil.createFakeRowAndSchema(sc, fakeRow)
 
-      val example = GenericPipeline.hiveTrainingToExample(sqlRow, schema.fields.toArray, true)
-      val floatFeatures = example.getExample.get(0).getFloatFeatures
+      val example = GenericPipeline.hiveTrainingToExample(sqlRow, schema.fields.toArray, registry,
+                                                          true)
+      val fv = example.only
+
+      assertEquals(fv.get("i", "intFeature"), 10.0, 0.01)
+
+      val labelMap = fv.get(registry.family("label"))
+        .iterator.asScala.map(fv => (fv.feature.name, fv.value))
+        .toMap
 
       assertEquals(
-        floatFeatures.get("i"),
-        ImmutableMap.of("intFeature", 10.0)
-      )
-      assertEquals(
-        floatFeatures.get("LABEL"),
+        labelMap,
         ImmutableMap.of(
           "CLASS1", 2.1,
           "CLASS2", 4.5,

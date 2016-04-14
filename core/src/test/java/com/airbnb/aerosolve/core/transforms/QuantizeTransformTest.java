@@ -1,41 +1,15 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class QuantizeTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(QuantizeTransformTest.class);
-
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
-  }
+public class QuantizeTransformTest extends BaseTransformTest {
 
   public String makeConfig() {
     return "test_quantize {\n" +
@@ -45,31 +19,21 @@ public class QuantizeTransformTest {
            " output : loc_quantized\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_quantize");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_quantize";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_quantize");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
-    Set<String> out = stringFeatures.get("loc_quantized");
-    assertTrue(out.size() == 2);
-    log.info("quantize output");
-    for (String string : out) {
-      log.info(string);
-    }
-    assertTrue(out.contains("lat=377"));
-    assertTrue(out.contains("long=400"));
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeSimpleVector(registry);
+    transform.apply(featureVector);
+
+    assertTrue(featureVector.numFamilies() == 3);
+
+    assertStringFamily(featureVector, "loc_quantized", 2,
+                       ImmutableSet.of("lat=377", "long=400"));
   }
 }

@@ -1,45 +1,22 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class StumpTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(StumpTransformTest.class);
+public class StumpTransformTest extends BaseTransformTest {
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    floatFeatures.put("loc", map);
-
-    Map<String, Double> map2 = new HashMap<>();
-    map2.put("foo", 1.0);
-    floatFeatures.put("F", map2);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.builder(registry)
+        .simpleStrings()
+        .location()
+        .sparse("F", "foo", 1.0)
+        .build();
   }
 
   public String makeConfig() {
@@ -54,30 +31,22 @@ public class StumpTransformTest {
            " output : bar\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_stump");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_stump";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_stump");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    Set<String> out = featureVector.stringFeatures.get("bar");
-    for (String entry : out) {
-      log.info(entry);
-    }
-    assertTrue(out.contains("lat>=30.0"));
-    assertTrue(out.contains("foo>=0.0"));
+    assertTrue(featureVector.numFamilies() == 4);
+
+    assertStringFamily(featureVector, "bar", 2, ImmutableSet.of(
+        "lat>=30.0", "foo>=0.0"
+    ));
   }
 }

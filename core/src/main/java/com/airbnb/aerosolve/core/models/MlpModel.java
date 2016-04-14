@@ -1,25 +1,36 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.*;
-
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.FeatureValue;
+import com.airbnb.aerosolve.core.transforms.LegacyNames;
 import com.airbnb.aerosolve.core.util.FloatVector;
+import com.airbnb.aerosolve.core.util.Util;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 
 /**
  * Multilayer perceptron (MLP) model https://en.wikipedia.org/wiki/Multilayer_perceptron
  * The current implementation is for the case where there is only one output node.
  */
+@LegacyNames("multilayer_perceptron")
+@Accessors(fluent = true, chain = true)
 public class MlpModel extends AbstractModel {
 
   private static final long serialVersionUID = -6870862764598907090L;
@@ -28,7 +39,7 @@ public class MlpModel extends AbstractModel {
   // or the output layer
   @Getter
   @Setter
-  private Map<String, Map<String, FloatVector>> inputLayerWeights;
+  private Reference2ObjectMap<Feature, FloatVector> inputLayerWeights;
 
   // if there is hidden layer, this defines the projection
   // from one hidden layer to the next hidden layer or output layer
@@ -60,16 +71,19 @@ public class MlpModel extends AbstractModel {
   @Setter
   private Map<Integer, FloatVector> layerActivations;
 
-  public MlpModel() {
+  public MlpModel(FeatureRegistry registry) {
+    super(registry);
     layerNodeNumber = new ArrayList<>();
-    inputLayerWeights = new HashMap<>();
+    inputLayerWeights = new Reference2ObjectOpenHashMap<>();
     hiddenLayerWeights = new HashMap<>();
     layerActivations = new HashMap<>();
     bias = new HashMap<>();
     activationFunction = new ArrayList<>();
   }
 
-  public MlpModel(ArrayList<FunctionForm> activation, ArrayList<Integer> nodeNumbers) {
+  public MlpModel(ArrayList<FunctionForm> activation, ArrayList<Integer> nodeNumbers,
+                  FeatureRegistry registry) {
+    super(registry);
     // n is the number of hidden layers (including output layer, excluding input layer)
     // activation specifies activation function
     // nodeNumbers: specifies number of nodes in each hidden layer
@@ -77,7 +91,7 @@ public class MlpModel extends AbstractModel {
     activationFunction = activation;
     layerNodeNumber = nodeNumbers;
     assert(activation.size() == numHiddenLayers + 1);
-    inputLayerWeights = new HashMap<>();
+    inputLayerWeights = new Reference2ObjectOpenHashMap<>();
     hiddenLayerWeights = new HashMap<>();
     // bias including the bias added at the output layer
     bias = new HashMap<>();
@@ -94,33 +108,32 @@ public class MlpModel extends AbstractModel {
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    return forwardPropagation(flatFeatures);
+  public double scoreItem(FeatureVector combinedItem) {
+    return forwardPropagation(combinedItem);
   }
 
-  public float forwardPropagation(Map<String, Map<String, Double>> flatFeatures) {
-    projectInputLayer(flatFeatures, 0.0);
+  public double forwardPropagation(FeatureVector vector) {
+    projectInputLayer(vector, 0.0);
     for (int i = 0; i < numHiddenLayers; i++) {
       projectHiddenLayer(i, 0.0);
     }
     return layerActivations.get(numHiddenLayers).get(0);
   }
 
-  public float forwardPropagationWithDropout(Map<String, Map<String, Double>> flatFeatures, Double dropout) {
+  public double forwardPropagationWithDropout(FeatureVector vector, Double dropout) {
     // reference: George E. Dahl et al. "IMPROVING DEEP NEURAL NETWORKS FOR LVCSR USING RECTIFIED LINEAR UNITS AND DROPOUT"
     // scale the input to a node by 1/(1-dropout), so that we don't need to rescale model weights after training
     // make sure the value is between 0 and 1
     assert(dropout > 0.0);
     assert(dropout < 1.0);
-    projectInputLayer(flatFeatures, dropout);
+    projectInputLayer(vector, dropout);
     for (int i = 0; i < numHiddenLayers; i++) {
       projectHiddenLayer(i, dropout);
     }
     return layerActivations.get(numHiddenLayers).get(0);
   }
 
-  public FloatVector projectInputLayer(Map<String, Map<String, Double>> flatFeatures, Double dropout) {
+  public FloatVector projectInputLayer(FeatureVector vector, Double dropout) {
     // compute the projection from input feature space to the first hidden layer or
     // output layer if there is no hidden layer
     // output: fvProjection is a float vector representing the activation at the first layer after input layer
@@ -134,16 +147,11 @@ public class MlpModel extends AbstractModel {
       fvProjection.setConstant(0.0f);
     }
 
-    for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
-      Map<String, FloatVector> family = inputLayerWeights.get(entry.getKey());
-      if (family != null) {
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          FloatVector vec = family.get(feature.getKey());
-          if (vec != null) {
-            if (dropout > 0.0 && Math.random() < dropout) continue;
-            fvProjection.multiplyAdd(feature.getValue().floatValue(), vec);
-          }
-        }
+    for (FeatureValue value : vector) {
+      FloatVector vec = inputLayerWeights.get(value.feature());
+      if (vec != null) {
+        if (dropout > 0.0 && Math.random() < dropout) continue;
+        fvProjection.multiplyAdd(value.value(), vec);
       }
     }
     if (dropout > 0.0 && dropout < 1.0) {
@@ -205,7 +213,7 @@ public class MlpModel extends AbstractModel {
   }
 
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
     // TODO(peng): implement debug
     return scoreItem(combinedItem);
@@ -227,31 +235,26 @@ public class MlpModel extends AbstractModel {
       nodeNum.add(layerNodeNumber.get(i));
     }
     header.setNumberHiddenNodes(nodeNum);
-    long count = 0;
-    for (Map.Entry<String, Map<String, FloatVector>> familyMap : inputLayerWeights.entrySet()) {
-      count += familyMap.getValue().entrySet().size();
-    }
     // number of record for the input layer weights
-    header.setNumRecords(count);
+    header.setNumRecords(inputLayerWeights.size());
     ModelRecord headerRec = new ModelRecord();
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
 
     // save the input layer weight, one record per feature
-    for (Map.Entry<String, Map<String, FloatVector>> familyMap : inputLayerWeights.entrySet()) {
-      for (Map.Entry<String, FloatVector> feature : familyMap.getValue().entrySet()) {
-        ModelRecord record = new ModelRecord();
-        record.setFeatureFamily(familyMap.getKey());
-        record.setFeatureName(feature.getKey());
-        ArrayList<Double> arrayList = new ArrayList<>();
-        for (int i = 0; i < feature.getValue().length(); i++) {
-          arrayList.add((double) feature.getValue().values[i]);
-        }
-        record.setWeightVector(arrayList);
-        writer.write(Util.encode(record));
-        writer.newLine();
+    for (Map.Entry<Feature, FloatVector> entry : inputLayerWeights.entrySet()) {
+      ModelRecord record = new ModelRecord();
+      Feature feature = entry.getKey();
+      record.setFeatureFamily(feature.family().name());
+      record.setFeatureName(feature.name());
+      ArrayList<Double> arrayList = new ArrayList<>();
+      for (int i = 0; i < entry.getValue().length(); i++) {
+        arrayList.add((double) entry.getValue().values[i]);
       }
+      record.setWeightVector(arrayList);
+      writer.write(Util.encode(record));
+      writer.newLine();
     }
 
     // save the bias for each layer after input layer, one record per layer
@@ -302,16 +305,12 @@ public class MlpModel extends AbstractModel {
       ModelRecord record = Util.decodeModel(line);
       String family = record.getFeatureFamily();
       String name = record.getFeatureName();
-      Map<String, FloatVector> inner = inputLayerWeights.get(family);
-      if (inner == null) {
-        inner = new HashMap<>();
-        inputLayerWeights.put(family, inner);
-      }
       FloatVector vec = new FloatVector(record.getWeightVector().size());
       for (int j = 0; j < record.getWeightVector().size(); j++) {
         vec.values[j] = record.getWeightVector().get(j).floatValue();
       }
-      inner.put(name, vec);
+      Feature feature = registry.feature(family, name);
+      inputLayerWeights.put(feature, vec);
     }
     // load bias and activation function
     for (int i = 0; i < numHiddenLayers + 1; i++) {

@@ -40,7 +40,17 @@ dependencies {
   compile 'com.typesafe:config:1.3.0'
   compile 'org.slf4j:slf4j-api:1.7.7'
   compile 'joda-time:joda-time:2.5'
-  compile 'org.projectlombok:lombok:1.14.8'
+  compile 'org.projectlombok:lombok:1.16.8'
   compile 'org.apache.commons:commons-lang3:3.4'
+  compile 'org.reflections:reflections:0.9.9'
+  compile 'it.unimi.dsi:fastutil:7.0.12'
+
+  //Validation
+  compile 'org.hibernate:hibernate-validator:5.2.4.Final'
+  compile 'javax.el:javax.el-api:2.2.4'
+  compile 'org.glassfish.web:javax.el:2.2.4'
+  compile 'org.hibernate:hibernate-validator-cdi:5.2.4.Final'
+
   testCompile 'org.slf4j:slf4j-simple:1.7.7'
+  testCompile 'junit:junit:4.11'
 }

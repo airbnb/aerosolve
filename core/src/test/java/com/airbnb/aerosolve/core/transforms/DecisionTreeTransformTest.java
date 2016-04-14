@@ -1,15 +1,13 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.models.DecisionTreeModel;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -17,27 +15,15 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Hector Yee
  */
-public class DecisionTreeTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(DecisionTreeTransformTest.class);
+@Slf4j
+public class DecisionTreeTransformTest extends BaseTransformTest {
 
-  public FeatureVector makeFeatureVector(double x, double y) {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("x", x);
-    map.put("y", y);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector(double x, double y) {
+    return TransformTestingHelper.builder(registry)
+        .simpleStrings()
+        .sparse("loc", "x", x)
+        .sparse("loc", "y", y)
+        .build();
   }
 
   public String makeConfig() {
@@ -58,6 +44,11 @@ public class DecisionTreeTransformTest {
         "}";
   }
 
+  @Override
+  public String configKey() {
+    return "test_tree";
+  }
+
   /*
    * XOR like decision regions
    * 
@@ -73,8 +64,8 @@ public class DecisionTreeTransformTest {
 
   public DecisionTreeModel makeTree() {
     ArrayList<ModelRecord> records = new ArrayList<>();
-    DecisionTreeModel tree = new DecisionTreeModel();
-    tree.setStumps(records);
+    DecisionTreeModel tree = new DecisionTreeModel(registry);
+    tree.stumps(records);
 
     // 0 - an x split at 2
     ModelRecord record = new ModelRecord();
@@ -126,6 +117,16 @@ public class DecisionTreeTransformTest {
     return tree;
   }
 
+  // TODO (Brad): An empty vector does not result in an empty result.
+  // From what I can tell, the old test worked because it short circuited when the float features
+  // were null.
+  // But if the float features were empty instead of null, it would create a non-empty result. . .
+  // Is this intended?
+  @Override
+  protected boolean runEmptyTest() {
+    return false;
+  }
+
   @Test
   public void testToHumanReadableConfig() {
     DecisionTreeModel tree = makeTree();
@@ -137,34 +138,14 @@ public class DecisionTreeTransformTest {
     assertTrue(tokens[4].contains("L,3,0.250000,LEAF_3"));
   }
 
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_tree");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
-  }
-
   public void testTransformAt(double x, double y, String expectedLeaf, double expectedOutput) {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_tree");
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector(x, y);
+    transform.apply(featureVector);
+    assertTrue(featureVector.numFamilies() == 4);
 
-    FeatureVector featureVector;
-    featureVector = makeFeatureVector(x, y);
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertEquals(2, stringFeatures.size());
-
-    Set<String> out = featureVector.stringFeatures.get("LEAF");
-    for (String entry : out) {
-      log.info(entry);
-    }
-    assertTrue(out.contains(expectedLeaf));
-
-    Map<String, Double> treeOutput = featureVector.floatFeatures.get("SCORE");
-    assertTrue(treeOutput.containsKey("TREE0"));
-    assertEquals(expectedOutput, treeOutput.get("TREE0"), 0.1);
+    assertStringFamily(featureVector, "LEAF", -1, ImmutableSet.of(expectedLeaf));
+    assertSparseFamily(featureVector, "SCORE", -1, ImmutableMap.of("TREE0", expectedOutput));
   }
 
   @Test

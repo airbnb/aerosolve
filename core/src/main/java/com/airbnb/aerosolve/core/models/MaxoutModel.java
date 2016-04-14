@@ -1,25 +1,35 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.*;
-
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.FeatureValue;
 import com.airbnb.aerosolve.core.util.FloatVector;
+import com.airbnb.aerosolve.core.util.Util;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.experimental.Accessors;
 
 // A 2 layer maxout unit that can represent functions using difference
 // of piecewise linear convex functions.
 // http://arxiv.org/abs/1302.4389
+@Accessors(fluent = true, chain = true)
 public class MaxoutModel extends AbstractModel {
 
   private static final long serialVersionUID = -849900702679383422L;
@@ -28,7 +38,7 @@ public class MaxoutModel extends AbstractModel {
   private int numHidden;
 
   @Getter @Setter
-  private Map<String, Map<String, WeightVector>> weightVector;
+  private Map<Feature, WeightVector> weightVector;
 
   private WeightVector bias;
 
@@ -55,67 +65,65 @@ public class MaxoutModel extends AbstractModel {
     public float scale;
   }
 
-  public MaxoutModel() {
+  public MaxoutModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   public void initForTraining(int numHidden) {
     this.numHidden = numHidden;
-    weightVector = new HashMap<>();
+    weightVector = new Object2ObjectOpenHashMap<>();
     bias = new WeightVector(1.0f, numHidden, false);
-    Map<String, WeightVector> special = new HashMap<>();
-    weightVector.put("$SPECIAL", special);
-    special.put("$BIAS", bias);
+    Feature specialBias = registry.feature("$SPECIAL", "$BIAS");
+    weightVector.put(specialBias, bias);
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlatFeatures(flatFeatures);
-  }
-
-  @Override
-  public float debugScoreItem(FeatureVector combinedItem,
-                              StringBuilder builder) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-
-    FloatVector response = getResponse(flatFeatures);
+  public double scoreItem(FeatureVector combinedItem) {
+    FloatVector response = getResponse(combinedItem);
     FloatVector.MinMaxResult result = response.getMinMaxResult();
 
-    float sum = result.maxValue - result.minValue;
+    return result.maxValue - result.minValue;
+  }
 
-    PriorityQueue<Map.Entry<String, Float>> scores =
+  @Override
+  public double debugScoreItem(FeatureVector combinedItem,
+                              StringBuilder builder) {
+
+    FloatVector response = getResponse(combinedItem);
+    FloatVector.MinMaxResult result = response.getMinMaxResult();
+
+    double sum = result.maxValue - result.minValue;
+
+    PriorityQueue<Map.Entry<String, Double>> scores =
         new PriorityQueue<>(100, new LinearModel.EntryComparator());
 
     float[] biasWt = bias.weights.getValues();
-    float biasScore = biasWt[result.maxIndex] - biasWt[result.minIndex];
-    scores.add(new AbstractMap.SimpleEntry<String, Float>(
+    double biasScore = biasWt[result.maxIndex] - biasWt[result.minIndex];
+    scores.add(new AbstractMap.SimpleEntry<>(
         "bias = " + biasScore + " <br>\n",
         biasScore));
 
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, WeightVector> familyWeightMap = weightVector.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        WeightVector weightVec = familyWeightMap.get(feature.getKey());
-        if (weightVec == null) continue;
-        float val = feature.getValue().floatValue();
-        float[] wt = weightVec.weights.getValues();
-        float p = wt[result.maxIndex] * weightVec.scale;
-        float n = wt[result.minIndex] * weightVec.scale;
-        float subscore = val * (p - n);
-        String str = featureFamily.getKey() + ":" + feature.getKey() + "=" + val
-            + " * (" + p + " - " + n + ") = " + subscore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subscore));
-      }
+    for (FeatureValue value : combinedItem) {
+      WeightVector weightVec = weightVector.get(value.feature());
+      if (weightVec == null) continue;
+      Feature feature = value.feature();
+      double val = value.value();
+      float[] wt = weightVec.weights.getValues();
+      float p = wt[result.maxIndex] * weightVec.scale;
+      float n = wt[result.minIndex] * weightVec.scale;
+      double subscore = val * (p - n);
+      String str = feature.family().name() + ":" + feature.name() + "=" + val
+          + " * (" + p + " - " + n + ") = " + subscore + "<br>\n";
+      scores.add(new AbstractMap.SimpleEntry<>(str, subscore));
     }
     builder.append("Top 15 scores ===>\n");
     if (!scores.isEmpty()) {
       int count = 0;
       float subsum = 0.0f;
       while (!scores.isEmpty()) {
-        Map.Entry<String, Float> entry = scores.poll();
+        Map.Entry<String, Double> entry = scores.poll();
         builder.append(entry.getKey());
-        float val = entry.getValue();
+        double val = entry.getValue();
         subsum += val;
         count = count + 1;
         if (count >= 15) {
@@ -136,15 +144,11 @@ public class MaxoutModel extends AbstractModel {
     return scoreRecordsList;
   }
 
+  // TODO (Brad): Get rid of floats
   // Adds a new vector with a specified scale.
-  public void addVector(String family, String feature, float scale) {
-    Map<String, WeightVector> featFamily = weightVector.get(family);
-    if (featFamily == null) {
-      featFamily = new HashMap<>();
-      weightVector.put(family, featFamily);
-    }
+  public void addVector(Feature feature, float scale) {
     WeightVector vec = new WeightVector(scale, numHidden, true);
-    featFamily.put(feature, vec);
+    weightVector.put(feature, vec);
   }
 
   // Updates the gradient
@@ -154,24 +158,20 @@ public class MaxoutModel extends AbstractModel {
                      float l2Reg,
                      float momentum,
                      FloatVector.MinMaxResult result,
-                     Map<String, Map<String, Double>> flatFeatures) {
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, WeightVector> familyWeightMap = weightVector.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        WeightVector weightVec = familyWeightMap.get(feature.getKey());
-        if (weightVec == null) continue;
-        float val = feature.getValue().floatValue() * weightVec.scale;
-        updateWeightVector(result.minIndex,
-                           result.maxIndex,
-                           val,
-                           grad,
-                           learningRate,
-                           l1Reg,
-                           l2Reg,
-                           momentum,
-                           weightVec);
-      }
+                     Iterable<FeatureValue> vector) {
+    for (FeatureValue value : vector) {
+      WeightVector weightVec = weightVector.get(value.feature());
+      if (weightVec == null) continue;
+      float val = (float) value.value() * weightVec.scale;
+      updateWeightVector(result.minIndex,
+                         result.maxIndex,
+                         val,
+                         grad,
+                         learningRate,
+                         l1Reg,
+                         l2Reg,
+                         momentum,
+                         weightVec);
     }
     updateWeightVector(result.minIndex,
                        result.maxIndex,
@@ -224,24 +224,12 @@ public class MaxoutModel extends AbstractModel {
     }
   }
 
-  public float scoreFlatFeatures(Map<String, Map<String, Double>> flatFeatures) {
-    FloatVector response = getResponse(flatFeatures);
-    FloatVector.MinMaxResult result = response.getMinMaxResult();
-
-    return result.maxValue - result.minValue;
-  }
-
-  public FloatVector getResponse(Map<String, Map<String, Double>> flatFeatures) {
+  public FloatVector getResponse(Iterable<FeatureValue> vector) {
     FloatVector sum = new FloatVector(numHidden);
-    for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
-      Map<String, WeightVector> family = weightVector.get(entry.getKey());
-      if (family != null) {
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          WeightVector hidden = family.get(feature.getKey());
-          if (hidden != null) {
-            sum.multiplyAdd(feature.getValue().floatValue() * hidden.scale, hidden.weights);
-          }
-        }
+    for (FeatureValue value : vector) {
+      WeightVector hidden = weightVector.get(value.feature());
+      if (hidden != null) {
+        sum.multiplyAdd(value.value() * hidden.scale, hidden.weights);
       }
     }
     sum.add(bias.weights);
@@ -252,31 +240,24 @@ public class MaxoutModel extends AbstractModel {
     ModelHeader header = new ModelHeader();
     header.setModelType("maxout");
     header.setNumHidden(numHidden);
-    long count = 0;
-    for (Map.Entry<String, Map<String, WeightVector>> familyMap : weightVector.entrySet()) {
-      for (Map.Entry<String, WeightVector> feature : familyMap.getValue().entrySet()) {
-        count++;
-      }
-    }
-    header.setNumRecords(count);
+    header.setNumRecords(weightVector.size());
     ModelRecord headerRec = new ModelRecord();
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
-    for (Map.Entry<String, Map<String, WeightVector>> familyMap : weightVector.entrySet()) {
-      for (Map.Entry<String, WeightVector> feature : familyMap.getValue().entrySet()) {
-        ModelRecord record = new ModelRecord();
-        record.setFeatureFamily(familyMap.getKey());
-        record.setFeatureName(feature.getKey());
-        ArrayList<Double> arrayList = new ArrayList<Double>();
-        for (int i = 0; i < feature.getValue().weights.values.length; i++) {
-          arrayList.add((double) feature.getValue().weights.values[i]);
-        }
-        record.setWeightVector(arrayList);
-        record.setScale(feature.getValue().scale);
-        writer.write(Util.encode(record));
-        writer.newLine();
+    for (Map.Entry<Feature, WeightVector> entry : weightVector.entrySet()) {
+      ModelRecord record = new ModelRecord();
+      Feature feature = entry.getKey();
+      record.setFeatureFamily(feature.family().name());
+      record.setFeatureName(feature.name());
+      ArrayList<Double> arrayList = new ArrayList<Double>();
+      for (int i = 0; i < entry.getValue().weights.values.length; i++) {
+        arrayList.add((double) entry.getValue().weights.values[i]);
       }
+      record.setWeightVector(arrayList);
+      record.setScale(entry.getValue().scale);
+      writer.write(Util.encode(record));
+      writer.newLine();
     }
     writer.flush();
   }
@@ -285,28 +266,21 @@ public class MaxoutModel extends AbstractModel {
   protected void loadInternal(ModelHeader header, BufferedReader reader) throws IOException {
     long rows = header.getNumRecords();
     numHidden = header.getNumHidden();
-    weightVector = new HashMap<>();
+    weightVector = new Reference2ObjectOpenHashMap<>();
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
       String family = record.getFeatureFamily();
       String name = record.getFeatureName();
-      Map<String, WeightVector> inner = weightVector.get(family);
-      if (inner == null) {
-        inner = new HashMap<>();
-        weightVector.put(family, inner);
-      }
+      Feature feature = registry.feature(family, name);
       WeightVector vec = new WeightVector();
       vec.scale = (float) record.getScale();
       vec.weights = new FloatVector(numHidden);
       for (int j = 0; j < numHidden; j++) {
         vec.weights.values[j] = record.getWeightVector().get(j).floatValue();
       }
-      inner.put(name, vec);
+      weightVector.put(feature, vec);
     }
-    Map<String, WeightVector> special = weightVector.get("$SPECIAL");
-    assert(special != null);
-    bias = special.get("$BIAS");
-    assert(bias != null);
+    assert(weightVector.containsKey(registry.family("$SPECIAL").feature("$BIAS")));
   }
 }

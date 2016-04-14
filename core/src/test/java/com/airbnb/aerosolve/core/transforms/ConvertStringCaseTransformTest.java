@@ -1,27 +1,23 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import java.util.Set;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
  * Created by christhetree on 1/27/16.
  */
-public class ConvertStringCaseTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(ConvertStringCaseTransformTest.class);
+public class ConvertStringCaseTransformTest extends BaseTransformTest {
+
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.builder(registry)
+        .string("strFeature1", "I like BLUEBERRY pie, APPLE pie; and I also like BLUE!")
+        .string("strFeature1", "I'm so  excited: I   like blue!?!!")
+        .build();
+  }
 
   public String makeConfig(boolean convertToUppercase, boolean overwriteInput) {
     StringBuilder sb = new StringBuilder();
@@ -41,83 +37,48 @@ public class ConvertStringCaseTransformTest {
     return sb.toString();
   }
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-
-    Set<String> list = new HashSet<>();
-    list.add("I like BLUEBERRY pie, APPLE pie; and I also like BLUE!");
-    list.add("I'm so  excited: I   like blue!?!!");
-    stringFeatures.put("strFeature1", list);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    return featureVector;
+  public String makeConfig() {
+    return makeConfig(false, false);
   }
 
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig(false, false));
-    Transform transform = TransformFactory.createTransform(config, "test_convert_string_case");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-
-    assertTrue(featureVector.getStringFeatures() == null);
+  @Override
+  public String configKey() {
+    return "test_convert_string_case";
   }
 
   @Test
   public void testTransformConvertToLowercase() {
-    Config config = ConfigFactory.parseString(makeConfig(false, false));
-    Transform transform = TransformFactory.createTransform(config, "test_convert_string_case");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-
-    assertNotNull(stringFeatures);
-    assertEquals(2, stringFeatures.size());
-
-    Set<String> output = stringFeatures.get("bar");
-
-    assertNotNull(output);
-    assertEquals(2, output.size());
-    assertTrue(output.contains("i like blueberry pie, apple pie; and i also like blue!"));
-    assertTrue(output.contains("i'm so  excited: i   like blue!?!!"));
+    doTest(false, false, ImmutableSet.of(
+        "i like blueberry pie, apple pie; and i also like blue!",
+        "i'm so  excited: i   like blue!?!!"),
+         2, "bar");
   }
 
   @Test
   public void testTransformConvertToUppercase() {
-    Config config = ConfigFactory.parseString(makeConfig(true, false));
-    Transform transform = TransformFactory.createTransform(config, "test_convert_string_case");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    doTest(true, false, ImmutableSet.of(
+        "I LIKE BLUEBERRY PIE, APPLE PIE; AND I ALSO LIKE BLUE!",
+        "I'M SO  EXCITED: I   LIKE BLUE!?!!"),
+         2, "bar");
+  }
 
-    assertNotNull(stringFeatures);
-    assertEquals(2, stringFeatures.size());
+  private void doTest(boolean convertToUpperCase, boolean overwriteInput,
+                      Set<String> expected, int numFamilies, String family) {
+    Transform<MultiFamilyVector> transform = getTransform(
+        makeConfig(convertToUpperCase, overwriteInput), configKey());
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    Set<String> output = stringFeatures.get("bar");
+    assertTrue(featureVector.numFamilies() == numFamilies);
 
-    assertNotNull(output);
-    assertEquals(2, output.size());
-    assertTrue(output.contains("I LIKE BLUEBERRY PIE, APPLE PIE; AND I ALSO LIKE BLUE!"));
-    assertTrue(output.contains("I'M SO  EXCITED: I   LIKE BLUE!?!!"));
+    assertStringFamily(featureVector, family, 2, expected);
   }
 
   @Test
   public void testTransformOverwriteInput() {
-    Config config = ConfigFactory.parseString(makeConfig(true, true));
-    Transform transform = TransformFactory.createTransform(config, "test_convert_string_case");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-
-    assertNotNull(stringFeatures);
-    assertEquals(1, stringFeatures.size());
-
-    Set<String> output = stringFeatures.get("strFeature1");
-
-    assertNotNull(output);
-    assertEquals(2, output.size());
-    assertTrue(output.contains("I LIKE BLUEBERRY PIE, APPLE PIE; AND I ALSO LIKE BLUE!"));
-    assertTrue(output.contains("I'M SO  EXCITED: I   LIKE BLUE!?!!"));
+    doTest(true, true, ImmutableSet.of(
+        "I LIKE BLUEBERRY PIE, APPLE PIE; AND I ALSO LIKE BLUE!",
+        "I'M SO  EXCITED: I   LIKE BLUE!?!!"),
+        1, "strFeature1");
   }
 }

@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
+import com.airbnb.aerosolve.core.features.{FeatureRegistry, SimpleExample}
 import com.airbnb.aerosolve.core.models.{AdditiveModel, SplineModel}
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import org.slf4j.LoggerFactory
@@ -14,32 +15,21 @@ object TrainingTestHelper {
 
   def makeExample(x : Double,
                   y : Double,
-                  target : Double) : Example = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setFloatFeatures(new java.util.HashMap)
-    item.setStringFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    val stringFeatures = item.getStringFeatures
-    // A string feature that is always on.
-    stringFeatures.put("BIAS", new java.util.HashSet)
-    stringFeatures.get("BIAS").add("B")
-    // A string feature that is sometimes on
+                  target : Double,
+                   registry: FeatureRegistry) : Example = {
+    val example = new SimpleExample(registry)
+    val item: FeatureVector = example.createVector()
+    item.putString("BIAS", "B")
     if (x + y < 0) {
-      stringFeatures.put("NEG", new java.util.HashSet)
-      stringFeatures.get("NEG").add("T")
+      item.putString("NEG", "T")
     }
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put("", target)
-    floatFeatures.put("loc", new java.util.HashMap)
-    val loc = floatFeatures.get("loc")
-    loc.put("x", x)
-    loc.put("y", y)
-    example.addToExample(item)
+    item.put("$rank", "", target)
+    item.put("loc", "x", x)
+    item.put("loc", "y", y)
     example
   }
 
-  def makeSimpleClassificationExamples = {
+  def makeSimpleClassificationExamples(registry: FeatureRegistry) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -55,7 +45,7 @@ object TrainingTestHelper {
       }
       if (rank > 0) numPos = numPos + 1
       label += rank
-      examples += makeExample(x, y, rank)
+      examples += makeExample(x, y, rank, registry)
     }
     (examples, label, numPos)
   }
@@ -64,31 +54,23 @@ object TrainingTestHelper {
                             y : Double,
                             z : Double,
                             label : (String, Double),
-                            label2 : Option[(String, Double)]) : Example = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setFloatFeatures(new java.util.HashMap)
-    item.setStringFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    val stringFeatures = item.getStringFeatures
-    // A string feature that is always on.
-    stringFeatures.put("BIAS", new java.util.HashSet)
-    stringFeatures.get("BIAS").add("B")
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put(label._1, label._2)
+                            label2 : Option[(String, Double)],
+                             registry: FeatureRegistry) : Example = {
+    val example = new SimpleExample(registry)
+    val item: FeatureVector = example.createVector()
+    item.putString("BIAS", "B")
+    item.put("$rank", label._1, label._2)
     if (label2.isDefined) {
-      floatFeatures.get("$rank").put(label2.get._1, label2.get._2)
+      item.put("$rank", label2.get._1, label2.get._2)
     }
-    floatFeatures.put("loc", new java.util.HashMap)
-    val loc = floatFeatures.get("loc")
-    loc.put("x", x)
-    loc.put("y", y)
-    loc.put("z", z)
-    example.addToExample(item)
+    item.put("loc", "x", x)
+    item.put("loc", "y", y)
+    item.put("loc", "z", z)
     example
   }
 
-  def makeSimpleMulticlassClassificationExamples(multiLabel : Boolean) = {
+  def makeSimpleMulticlassClassificationExamples(multiLabel : Boolean,
+                                                  registry : FeatureRegistry) = {
     val examples = ArrayBuffer[Example]()
     val labels = ArrayBuffer[String]()
     val rnd = new java.util.Random(1234)
@@ -122,15 +104,15 @@ object TrainingTestHelper {
       labels += label
       if (multiLabel) {
         val label2 = if (x > 0) "right" else "left"
-        examples += makeMulticlassExample(x, y, z, (label, 1.0), Some((label2, 0.1)))
+        examples += makeMulticlassExample(x, y, z, (label, 1.0), Some((label2, 0.1)), registry)
       } else {
-        examples += makeMulticlassExample(x, y, z, (label, 1.0), None)
+        examples += makeMulticlassExample(x, y, z, (label, 1.0), None, registry)
       }
     }
     (examples, labels)
   }
 
-  def makeNonlinearMulticlassClassificationExamples() = {
+  def makeNonlinearMulticlassClassificationExamples(registry: FeatureRegistry) = {
     val examples = ArrayBuffer[Example]()
     val labels = ArrayBuffer[String]()
     val rnd = new java.util.Random(1234)
@@ -143,32 +125,25 @@ object TrainingTestHelper {
       val label : String = if (d < 5) "inner" else
                            if (d < 10) "middle" else "outer"
       labels += label
-      examples += makeMulticlassExample(x, y, z, (label, 1.0), None)
+      examples += makeMulticlassExample(x, y, z, (label, 1.0), None, registry)
     }
     (examples, labels)
   }
 
   def makeHybridExample(x : Double,
                         y : Double,
-                        target : Double) : Example = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setFloatFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put("", target)
-    floatFeatures.put("loc", new java.util.HashMap)
-    floatFeatures.put("xy", new util.HashMap)
-    val loc = floatFeatures.get("loc")
-    loc.put("x", x)
-    loc.put("y", y)
-    val xy = floatFeatures.get("xy")
-    xy.put("xy", x * y)
-    example.addToExample(item)
+                        target : Double,
+                         registry : FeatureRegistry) : Example = {
+    val example = new SimpleExample(registry)
+    val item: FeatureVector = example.createVector()
+    item.put("$rank", "", target)
+    item.put("loc", "x", x)
+    item.put("loc", "y", y)
+    item.put("xy", "xy", x*y)
     example
   }
 
-  def makeClassificationExamples = {
+  def makeClassificationExamples(registry: FeatureRegistry) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -184,12 +159,12 @@ object TrainingTestHelper {
       }
       if (rank > 0) numPos = numPos + 1
       label += rank
-      examples += makeExample(x, y, rank)
+      examples += makeExample(x, y, rank, registry)
     }
     (examples, label, numPos)
   }
 
-  def makeLinearClassificationExamples = {
+  def makeLinearClassificationExamples(registry: FeatureRegistry) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -205,12 +180,12 @@ object TrainingTestHelper {
       }
       if (rank > 0) numPos = numPos + 1
       label += rank
-      examples += makeHybridExample(x, y, rank)
+      examples += makeHybridExample(x, y, rank, registry)
     }
     (examples, label, numPos)
   }
 
-  def makeRegressionExamples(randomSeed: Int = 1234) = {
+  def makeRegressionExamples(registry: FeatureRegistry, randomSeed: Int = 1234) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(randomSeed)
@@ -222,14 +197,14 @@ object TrainingTestHelper {
       // Curve will be a "saddle" with flat regions where, for instance, x = 0 and y > 2.06 or y < -1.96
       val flattenedQuadratic = math.max(x * x - 2 * y * y - 0.5 * x + 0.2 * y, -8.0)
 
-      examples += makeExample(x, y, flattenedQuadratic)
+      examples += makeExample(x, y, flattenedQuadratic, registry)
       label += flattenedQuadratic
     }
 
     (examples, label)
   }
 
-  def makeLinearRegressionExamples(randomSeed: Int = 1234) = {
+  def makeLinearRegressionExamples(registry: FeatureRegistry, randomSeed: Int = 1234) = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(randomSeed)
@@ -238,7 +213,7 @@ object TrainingTestHelper {
       val x = 2.0 * (rnd.nextDouble() - 0.5)
       val y = 2.0 * (rnd.nextDouble() - 0.5)
       val z = 0.1 * x * y - 0.5 * x + 0.2 * y + 1.0
-      examples += makeHybridExample(x, y, z)
+      examples += makeHybridExample(x, y, z, registry)
       label += z
     }
 
@@ -247,29 +222,24 @@ object TrainingTestHelper {
 
   def printSpline(model: SplineModel) = {
     val weights = model.getWeightSpline.asScala
-    for (familyMap <- weights) {
-      for (featureMap <- familyMap._2.asScala) {
+    for ((feature, weightSpline) <- weights) {
         log.info(("family=%s,feature=%s,"
                   + "minVal=%f, maxVal=%f, weights=%s")
-                   .format(familyMap._1,
-                           featureMap._1,
-                           featureMap._2.spline.getMinVal,
-                           featureMap._2.spline.getMaxVal,
-                           featureMap._2.spline.getWeights.mkString(",")
+                   .format(feature.family.name,
+                           feature.name,
+                           weightSpline.spline.getMinVal,
+                           weightSpline.spline.getMaxVal,
+                           weightSpline.spline.getWeights.mkString(",")
           )
         )
-      }
     }
   }
 
   def printAdditiveModel(model: AdditiveModel) = {
-    val weights = model.getWeights.asScala
-    for (familyMap <- weights) {
-      for (featureMap <- familyMap._2.asScala) {
-        log.info("family=%s,feature=%s".format(familyMap._1, featureMap._1))
-        val func = featureMap._2
-        log.info(func.toString)
-      }
+    val weights = model.weights.asScala
+    for ((feature, func) <- weights) {
+      log.info("family=%s,feature=%s".format(feature.family.name, feature.name))
+      log.info(func.toString)
     }
   }
 }

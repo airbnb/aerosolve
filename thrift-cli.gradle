@@ -17,7 +17,7 @@ task genThrift << {
   thriftFiles.each() { File file ->
     exec {
       executable = 'thrift'
-      args = ['--gen', 'java', '-o', "${->buildDir}/", file]
+      args = ['--gen', 'java:private-members', '-o', "${->buildDir}/", file]
     }
   }
 }

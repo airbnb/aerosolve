@@ -12,7 +12,7 @@ class PipelineUtilTest {
       val examples = sc.parallelize(Seq(linearExample1, linearExample2))
 
       val trainingPredicate = (example: Example) => {
-        example.getExample.get(0).getStringFeatures.get("s").size() == 1
+        example.only.get("s").size() == 1
       }
 
       val results = PipelineUtil.scoreExamples(

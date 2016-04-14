@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.training
 
+import com.airbnb.aerosolve.core.features._
 import com.airbnb.aerosolve.core.models.SplineModel
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
 import com.airbnb.aerosolve.core.util.Util
@@ -13,7 +14,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.mutable.HashMap
+import scala.collection.mutable
 import scala.util.{Random, Try}
 
 /*
@@ -26,7 +27,7 @@ object SplineTrainer {
   case class SplineTrainerParams(
        numBins : Int,
        numBags : Int,
-       rankKey : String,
+       labelFamily : Family,
        loss : String,
        learningRate : Double,
        dropout : Double,
@@ -40,13 +41,15 @@ object SplineTrainer {
        rankFraction : Double,  // Fraction of time to use ranking loss when loss is rank_and_hinge
        rankMargin : Double,    // The margin for ranking loss
        maxSamplesPerExample : Int, // Max number of samples to use per example
-       epsilon : Double        // epsilon used in epsilon-insensitive loss for regression training
+       epsilon : Double,        // epsilon used in epsilon-insensitive loss for regression training
+       registry : FeatureRegistry
    )
 
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : SplineModel = {
+            key : String,
+             registry: FeatureRegistry) : SplineModel = {
     val loss : String = config.getString(key + ".loss")
     val isRanking = loss match {
       case "rank_and_hinge" => true
@@ -62,7 +65,7 @@ object SplineTrainer {
     val numBins : Int = config.getInt(key + ".num_bins")
     val numBags : Int = config.getInt(key + ".num_bags")
     val iterations : Int = config.getInt(key + ".iterations")
-    val rankKey : String = config.getString(key + ".rank_key")
+    val labelFamily : Family = registry.family(config.getString(key + ".rank_key"))
     val learningRate : Double = config.getDouble(key + ".learning_rate")
     val dropout : Double = config.getDouble(key + ".dropout")
     val minCount : Int = config.getInt(key + ".min_count")
@@ -93,7 +96,7 @@ object SplineTrainer {
     val params = SplineTrainerParams(
        numBins = numBins,
        numBags = numBags,
-       rankKey = rankKey,
+       labelFamily = labelFamily,
        loss = loss,
        learningRate = learningRate,
        dropout = dropout,
@@ -107,30 +110,31 @@ object SplineTrainer {
        rankFraction = rankFraction,
        rankMargin = rankMargin,
        maxSamplesPerExample = maxSamplesPerExample,
-       epsilon = epsilon)
+       epsilon = epsilon,
+       registry = registry)
 
     val transformed : RDD[Example] = if (isRanking) {
-      LinearRankerUtils.transformExamples(input, config, key)
+      LinearRankerUtils.transformExamples(input, config, key, registry)
     } else {
       LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
+        .makePointwiseFloat(input, config, key, registry)
     }
 
     val initialModel = if(initModelPath == "") {
       None
     } else {
-      TrainingUtils.loadScoreModel(initModelPath)
+      TrainingUtils.loadScoreModel(initModelPath, registry)
     }
     var model = if(initialModel.isDefined) {
       val newModel = initialModel.get.asInstanceOf[SplineModel]
       newModel.setSplineNormCap(linfinityCap.toFloat)
-      initModel(minCount, subsample, rankKey, transformed, newModel, false)
+      initModel(minCount, subsample, labelFamily, transformed, newModel, false)
       newModel
     } else {
-      val newModel = new SplineModel()
+      val newModel = new SplineModel(registry)
       newModel.initForTraining(numBins)
       newModel.setSplineNormCap(linfinityCap.toFloat)
-      initModel(minCount, subsample, rankKey, transformed, newModel, true)
+      initModel(minCount, subsample, labelFamily, transformed, newModel, true)
       setPrior(config, key, newModel)
       newModel
     }
@@ -162,17 +166,17 @@ object SplineTrainer {
   // Initializes the model
   def initModel(minCount : Int,
                 subsample : Double,
-                rankKey : String,
+                labelFamily : Family,
                 input : RDD[Example],
                 model : SplineModel,
                 overwrite : Boolean) = {
     log.info("Computing min/max values for all features")
     val stats = TrainingUtils
       .getFeatureStatistics(minCount, input.sample(false, subsample))
-      .filter(x => x._1._1 != rankKey)
+      .filter(x => x._1.family != labelFamily)
     log.info("Num features = %d".format(stats.length))
     for (entry <- stats) {
-      model.addSpline(entry._1._1, entry._1._2, entry._2.min.toFloat, entry._2.max.toFloat, overwrite)
+      model.addSpline(entry._1, entry._2.min.toFloat, entry._2.max.toFloat, overwrite)
     }
   }
 
@@ -188,16 +192,14 @@ object SplineTrainer {
           val name = tokens(1)
           val start = tokens(2).toDouble
           val end = tokens(3).toDouble
-          val familyMap = model.getWeightSpline.asScala.get(family)
-          if (familyMap != None) {
-            val spline = familyMap.get.get(name)
-            if (spline != null) {
-              log.info("Setting prior %s:%s <- %f to %f".format(family, name, start, end))
-              val len = spline.splineWeights.length
-              for (i <- 0 until len) {
-                val t = i.toDouble / (len.toDouble - 1.0)
-                spline.splineWeights(i) = ((1.0 - t) * start + t * end).toFloat
-              }
+          val feature = model.registry.feature(family, name)
+          val weightSpline = model.getWeightSpline.asScala.get(feature)
+          if (weightSpline.isDefined) {
+            log.info("Setting prior %s:%s <- %f to %f".format(family, name, start, end))
+            val len = weightSpline.get.splineWeights.length
+            for (i <- 0 until len) {
+              val t = i.toDouble / (len.toDouble - 1.0)
+              weightSpline.get.splineWeights(i) = ((1.0 - t) * start + t * end).toFloat
             }
           }
         } else {
@@ -282,13 +284,11 @@ object SplineTrainer {
       .coalesce(params.numBags, true)
       .mapPartitions(partition =>
         sgdPartition(partition, modelBC, params))
-    .groupByKey
+    .groupByKey()
     // Average the spline weights
     .map(x => {
       val head = x._2.head
-      val spline = new WeightSpline(head.spline.getMinVal,
-                                    head.spline.getMaxVal,
-                                    params.numBins)
+      val spline = new WeightSpline(head.spline.getMinVal, head.spline.getMaxVal, params.numBins)
       val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
         for (i <- 0 until params.numBins) {
@@ -298,18 +298,15 @@ object SplineTrainer {
       smoothSpline(params.smoothingTolerance, spline)
       (x._1, spline)
     })
-    .collect
-    .foreach(entry => {
-      val family = model.getWeightSpline.get(entry._1._1)
-      if (family != null && family.containsKey(entry._1._2)) {
-        family.put(entry._1._2, entry._2)
-      }
-    })
+    .collect()
+    .foreach{ case (feature, spline) =>
+      model.getWeightSpline.replace(feature, spline)
+    }
 
     deleteSmallSplines(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, config, key + ".model_output")
-    return model
+    model
   }
   
   def sgdMultiscaleTrain(sc : SparkContext,
@@ -330,13 +327,11 @@ object SplineTrainer {
       .mapPartitionsWithIndex((index, partition) =>
         sgdPartitionMultiscale(index, partition, multiscale,
           modelBC, params))
-    .groupByKey
+    .groupByKey()
     // Average the spline weights
     .map(x => {
       val head = x._2.head
-      val spline = new WeightSpline(head.spline.getMinVal,
-                                    head.spline.getMaxVal,
-                                    params.numBins)
+      val spline = new WeightSpline(head.spline.getMinVal, head.spline.getMaxVal, params.numBins)
       val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
         entry.resample(params.numBins)
@@ -347,48 +342,34 @@ object SplineTrainer {
       smoothSpline(params.smoothingTolerance, spline)
       (x._1, spline)
     })
-    .collect
-    .foreach(entry => {
-      val family = model.getWeightSpline.get(entry._1._1)
-      if (family != null && family.containsKey(entry._1._2)) {
-        family.put(entry._1._2, entry._2)
-      }
-    })
+    .collect()
+    .foreach { case (feature, spline) =>
+      model.getWeightSpline.replace(feature, spline)
+    }
 
     deleteSmallSplines(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, config, key + ".model_output")
-    return model
+    model
   }
 
   def deleteSmallSplines(model : SplineModel,
                          linfinityThreshold : Double) = {
-    val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
+    val toDelete = mutable.ArrayBuffer[Feature]()
 
-    model.getWeightSpline.asScala.foreach(family => {
-      family._2.asScala.foreach(entry => {
-        if (entry._2.LInfinityNorm < linfinityThreshold) {
-          toDelete.append((family._1, entry._1))
-        }
-      })
-    })
+    model.getWeightSpline.asScala.foreach { case (feature, spline) =>
+      if (spline.LInfinityNorm < linfinityThreshold) toDelete.append(feature)
+    }
 
     log.info("Deleting %d empty splines".format(toDelete.size))
 
-    toDelete.foreach(entry => {
-      val family = model.getWeightSpline.get(entry._1)
-      if (family != null && family.containsKey(entry._2)) {
-        family.remove(entry._2)
-      }
-    })
+    toDelete.foreach(feature => model.getWeightSpline.remove(feature))
   }
   
   def sgdPartition(partition : Iterator[Example],
                    modelBC : Broadcast[SplineModel],
                    params : SplineTrainerParams) = {
-    val workingModel = modelBC.value
-    val output = sgdPartitionInternal(partition, workingModel, params)
-    output.iterator
+    sgdPartitionInternal(partition,  modelBC.value, params).iterator
   }
   
   def sgdPartitionMultiscale(
@@ -404,12 +385,9 @@ object SplineTrainer {
     log.info("Resampling to %d bins".format(newBins))
     workingModel
       .getWeightSpline
-      .foreach(family => {
-        family._2.foreach(feature => {
-          feature._2.resample(newBins)
-        })
-    })
-    
+      .values
+      .foreach(_.resample(newBins))
+
     val output = sgdPartitionInternal(partition, workingModel, params)
     output.iterator
   }
@@ -417,20 +395,20 @@ object SplineTrainer {
   def sgdPartitionInternal(partition : Iterator[Example],
                            workingModel : SplineModel,
                            params : SplineTrainerParams) :
-                           HashMap[(String, String), SplineModel.WeightSpline] = {
+                           mutable.Map[Feature, SplineModel.WeightSpline] = {
     @volatile var lossSum : Double = 0.0
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
       if (params.isRanking) {
         // Since this is SGD we don't want to over sample from one example
         // but we also want to make good use of the example already in RAM
-        val count = scala.math.min(params.maxSamplesPerExample, example.example.size)
+        val count = scala.math.min(params.maxSamplesPerExample, example.size)
         for (i <- 0 until count) {
           lossSum += rankAndHingeLoss(example, workingModel, params)
           lossCount = lossCount + 1 
         }
       } else {
-        lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+        lossSum += pointwiseLoss(example.only, workingModel, params.loss, params)
         lossCount = lossCount + 1 
       }
       if (lossCount % params.lossMod == 0) {
@@ -438,37 +416,28 @@ object SplineTrainer {
         lossSum = 0.0
       }
     })
-    val output = HashMap[(String, String), SplineModel.WeightSpline]()
-    workingModel
-      .getWeightSpline
-      .foreach(family => {
-        family._2.foreach(feature => {
-          output.put((family._1, feature._1), feature._2)
-        })
-    })
-    output
+    workingModel.getWeightSpline
   }
   
   def rankAndHingeLoss(example : Example,
                        workingModel : SplineModel,
                        params : SplineTrainerParams) : Double = {
-    val count = example.example.size
+    val count = example.size
     
     val idx1 = Random.nextInt(count)
-    val fv1 = example.example.get(idx1)
+    val exampleSeq: Seq[MultiFamilyVector] = example.asScala.toSeq
+    val fv1 = exampleSeq(idx1)
     var doHinge : Boolean = false
     var loss : Double = 0.0
     if (Random.nextDouble() < params.rankFraction) {
-      val label1 = TrainingUtils.getLabel(fv1, params.rankKey, params.threshold)
+      val label1 = TrainingUtils.getLabel(fv1, params.labelFamily, params.threshold)
       val idx2 = pickCounterExample(example, idx1, label1, count, params)
       if (idx2 >= 0) {
-        val fv2 = example.example.get(idx2)
-        val label2 = TrainingUtils.getLabel(fv2, params.rankKey, params.threshold)
+        val fv2 = exampleSeq(idx2)
+        val label2 = TrainingUtils.getLabel(fv2, params.labelFamily, params.threshold)
         // Can't do dropout for ranking loss since we are relying on difference of features.
-        val flatFeatures1 = Util.flattenFeature(fv1)
-        val prediction1 = workingModel.scoreFlatFeatures(flatFeatures1)
-        val flatFeatures2 = Util.flattenFeature(fv2)
-        val prediction2 = workingModel.scoreFlatFeatures(flatFeatures2)
+        val prediction1 = workingModel.scoreItem(fv1)
+        val prediction2 = workingModel.scoreItem(fv2)
         if (label1 > label2) {
           loss = scala.math.max(0.0, params.rankMargin - prediction1 + prediction2)
         } else {
@@ -478,10 +447,10 @@ object SplineTrainer {
         if (loss > 0) {
           workingModel.update(-label1.toFloat,
                               params.learningRate.toFloat,
-                              flatFeatures1)
+                              fv1)
           workingModel.update(-label2.toFloat,
                               params.learningRate.toFloat,
-                              flatFeatures2)          
+                              fv1)
         }
       } else {
         // No counter example.
@@ -497,7 +466,7 @@ object SplineTrainer {
                            "hinge",
                            params)
     }
-    return loss 
+    loss
   }
   
   // Picks the first random counter example to idx1
@@ -507,27 +476,28 @@ object SplineTrainer {
                          count : Int,
                          params : SplineTrainerParams) : Int = {
     val shuffle = Random.shuffle((0 until count).toBuffer)
-    
+    val exampleSeq = example.asScala.toSeq
+
     for (idx2 <- shuffle) {
       if (idx2 != idx1) {
         val label2 = TrainingUtils.getLabel(
-            example.example.get(idx2), params.rankKey, params.threshold)
+            exampleSeq(idx2), params.labelFamily, params.threshold)
         if (label2 != label1) {
           return idx2
         }
       }
     }
-    return -1;
+    -1
   }
   
-  def pointwiseLoss(fv : FeatureVector,
+  def pointwiseLoss(fv : MultiFamilyVector,
                     workingModel : SplineModel,
                     loss : String,
                     params : SplineTrainerParams) : Double = {
     val label: Double = if (loss == "regression") {
-      TrainingUtils.getLabel(fv, params.rankKey)
+      TrainingUtils.getLabel(fv, params.labelFamily)
     } else {
-      TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
+      TrainingUtils.getLabel(fv, params.labelFamily, params.threshold)
     }
 
     loss match {
@@ -541,11 +511,13 @@ object SplineTrainer {
   // We rescale by 1 / p so that at inference time we don't have to scale by p.
   // In our case p = 1.0 - dropout rate
   def updateLogistic(model : SplineModel,
-                     fv : FeatureVector,
+                     fv : MultiFamilyVector,
                      label : Double,
                      params : SplineTrainerParams) : Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    // TODO (Brad): withFamilyDropout will randomly drop out some DenseVectors but we shouldn't
+    // have any.
+    val flatFeatures = fv.withFamilyDropout(params.dropout)
+    val prediction = model.scoreItem(flatFeatures) / (1.0 - params.dropout)
     // To prevent blowup.
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
@@ -558,11 +530,11 @@ object SplineTrainer {
   }
 
   def updateHinge(model : SplineModel,
-                  fv : FeatureVector,
+                  fv :  MultiFamilyVector,
                   label : Double,
                   params : SplineTrainerParams) : Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val flatFeatures = fv.withFamilyDropout(params.dropout)
+    val prediction = model.scoreItem(flatFeatures) / (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
       val grad = -label
@@ -574,11 +546,11 @@ object SplineTrainer {
   }
 
   def updateRegressor(model: SplineModel,
-                      fv: FeatureVector,
+                      fv: MultiFamilyVector,
                       label: Double,
                       params : SplineTrainerParams) : Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val flatFeatures = fv.withFamilyDropout(params.dropout)
+    val prediction = model.scoreItem(flatFeatures) / (1.0 - params.dropout)
     val loss = math.abs(prediction - label) // absolute difference
     if (prediction - label > params.epsilon) {
       model.update(1.0f, params.learningRate.toFloat, flatFeatures)
@@ -591,8 +563,9 @@ object SplineTrainer {
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                          registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.Config
@@ -16,6 +17,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 class ForestTrainerTest {
+
   def makeConfig(splitCriteria : String) : String = {
     """
       |identity_transform {
@@ -85,6 +87,7 @@ class ForestTrainerTest {
 
 object ForestTrainerTestHelper {
   val log = LoggerFactory.getLogger("ForestTrainerTest")
+  val registry = new FeatureRegistry
 
   def testForestTrainer(config : Config, boost : Boolean, expectedCorrect : Double) = {
     testForestTrainerHelper(config, boost, expectedCorrect, false, false)
@@ -111,12 +114,12 @@ object ForestTrainerTestHelper {
 
     if (multiclass) {
       val (tmpEx, tmpLabels) = if (nonlinear)
-        TrainingTestHelper.makeNonlinearMulticlassClassificationExamples() else
-        TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false)
+        TrainingTestHelper.makeNonlinearMulticlassClassificationExamples(registry) else
+        TrainingTestHelper.makeSimpleMulticlassClassificationExamples(false, registry)
       examples = tmpEx
       labels = tmpLabels
     } else {
-      val (tmpEx, tmpLabel, tmpNumPos) = TrainingTestHelper.makeClassificationExamples
+      val (tmpEx, tmpLabel, tmpNumPos) = TrainingTestHelper.makeClassificationExamples(registry)
       examples = tmpEx
       label = tmpLabel
       numPos = tmpNumPos
@@ -127,15 +130,15 @@ object ForestTrainerTestHelper {
     try {
       val input = sc.parallelize(examples)
       val model = if (boost) {
-        BoostedForestTrainer.train(sc, input, config, "model_config")
+        BoostedForestTrainer.train(sc, input, config, "model_config", registry)
       } else {
-        ForestTrainer.train(sc, input, config, "model_config")
+        ForestTrainer.train(sc, input, config, "model_config", registry)
       }
 
-      val trees = model.getTrees.asScala
+      val trees = model.trees.asScala
       for (tree <- trees) {
         log.info("Tree:")
-        val stumps = tree.getStumps.asScala
+        val stumps = tree.stumps.asScala
         stumps.foreach(stump => log.info(stump.toString))
       }
 
@@ -143,9 +146,9 @@ object ForestTrainerTestHelper {
         var numCorrect: Int = 0
         for (i <- 0 until examples.length) {
           val ex = examples(i)
-          val scores = model.scoreItemMulticlass(ex.example.get(0))
-          val best = scores.asScala.sortWith((a, b) => a.score > b.score).head
-          if (best.label == labels(i)) {
+          val scores = model.scoreItemMulticlass(ex.only)
+          val best = scores.asScala.sortWith((a, b) => a.getScore > b.getScore).head
+          if (best.getLabel == labels(i)) {
             numCorrect = numCorrect + 1
           }
         }
@@ -158,7 +161,7 @@ object ForestTrainerTestHelper {
         var i : Int = 0;
         val labelArr = label.toArray
         for (ex <- examples) {
-          val score = model.scoreItem(ex.example.get(0))
+          val score = model.scoreItem(ex.only)
           if (score * labelArr(i) > 0) {
             numCorrect += 1
           }
@@ -170,32 +173,32 @@ object ForestTrainerTestHelper {
         assertTrue(fracCorrect > expectedCorrect)
       }
 
-      val swriter = new StringWriter();
-      val writer = new BufferedWriter(swriter);
-      model.save(writer);
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
       writer.close()
-      val str = swriter.toString()
+      val str = swriter.toString
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
-      assertTrue(model2Opt.isPresent())
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
+      assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
 
       if (multiclass) {
         for (ex <- examples) {
-          val score = model.scoreItemMulticlass(ex.example.get(0))
-          val score2 = model2.scoreItemMulticlass(ex.example.get(0))
+          val score = model.scoreItemMulticlass(ex.only)
+          val score2 = model2.scoreItemMulticlass(ex.only)
           assertEquals(score.size, score2.size)
           for (i <- 0 until score.size) {
-            assertEquals(score.get(i).score, score2.get(i).score, 0.1f)
+            assertEquals(score.get(i).getScore, score2.get(i).getScore, 0.1d)
           }
         }
       } else {
         for (ex <- examples) {
-          val score = model.scoreItem(ex.example.get(0))
-          val score2 = model2.scoreItem(ex.example.get(0))
-          assertEquals(score, score2, 0.01f)
+          val score = model.scoreItem(ex.only)
+          val score2 = model2.scoreItem(ex.only)
+          assertEquals(score, score2, 0.01d)
         }
       }
 

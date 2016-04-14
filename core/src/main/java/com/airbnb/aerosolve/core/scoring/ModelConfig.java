@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.core.scoring;
 
+import lombok.Builder;
 import lombok.Getter;
-import lombok.experimental.Builder;
 
 @Builder
 public class ModelConfig {

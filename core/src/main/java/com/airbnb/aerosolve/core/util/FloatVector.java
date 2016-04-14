@@ -1,12 +1,12 @@
 package com.airbnb.aerosolve.core.util;
 
+import java.io.Serializable;
+import java.util.Random;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
-import java.util.Random;
-
 // TODO change to FloatVector<T>
+// TODO (Brad): Floats to Doubles
 public class FloatVector implements Serializable {
   private static final Random rnd = new java.util.Random();
 
@@ -148,7 +148,7 @@ public class FloatVector implements Serializable {
     }
   }
 
-  public void multiplyAdd(float w, FloatVector other) {
+  public void multiplyAdd(double w, FloatVector other) {
     assert(values.length == other.values.length);
     for (int i  = 0; i < values.length; i++) {
       values[i] += w * other.values[i];

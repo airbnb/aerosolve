@@ -1,44 +1,18 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Set;
 
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class ListTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(ListTransformTest.class);
+public class ListTransformTest extends BaseTransformTest {
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.makeSimpleVector(registry);
   }
 
   public String makeConfig() {
@@ -59,31 +33,22 @@ public class ListTransformTest {
            " transforms : [test_quantize, test_cross]\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_list");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_list";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_list");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 3);
-    Set<String> out = stringFeatures.get("out");
-    assertTrue(out.size() == 4);
-    log.info("crossed quantized output");
-    for (String string : out) {
-      log.info(string);
-    }
-    assertTrue(out.contains("bbb^long=400"));
-    assertTrue(out.contains("aaa^lat=377"));
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
+
+    assertTrue(featureVector.numFamilies() == 4);
+
+    assertStringFamily(featureVector, "out", 4,
+                       ImmutableSet.of("bbb^long=400",
+                                       "aaa^lat=377"));
   }
 }

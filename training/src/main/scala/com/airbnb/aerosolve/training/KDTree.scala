@@ -35,26 +35,26 @@ class KDTree(val nodes: Array[KDTreeNode]) extends Serializable {
 
     val node = nodes(currIdx)
     builder.append("%d,%f,%f,%f,%f,%d".format(
-      currIdx, node.minX, node.minY, node.maxX, node.maxY, node.count))
+      currIdx, node.getMinX, node.getMinY, node.getMaxX, node.getMaxY, node.getCount))
     if (parent < 0) {
       builder.append(",")
     } else {
       builder.append(",%d".format(parent))
     }
-    if (node.nodeType == KDTreeNodeType.LEAF) {
+    if (node.getNodeType == KDTreeNodeType.LEAF) {
       builder.append(",TRUE,,,,")
     } else {
       builder.append(",FALSE,%d,%d,%s,%f".format(
-        node.leftChild,
-        node.rightChild,
-        (if (node.nodeType == KDTreeNodeType.X_SPLIT) "TRUE" else "FALSE"),
-        node.splitValue
+        node.getLeftChild,
+        node.getRightChild,
+        (if (node.getNodeType == KDTreeNodeType.X_SPLIT) "TRUE" else "FALSE"),
+        node.getSplitValue
         ))
     }
     csv.append(builder.toString)
-    if (node.nodeType != KDTreeNodeType.LEAF) {
-      getCSVRecursive(node.leftChild, currIdx, csv)
-      getCSVRecursive(node.rightChild, currIdx, csv)
+    if (node.getNodeType != KDTreeNodeType.LEAF) {
+      getCSVRecursive(node.getLeftChild, currIdx, csv)
+      getCSVRecursive(node.getRightChild, currIdx, csv)
     }
   }
 }

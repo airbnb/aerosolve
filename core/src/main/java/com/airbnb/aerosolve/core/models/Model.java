@@ -9,9 +9,9 @@ import com.airbnb.aerosolve.core.FeatureVector;
 interface Model {
   // Scores a single item. The transforms should already have been applied to
   // the context and item and combined item.
-  float scoreItem(FeatureVector combinedItem);
+  double scoreItem(FeatureVector combinedItem);
   // Debug scores a single item. These are explanations for why a model
   // came up with the score.
-  float debugScoreItem(FeatureVector combinedItem,
+  double debugScoreItem(FeatureVector combinedItem,
                        StringBuilder builder);
 }

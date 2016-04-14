@@ -1,9 +1,7 @@
 package com.airbnb.aerosolve.core.images;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.Color;
-import java.lang.Override;
-import java.lang.Math;
 
 /*
  Creates a histogram of Hue, saturation, value.

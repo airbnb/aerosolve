@@ -1,12 +1,23 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.features.Family;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.base.ConfigurableTransform;
 import com.typesafe.config.Config;
-
 import java.io.Serializable;
-import java.util.*;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.Value;
+import lombok.experimental.Accessors;
+import org.hibernate.validator.constraints.NotEmpty;
+
+import javax.validation.constraints.NotNull;
 
 /**
  * Applies boosted stump transform to float features and places them in string feature output.
@@ -15,70 +26,69 @@ import java.util.Map.Entry;
  * val model = sc.textFile(name).map(Util.decodeModel).take(10).map(x =&gt;
  *  "%s,%s,%f".format(x.featureFamily,x.featureName,x.threshold)).foreach(println)
  */
-public class StumpTransform implements Transform {
-  private String outputName;
-
-  private class StumpDescription implements Serializable {
-    public StumpDescription(String featureName, Double threshold, String descriptiveName) {
-      this.featureName = featureName;
-      this.threshold = threshold;
-      this.descriptiveName = descriptiveName;
-    }
-    public String featureName;
-    public Double threshold;
-    public String descriptiveName;
-  }
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+@NoArgsConstructor(access = AccessLevel.PACKAGE)
+public class StumpTransform extends ConfigurableTransform<StumpTransform> {
+  @NotNull
+  private String outputFamilyName;
+  @NotNull
+  @NotEmpty
+  private List<String> stumps;
 
   // Family -> description
-  private Map<String, List<StumpDescription>> thresholds;
+  @Setter(AccessLevel.NONE)
+  private List<StumpDescription> thresholds;
+  @Setter(AccessLevel.NONE)
+  private Family outputFamily;
 
   @Override
-  public void configure(Config config, String key) {
-    outputName = config.getString(key + ".output");
-    thresholds = new HashMap<>();
+  public StumpTransform configure(Config config, String key) {
+    return outputFamilyName(stringFromConfig(config, key, ".output"))
+        .stumps(stringListFromConfig(config, key,  ".stumps", true));
+  }
 
-    List<String> stumps = config.getStringList(key + ".stumps");
+  @Override
+  protected void setup() {
+    super.setup();
+    outputFamily = registry.family(outputFamilyName);
+    thresholds = new ArrayList<>(stumps.size());
     for (String stump : stumps) {
       String[] tokens = stump.split(",");
       if (tokens.length == 4) {
         String family = tokens[0];
         String featureName = tokens[1];
-        Double threshold = Double.parseDouble(tokens[2]);
+        Feature feature = registry.feature(family, featureName);
+        double threshold = Double.parseDouble(tokens[2]);
         String descriptiveName = tokens[3];
-        List<StumpDescription> featureList = thresholds.get(family);
-        if (featureList == null) {
-          featureList = new ArrayList<>();
-          thresholds.put(family, featureList);
-        }
-        StumpDescription description = new StumpDescription(featureName,
+        Feature outputFeature = outputFamily.feature(descriptiveName);
+        StumpDescription description = new StumpDescription(feature,
                                                             threshold,
-                                                            descriptiveName);
-        featureList.add(description);
+                                                            outputFeature);
+        thresholds.add(description);
       }
     }
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+  public void doTransform(MultiFamilyVector featureVector) {
+    for (StumpDescription stump : thresholds) {
+      if (!featureVector.containsKey(stump.feature())) {
+        continue;
+      }
 
-    if (floatFeatures == null) {
-      return;
-    }
-
-    Util.optionallyCreateStringFeatures(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
-
-    for (Entry<String, List<StumpDescription>> stumpFamily : thresholds.entrySet()) {
-      Map<String, Double> feature = floatFeatures.get(stumpFamily.getKey());
-      if (feature == null) continue;
-      for (StumpDescription desc : stumpFamily.getValue()) {
-        Double value = feature.get(desc.featureName);
-        if (value != null && value >= desc.threshold) {
-          output.add(desc.descriptiveName);
-        }
+      double value = featureVector.getDouble(stump.feature());
+      if (value >= stump.threshold()) {
+        featureVector.putString(stump.outputFeature());
       }
     }
+  }
+
+  @Value
+  private static class StumpDescription implements Serializable {
+    private final Feature feature;
+    private final double threshold;
+    private final Feature outputFeature;
   }
 }

@@ -36,33 +36,33 @@ class NDTreeTest {
     log.info("Number of nodes = %d".format(nodes.length))
 
     // Since the y dimension is largest, we expect the first node to be a split along the y axis
-    assertEquals(1, nodes(0).axisIndex)
-    assertEquals(21.0, nodes(0).splitValue, 0)
-    assertEquals(1, nodes(0).leftChild)
-    assertEquals(2, nodes(0).rightChild)
+    assertEquals(1, nodes(0).getAxisIndex)
+    assertEquals(21.0, nodes(0).getSplitValue, 0)
+    assertEquals(1, nodes(0).getLeftChild)
+    assertEquals(2, nodes(0).getRightChild)
 
     // Ensure every point is bounded in the box of the kdtree
     for (point <- points) {
       val res = tree.query(point)
       for (index <- res) {
         for (i <- 0 until dimensions) {
-          assert(point(i) >= nodes(index).min.get(i))
-          assert(point(i) <= nodes(index).max.get(i))
+          assert(point(i) >= nodes(index).getMin.get(i))
+          assert(point(i) <= nodes(index).getMax.get(i))
         }
       }
     }
 
     // Ensure all nodes are sensible
     for (node <- nodes) {
-      assert(node.count > 0)
+      assert(node.getCount > 0)
 
       for (i <- 0 until dimensions) {
-        assert(node.min.get(i) <= node.max.get(i))
+        assert(node.getMin.get(i) <= node.getMax.get(i))
       }
 
-      if (node.axisIndex != NDTreeModel.LEAF) {
-        assert(node.leftChild >= 0 && node.leftChild < nodes.length)
-        assert(node.rightChild >= 0 && node.rightChild < nodes.length)
+      if (node.getAxisIndex != NDTreeModel.LEAF) {
+        assert(node.getLeftChild >= 0 && node.getLeftChild < nodes.length)
+        assert(node.getRightChild >= 0 && node.getRightChild < nodes.length)
       }
     }
   }
@@ -92,33 +92,33 @@ class NDTreeTest {
     log.info("Number of nodes = %d".format(nodes.length))
 
     // Since the x dimension is largest, we expect the first node to be a split along the x axis
-    assertEquals(0, nodes(0).axisIndex)
-    assertEquals(-1.81, nodes(0).splitValue, 0.1)
-    assertEquals(1, nodes(0).leftChild)
-    assertEquals(2, nodes(0).rightChild)
+    assertEquals(0, nodes(0).getAxisIndex)
+    assertEquals(-1.81, nodes(0).getSplitValue, 0.1)
+    assertEquals(1, nodes(0).getLeftChild)
+    assertEquals(2, nodes(0).getRightChild)
 
     // Ensure every point is bounded in the box of the kdtree
     for (point <- points) {
       val res = tree.query(point)
       for (index <- res) {
         for (i <- 0 until dimensions) {
-          assert(point(i) >= nodes(index).min.get(i))
-          assert(point(i) <= nodes(index).max.get(i))
+          assert(point(i) >= nodes(index).getMin.get(i))
+          assert(point(i) <= nodes(index).getMax.get(i))
         }
       }
     }
 
     // Ensure all nodes are sensible
     for (node <- nodes) {
-      assert(node.count > 0)
+      assert(node.getSplitValue > 0)
 
       for (i <- 0 until dimensions) {
-        assert(node.min.get(i) <= node.max.get(i))
+        assert(node.getMin.get(i) <= node.getMax.get(i))
       }
 
-      if (node.axisIndex != NDTreeModel.LEAF) {
-        assert(node.leftChild >= 0 && node.leftChild < nodes.length)
-        assert(node.rightChild >= 0 && node.rightChild < nodes.length)
+      if (node.getAxisIndex != NDTreeModel.LEAF) {
+        assert(node.getLeftChild >= 0 && node.getLeftChild < nodes.length)
+        assert(node.getRightChild >= 0 && node.getRightChild < nodes.length)
       }
     }
   }

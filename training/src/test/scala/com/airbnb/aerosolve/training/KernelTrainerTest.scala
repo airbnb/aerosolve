@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.airbnb.aerosolve.core.ModelRecord
 import com.typesafe.config.ConfigFactory
@@ -15,6 +16,7 @@ import scala.collection.JavaConversions
 
 class KernelTrainerTest {
   val log = LoggerFactory.getLogger("KernelTrainerTest")
+  val registry = new FeatureRegistry
 
   def makeConfig(loss : String, kernel : String) : String = {
     """
@@ -73,7 +75,7 @@ class KernelTrainerTest {
   def testKernelClassificationTrainer(loss : String,
                                       kernel : String,
                                       expectedCorrect : Double) = {
-    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
+    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples(registry)
 
     var sc = new SparkContext("local", "KernelTrainerTest")
 
@@ -81,13 +83,13 @@ class KernelTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(loss, kernel))
 
       val input = sc.parallelize(examples)
-      val model = KernelTrainer.train(sc, input, config, "model_config")
+      val model = KernelTrainer.train(sc, input, config, "model_config", registry)
 
       var numCorrect : Int = 0
       var i : Int = 0
       val labelArr = label.toArray
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         if (score * labelArr(i) > 0) {
           numCorrect += 1
         }
@@ -98,7 +100,7 @@ class KernelTrainerTest {
                  .format(numCorrect, fracCorrect, numPos, examples.length - numPos))
       assertTrue(fracCorrect > expectedCorrect)
       
-      for (sv <- model.getSupportVectors().asScala) {
+      for (sv <- model.supportVectors.asScala) {
         log.info(sv.toModelRecord.toString)
       }
 
@@ -110,13 +112,13 @@ class KernelTrainerTest {
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
       assertTrue(model2Opt.isPresent())
       val model2 = model2Opt.get()
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
-        val score2 = model2.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
+        val score2 = model2.scoreItem(ex.only)
         assertEquals(score, score2, 0.01f)
       }
 
@@ -131,7 +133,7 @@ class KernelTrainerTest {
   def testKernelRegressionTrainer(loss : String,
                                   kernel : String,
                                   maxError : Double) = {
-    val (examples, label) = TrainingTestHelper.makeRegressionExamples()
+    val (examples, label) = TrainingTestHelper.makeRegressionExamples(registry)
 
     var sc = new SparkContext("local", "testKernelRegressionTrainerTest")
 
@@ -139,9 +141,9 @@ class KernelTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(loss, kernel))
 
       val input = sc.parallelize(examples)
-      val model = KernelTrainer.train(sc, input, config, "model_config")
+      val model = KernelTrainer.train(sc, input, config, "model_config", registry)
 
-      for (sv <- model.getSupportVectors().asScala) {
+      for (sv <- model.supportVectors.asScala) {
         log.info(sv.toModelRecord.toString)
       }
 
@@ -150,7 +152,7 @@ class KernelTrainerTest {
       var totalError : Double = 0
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val exampleLabel = labelArr(i)
 
         totalError += math.abs(score - exampleLabel)

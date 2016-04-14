@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.{Feature, FeatureRegistry}
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
 import com.airbnb.aerosolve.core.models.{ModelFactory, SplineModel}
 import com.typesafe.config.ConfigFactory
@@ -14,26 +15,23 @@ import scala.collection.JavaConverters._
 
 class SplineTrainerTest {
   val log = LoggerFactory.getLogger("SplineTrainerTest")
+  val registry = new FeatureRegistry
 
   def makeSplineModel() : SplineModel = {
-    val model: SplineModel = new SplineModel()
-    val weights = new java.util.HashMap[String, java.util.Map[String, WeightSpline]]()
-    val innerA = new java.util.HashMap[String, WeightSpline]
-    val innerB = new java.util.HashMap[String, WeightSpline]
+    val model: SplineModel = new SplineModel(registry)
+    val weights = new java.util.HashMap[Feature, WeightSpline]()
     val a = new WeightSpline(1.0f, 10.0f, 2)
     val b = new WeightSpline(1.0f, 10.0f, 2)
     a.splineWeights(0) = 1.0f
     a.splineWeights(1) = 2.0f
     b.splineWeights(0) = 1.0f
     b.splineWeights(1) = 5.0f
-    weights.put("A", innerA)
-    weights.put("B", innerB)
-    innerA.put("a", a)
-    innerB.put("b", b)
+    weights.put(registry.feature("A", "a"), a)
+    weights.put(registry.feature("B", "b"), b)
     model.setNumBins(2)
     model.setWeightSpline(weights)
-    model.setOffset(0.5f)
-    model.setSlope(1.5f)
+    model.offset(0.5f)
+    model.slope(1.5f)
     model
   }
 
@@ -136,7 +134,7 @@ class SplineTrainerTest {
   }
 
   def testSplineTrainer(loss : String, dropout : Double, extraArgs : String) = {
-    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples
+    val (examples, label, numPos) = TrainingTestHelper.makeClassificationExamples(registry)
 
     var sc = new SparkContext("local", "SplineTest")
 
@@ -144,7 +142,7 @@ class SplineTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(loss, dropout, extraArgs))
 
       val input = sc.parallelize(examples)
-      val model = SplineTrainer.train(sc, input, config, "model_config")
+      val model = SplineTrainer.train(sc, input, config, "model_config", registry)
 
       TrainingTestHelper.printSpline(model)
 
@@ -152,7 +150,7 @@ class SplineTrainerTest {
       var i : Int = 0
       val labelArr = label.toArray
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         if (score * labelArr(i) > 0) {
           numCorrect += 1
         }
@@ -167,19 +165,19 @@ class SplineTrainerTest {
       val writer = new BufferedWriter(swriter)
       model.save(writer)
       writer.close()
-      val str = swriter.toString()
+      val str = swriter.toString
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
       log.info(str)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
-      assertTrue(model2Opt.isPresent())
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
+      assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
 
       for (ex <- examples) {
-        val score = model.scoreItem(ex.example.get(0))
-        val score2 = model2.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
+        val score2 = model2.scoreItem(ex.only)
         assertEquals(score, score2, 0.01f)
       }
 
@@ -195,54 +193,51 @@ class SplineTrainerTest {
   def testAddSpline(): Unit = {
     val model = makeSplineModel()
     // add an existing feature without overwrite
-    model.addSpline("A", "a", 0.0f, 1.0f, false)
+    model.addSpline(registry.feature("A", "a"), 0.0d, 1.0d, false)
     // add an existing feature with overwrite
-    model.addSpline("B", "b", 0.0f, 1.0f, true)
+    model.addSpline(registry.feature("B", "b"), 0.0d, 1.0d, true)
     // add a new family with overwrite
-    model.addSpline("C", "c", 0.0f, 1.0f, true)
+    model.addSpline(registry.feature("C", "c"), 0.0d, 1.0d, true)
     val weights = model.getWeightSpline.asScala
-    for (familyMap <- weights) {
-      for (featureMap <- familyMap._2.asScala) {
-        val family = familyMap._1
-        val feature = featureMap._1
-        val spline = featureMap._2.spline
-        log.info(("family=%s,feature=%s,minVal=%f, maxVal=%f, weights=%s")
-                   .format(family, feature, spline.getMinVal, spline.getMaxVal, spline.toString))
-        if (family.equals("A")) {
-          assertTrue(feature.equals("a"))
-          assertEquals(spline.getMaxVal, 10.0f, 0.01f)
-          assertEquals(spline.getMinVal, 1.0f, 0.01f)
-          assertEquals(spline.evaluate(1.0f), 1.0f, 0.01f)
-          assertEquals(spline.evaluate(10.0f), 2.0f, 0.01f)
-        } else if (family.equals("B")) {
-          assertTrue(feature.equals("b"))
-          assertEquals(spline.getMaxVal, 1.0f, 0.01f)
-          assertEquals(spline.getMinVal, 0.0f, 0.01f)
-        } else {
-          assertTrue(family.equals("C"))
-          assertTrue(feature.equals("c"))
-          assertEquals(spline.getMaxVal, 1.0f, 0.01f)
-          assertEquals(spline.getMinVal, 0.0f, 0.01f)
-        }
+    for ((feature, weightSpline) <- weights) {
+      val family = feature.family.name
+      val spline = weightSpline.spline
+      log.info("family=%s,feature=%s,minVal=%f, maxVal=%f, weights=%s"
+                 .format(family, feature.name, spline.getMinVal, spline.getMaxVal, spline.toString))
+      if (family.equals("A")) {
+        assertTrue(feature.name.equals("a"))
+        assertEquals(spline.getMaxVal, 10.0f, 0.01f)
+        assertEquals(spline.getMinVal, 1.0f, 0.01f)
+        assertEquals(spline.evaluate(1.0f), 1.0f, 0.01f)
+        assertEquals(spline.evaluate(10.0f), 2.0f, 0.01f)
+      } else if (family.equals("B")) {
+        assertTrue(feature.name.equals("b"))
+        assertEquals(spline.getMaxVal, 1.0f, 0.01f)
+        assertEquals(spline.getMinVal, 0.0f, 0.01f)
+      } else {
+        assertTrue(family.equals("C"))
+        assertTrue(feature.name.equals("c"))
+        assertEquals(spline.getMaxVal, 1.0f, 0.01f)
+        assertEquals(spline.getMinVal, 0.0f, 0.01f)
       }
     }
   }
 
   @Test
   def testSplineRegression(): Unit = {
-    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples()
+    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples(registry)
     var sc = new SparkContext("local", "SplineRegressionTest")
     try {
-      val config = ConfigFactory.parseString(makeRegressionConfig)
+      val config = ConfigFactory.parseString(makeRegressionConfig())
       val input = sc.parallelize(trainingExample)
-      val model = SplineTrainer.train(sc, input, config, "model_config")
+      val model = SplineTrainer.train(sc, input, config, "model_config", registry)
       TrainingTestHelper.printSpline(model)
       val trainLabelArr = trainingLabel.toArray
       var trainTotalError : Double = 0
       var i = 0
       // compute training error
       for (ex <- trainingExample) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val label = trainLabelArr(i)
         trainTotalError += math.abs(score - label)
         i += 1
@@ -253,13 +248,13 @@ class SplineTrainerTest {
       assertTrue(trainError < 3.0)
 
       // compute testing error
-      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(25)
+      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(registry, 25)
       val testLabelArr = testingLabel.toArray
       var testTotalError : Double = 0
       // compute training error
       i = 0
       for (ex <- testingExample) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val label = testLabelArr(i)
         testTotalError += math.abs(score - label)
         i += 1

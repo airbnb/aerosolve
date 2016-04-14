@@ -1,25 +1,15 @@
 package com.airbnb.aerosolve.training
 
-import java.util
-
+import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
+import com.airbnb.aerosolve.core.features.{MultiFamilyVector, Family, FeatureRegistry}
 import com.airbnb.aerosolve.core.models.KernelModel
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.FeatureVector
-import com.airbnb.aerosolve.core.FunctionForm
-import com.airbnb.aerosolve.core.ModelRecord
-import com.airbnb.aerosolve.core.util.FloatVector
-import com.airbnb.aerosolve.core.util.StringDictionary
-import com.airbnb.aerosolve.core.util.SupportVector
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.util.{FloatVector, SupportVector}
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.util.Random
 import scala.util.Try
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 
 // Simple SGD based kernel trainer. Mostly so we can test the kernel model for online use.
 // TODO(hector_yee) : if this gets more heavily used add in regularization and better training.
@@ -29,20 +19,21 @@ object KernelTrainer {
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : KernelModel = {
+            key : String,
+            registry: FeatureRegistry) : KernelModel = {
     val modelConfig = config.getConfig(key)
     val candidateSize : Int = modelConfig.getInt("num_candidates")
     val kernel : String = modelConfig.getString("kernel")
     val maxSV : Int = modelConfig.getInt("max_vectors")
     val scale : Float = modelConfig.getDouble("scale").toFloat
 
-    val learningRate : Float = Try(modelConfig.getDouble("learning_rate").toFloat).getOrElse(0.1f)
-    val rankKey : String = modelConfig.getString("rank_key")
-    val rankThreshold : Double = Try(modelConfig.getDouble("rank_threshold")).getOrElse(0.0f)
+    val learningRate : Double = Try(modelConfig.getDouble("learning_rate")).getOrElse(0.1d)
+    val labelFamily : Family = registry.family(modelConfig.getString("rank_key"))
+    val rankThreshold : Double = Try(modelConfig.getDouble("rank_threshold")).getOrElse(0.0d)
 
     val examples = LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
-    val model = initModel(modelConfig, examples)
+        .makePointwiseFloat(input, config, key, registry)
+    val model = initModel(modelConfig, examples, registry)
         
     val loss : String = modelConfig.getString("loss")
         
@@ -50,12 +41,12 @@ object KernelTrainer {
 
     // Super simple SGD trainer. Mostly to get the unit test to pass
     for (candidate <- candidates) {
-      val gradient = computeGradient(model, candidate.example(0), loss, rankKey, rankThreshold)
+      val gradient = computeGradient(model, candidate.only, loss, labelFamily, rankThreshold)
       if (gradient != 0.0) {
-        val flatFeatures = Util.flattenFeature(candidate.example(0));
-        val vec = model.getDictionary().makeVectorFromSparseFloats(flatFeatures);
+        val vector = candidate.only
+        val vec = model.dictionary.makeVectorFromSparseFloats(vector)
         addNewSupportVector(model, kernel, scale, vec, maxSV)
-        model.onlineUpdate(gradient, learningRate, flatFeatures)
+        model.onlineUpdate(gradient, learningRate, vector)
       }
     }
    
@@ -63,7 +54,7 @@ object KernelTrainer {
   }
 
   def addNewSupportVector(model : KernelModel, kernel : String, scale : Float, vec : FloatVector, maxSV : Int) = {
-    val supportVectors = model.getSupportVectors()
+    val supportVectors = model.supportVectors
     if (supportVectors.size() < maxSV) {
       val form = kernel match {
         case "rbf" => FunctionForm.RADIAL_BASIS_FUNCTION
@@ -73,16 +64,21 @@ object KernelTrainer {
           case 1 => FunctionForm.ARC_COSINE
         }
       }
-      val sv = new SupportVector(vec, form, scale, 0.0f);
-      supportVectors.add(sv);
+      val sv = new SupportVector(vec, form, scale, 0.0f)
+      supportVectors.add(sv)
     }
   }
 
   def computeGradient(model : KernelModel,
-                      fv : FeatureVector,
-                      loss : String, rankKey : String, rankThreshold : Double) : Float = {
+                      fv : MultiFamilyVector,
+                      loss : String, labelFamily : Family, rankThreshold : Double) : Double = {
     val prediction = model.scoreItem(fv)
-    val label = if (loss == "hinge") TrainingUtils.getLabel(fv, rankKey, rankThreshold) else TrainingUtils.getLabel(fv, rankKey)
+    val label = if (loss == "hinge") {
+      TrainingUtils.getLabel(fv, labelFamily, rankThreshold)
+    } else {
+      TrainingUtils.getLabel(fv, labelFamily)
+    }
+
     loss match {
       case "hinge" => {
         val lossVal = scala.math.max(0.0, 1.0 - label * prediction)
@@ -93,27 +89,27 @@ object KernelTrainer {
       case "regression" => {
         val diff = prediction - label
         if (diff > 1.0) {
-          return 1.0f
+          return 1.0d
         }
         if (diff < -1.0) {
-          return -1.0f
+          return -1.0d
         }
       }
     }
-    return 0.0f;
+    0.0d
   }
 
-  def initModel(modelConfig : Config, examples : RDD[Example]) : KernelModel = {
+  def initModel(modelConfig : Config, examples : RDD[Example], registry: FeatureRegistry) : KernelModel = {
     val minCount : Int = modelConfig.getInt("min_count")
-    val rankKey : String = modelConfig.getString("rank_key")
+    val labelFamily : Family = registry.family(modelConfig.getString("rank_key"))
     
     log.info("Building dictionary")
     val stats = TrainingUtils.getFeatureStatistics(minCount, examples)
     log.info(s"Dictionary size is ${stats.size}")
-    val dictionary = TrainingUtils.createStringDictionaryFromFeatureStatistics(stats, Set(rankKey))
+    val dictionary = TrainingUtils.createStringDictionaryFromFeatureStatistics(stats, Set(labelFamily))
     
-    val model = new KernelModel()
-    model.setDictionary(dictionary)
+    val model = new KernelModel(registry)
+    model.dictionary(dictionary)
     
     model
   }
@@ -121,8 +117,9 @@ object KernelTrainer {
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                         registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + "model_output")
   }
 }

@@ -1,7 +1,6 @@
 package com.airbnb.aerosolve.core.images;
 
 import java.awt.image.BufferedImage;
-import java.lang.Override;
 
 /*
  Creates a histogram of local binary patterns

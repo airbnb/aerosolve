@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.ModelFactory
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
@@ -13,6 +14,7 @@ import scala.collection.JavaConverters._
 
 class FullRankLinearModelTest {
   val log = LoggerFactory.getLogger("FullRankLinearModelTest")
+  val registry = new FeatureRegistry
 
   def makeConfig(loss : String, lambda : Double, solver : String) : String = {
     """
@@ -82,7 +84,8 @@ class FullRankLinearModelTest {
                          solver : String,
                          multiLabel : Boolean,
                          expectedCorrect : Double) = {
-    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(multiLabel)
+    val (examples, labels) = TrainingTestHelper.makeSimpleMulticlassClassificationExamples(multiLabel,
+                                                                                           registry)
 
     var sc = new SparkContext("local", "FullRankLinearTest")
 
@@ -90,9 +93,9 @@ class FullRankLinearModelTest {
       val config = ConfigFactory.parseString(makeConfig(loss, lambda, solver))
 
       val input = sc.parallelize(examples)
-      val model = FullRankLinearTrainer.train(sc, input, config, "model_config")
+      val model = FullRankLinearTrainer.train(sc, input, config, "model_config", registry)
 
-      val weightVector = model.getWeightVector.asScala
+      val weightVector = model.weightVector.asScala
       for (wv <- weightVector) {
         log.info(wv.toString())
       }
@@ -100,9 +103,9 @@ class FullRankLinearModelTest {
       var numCorrect: Int = 0
       for (i <- 0 until examples.length) {
         val ex = examples(i)
-        val scores = model.scoreItemMulticlass(ex.example.get(0))
-        val best = scores.asScala.sortWith((a, b) => a.score > b.score).head
-        if (best.label == labels(i)) {
+        val scores = model.scoreItemMulticlass(ex.only)
+        val best = scores.asScala.sortWith((a, b) => a.getScore > b.getScore).head
+        if (best.getLabel == labels(i)) {
           numCorrect = numCorrect + 1
         }
       }
@@ -119,18 +122,18 @@ class FullRankLinearModelTest {
       val sreader = new StringReader(str)
       val reader = new BufferedReader(sreader)
 
-      val model2Opt = ModelFactory.createFromReader(reader)
+      val model2Opt = ModelFactory.createFromReader(reader, registry)
       assertTrue(model2Opt.isPresent)
       val model2 = model2Opt.get()
       val labelCount = if (multiLabel) 6 else 4
 
       for (ex <- examples) {
-        val score = model.scoreItemMulticlass(ex.example.get(0))
-        val score2 = model2.scoreItemMulticlass(ex.example.get(0))
+        val score = model.scoreItemMulticlass(ex.only)
+        val score2 = model2.scoreItemMulticlass(ex.only)
         assertEquals(score.size, labelCount)
         assertEquals(score.size, score2.size)
         for (i <- 0 until labelCount) {
-          assertEquals(score.get(i).score, score2.get(i).score, 0.1f)
+          assertEquals(score.get(i).getScore, score2.get(i).getScore, 0.1d)
         }
       }
 

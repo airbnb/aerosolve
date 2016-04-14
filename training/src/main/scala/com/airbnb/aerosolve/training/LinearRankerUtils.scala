@@ -2,6 +2,8 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.FeatureVector
+import com.airbnb.aerosolve.core.features._
+import com.airbnb.aerosolve.core.models.AbstractModel
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.typesafe.config.Config
 import org.slf4j.{LoggerFactory, Logger}
@@ -17,88 +19,65 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-case class CompressedExample(pos : Array[(String, String)],
-                             neg : Array[(String, String)],
-                             label : Double);
+case class CompressedExample(pos : Array[Feature],
+                             neg : Array[Feature],
+                             label : Double)
 
 object LinearRankerUtils {
   private final val log: Logger = LoggerFactory.getLogger("LinearRankerUtils")
 
-  def getFeatures(sample : FeatureVector) : Array[(String, String)] = {
-    val features = HashSet[(String, String)]()
-    sample.stringFeatures.foreach(family => {
-      family._2.foreach(value => {
-        features.add((family._1, value))
-      })
-    })
-    features.toArray
+  def getLabel(vector : MultiFamilyVector, labelFamily: Family): Int = {
+    vector.get(labelFamily).iterator.next.value.toInt
+  }
+
+  def getFeatures(vector : Iterable[FeatureValue]) : Iterable[Feature] = {
+    vector.map(fv => fv.feature)
   }
 
   // Does feature expansion on an example and buckets them by rank.
-  def expandAndBucketizeExamples(
-                                 examples : Example,
-                                 transformer : Transformer,
-                                 rankKey : String) :
-  Array[Array[Array[(String, String)]]] = {
-    transformer.combineContextAndItems(examples)
-    val samples : Seq[FeatureVector] = examples.example
-    val buckets = HashMap[Int, Buffer[Array[(String, String)]]]()
-    samples
-      .filter(x => x.stringFeatures != null &&
-                   x.floatFeatures != null &&
-                   x.floatFeatures.get(rankKey) != null)
-      .foreach(sample => {
-      val rankBucket : Int = sample.floatFeatures.get(rankKey).toSeq.head._2.toInt
-      val features = getFeatures(sample)
-      val entryOpt = buckets.get(rankBucket)
-      if (entryOpt.isEmpty) {
-        buckets.put(rankBucket, ArrayBuffer(features))
-      } else {
-        entryOpt.get.append(features)
-      }
-    })
-    // Sort buckets in ascending order.
-    buckets
-      .toBuffer
-      .sortWith((x,y) => x._1 < y._1)
-      .map(x => x._2.toArray)
+  // Assumes the example is transformed and contains a label.
+  def expandAndBucketizeExample(example : Iterable[MultiFamilyVector],
+                                labelFamily : Family) :
+  Array[Array[Iterable[Feature]]] = {
+    example
+      .map(sample => {
+        val labelBucket : Int = getLabel(sample, labelFamily)
+        val features = getFeatures(sample)
+        (labelBucket, features)
+      })
+      .groupBy(_._1)
+      .toSeq
+      // Sort buckets in ascending order.
+      .sortBy(_._1)
+      .map{ case (_, iter) => iter.map(_._2).toArray }
       .toArray
   }
 
-  // Makes ranking training data
-  def rankingTrain(input : RDD[Example], config : Config, key : String) :
-  RDD[CompressedExample] = {
-    input
-      .mapPartitions(partition => {
-      val output = ArrayBuffer[CompressedExample]()
-      val rnd = new Random()
-      val rankKey: String = config.getString(key + ".rank_key")
-      val transformer = new Transformer(config, key)
-      partition.foreach(examples => {
-        val buckets = LinearRankerUtils.expandAndBucketizeExamples(examples, transformer, rankKey)
-        for (i <- 0 to buckets.size - 2) {
-          for (j <- i + 1 to buckets.size - 1) {
-            val neg = buckets(i)(rnd.nextInt(buckets(i).size)).toSet
-            val pos = buckets(j)(rnd.nextInt(buckets(j).size)).toSet
-            val intersect = pos.intersect(neg)
-            // For ranking we have pairs of examples with label always 1.0.
-            val out = CompressedExample(pos.diff(intersect).toArray,
-                                        neg.diff(intersect).toArray,
-                                        label = 1.0)
-            output.append(out)
-          }
-        }
-      })
-      output.iterator
-    })
+  def rankingCompression(example : Iterable[MultiFamilyVector], labelFamily : Family) : Seq[CompressedExample] = {
+    val output = ArrayBuffer[CompressedExample]()
+    val buckets = expandAndBucketizeExample(example, labelFamily)
+    val rnd = new Random()
+    for (i <- 0 to buckets.length - 2) {
+      for (j <- i + 1 to buckets.length - 1) {
+        val neg = buckets(i)(rnd.nextInt(buckets(i).length)).toSet
+        val pos = buckets(j)(rnd.nextInt(buckets(j).length)).toSet
+        val intersect = pos.intersect(neg)
+        // For ranking we have pairs of examples with label always 1.0.
+        val out = CompressedExample(pos.diff(intersect).toArray,
+                                    neg.diff(intersect).toArray,
+                                    label = 1.0)
+        output.append(out)
+      }
+    }
+    output.toSeq
   }
 
-  def score(feature : Array[(String, String)],
-             weightMap : collection.mutable.Map[(String, String), (Double, Double)]) : Double = {
+  def score(vector : Iterable[Feature],
+            weightMap : collection.mutable.Map[Feature, (Double, Double)]) : Double = {
     var sum : Double = 0
-    feature.foreach(v => {
-      val opt = weightMap.get(v)
-      if (opt != None) {
+    vector.iterator.foreach(feature => {
+      val opt = weightMap.get(feature)
+      if (opt.isDefined) {
         sum += opt.get._1
       }
     })
@@ -107,78 +86,34 @@ object LinearRankerUtils {
 
   // Makes an example pointwise while preserving the float features.
   def makePointwiseFloat(
-                    examples : RDD[Example],
-                    config : Config,
-                    key : String) : RDD[Example] = {
-    val transformer = new Transformer(config, key)
-    examples.map(example => {
-      val buffer = collection.mutable.ArrayBuffer[Example]()
-      example.example.asScala.foreach(x => {
-        val newExample = new Example()
-        newExample.setContext(example.context)
-        newExample.addToExample(x)
-        transformer.combineContextAndItems(newExample)
-        buffer.append(newExample)
+                          examples : RDD[Example],
+                          config : Config,
+                          key : String,
+                          registry: FeatureRegistry) : RDD[Example] = {
+    val transformer = new Transformer(config, key, registry)
+    examples.flatMap(example => {
+      example.map(vector => {
+        // TODO (Brad): Why make a new one? Also, why make separate examples for each vector?
+        val newExample = new SimpleExample(registry)
+        newExample.context().merge(example.context())
+        newExample.createVector().merge(vector)
+        newExample.transform(transformer)
       })
-      buffer
     })
-    .flatMap(x => x)
   }
   
   // Transforms an RDD of examples
   def transformExamples(
-                    examples : RDD[Example],
-                    config : Config,
-                    key : String) : RDD[Example] = {
-    val transformer = new Transformer(config, key)
-    examples.map(example => {
-        transformer.combineContextAndItems(example)
-        example.unsetContext()
-        example
-      })
+                        examples : RDD[Example],
+                        config : Config,
+                        key : String,
+                        registry: FeatureRegistry) : RDD[Example] = {
+    val transformer = new Transformer(config, key, registry)
+    examples.map(_.transform(transformer))
   }
 
-  // Since examples are bags of user impressions, for pointwise algoriths
-  // we need to shuffle each feature vector separately.
-  def makePointwise(examples : RDD[Example],
-                    config : Config,
-                    key : String,
-                    rankKey : String) : RDD[Example] = {
-    val transformer = new Transformer(config, key)
-    examples.map(example => {
-      val buffer = collection.mutable.ArrayBuffer[Example]()
-      example.example.asScala.foreach{x => {
-        val newExample = new Example()
-        newExample.setContext(example.context)
-        newExample.addToExample(x)
-        transformer.combineContextAndItems(newExample)
-        // For space reasons remove all float features except rankKey.
-        val floatFeatures = newExample.example.get(0).getFloatFeatures
-        if (floatFeatures != null) {
-          val rank : java.util.Map[java.lang.String, java.lang.Double] =
-            floatFeatures.get(rankKey)
-          val newFloat : java.util.Map[java.lang.String,
-            java.util.Map[java.lang.String, java.lang.Double]] =
-            new java.util.HashMap()
-          newFloat.put(rankKey, rank)
-          newExample.example.get(0).setFloatFeatures(newFloat)
-        }
-        buffer.append(newExample)
-      }}
-      buffer
-    })
-      .flatMap(x => x)
-  }
-
-  def makePointwiseCompressed(examples : RDD[Example],
-                    config : Config,
-                    key : String) : RDD[CompressedExample] = {
-    val rankKey: String = config.getString(key + ".rank_key")
-    val pointwise = makePointwise(examples, config, key, rankKey)
-    pointwise.map(example => {
-      val ex = example.example.get(0)
-      val label = ex.floatFeatures.get(rankKey).entrySet().iterator().next().getValue
-      CompressedExample(getFeatures(ex), Array[(String, String)](), label)
-    })
-  }
+  // TODO (Brad): I removed makePointwise. It removed all float features besides the label family.
+  // Now that we don't distinguish float and String, I'm not sure how to do this and I'm worried
+  // it will break something.  The comment said it was for space reasons and if so,
+  // maybe we can skip it with the more efficient representation.
 }

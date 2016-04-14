@@ -4,22 +4,24 @@ import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
 import com.airbnb.aerosolve.core.util.FloatVector;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
 /**
  * Created by hector_yee on 8/25/14.
  * Base class for models
  */
-
+@Accessors(fluent = true, chain = true)
 public abstract class AbstractModel implements Model, Serializable {
 
   private static final long serialVersionUID = -5011350794437028492L;
@@ -29,14 +31,20 @@ public abstract class AbstractModel implements Model, Serializable {
 
   @Getter @Setter
   protected double slope = 1.0;
+  @Getter
+  protected final FeatureRegistry registry;
+
+  public AbstractModel(FeatureRegistry registry) {
+    this.registry = registry;
+  }
 
   // Scores a single item. The transforms should already have been applied to
   // the context and item and combined item.
-  abstract public float scoreItem(FeatureVector combinedItem);
+  abstract public double scoreItem(FeatureVector combinedItem);
 
   // Debug scores a single item. These are explanations for why a model
   // came up with the score.
-  abstract public float debugScoreItem(FeatureVector combinedItem,
+  abstract public double debugScoreItem(FeatureVector combinedItem,
                                        StringBuilder builder);
 
   abstract public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem);
@@ -47,7 +55,7 @@ public abstract class AbstractModel implements Model, Serializable {
   abstract public void save(BufferedWriter writer) throws IOException;
 
   // returns probability: 1 / (1 + exp(-(offset + scale * score))
-  public double scoreProbability(float score) {
+  public double scoreProbability(double score) {
     return 1.0 / (1.0 + Math.exp(-(offset + slope * score)));
   }
   
@@ -62,16 +70,16 @@ public abstract class AbstractModel implements Model, Serializable {
   public void scoreToProbability(ArrayList<MulticlassScoringResult> results) {
     FloatVector vec = new FloatVector(results.size());
     for (int i = 0; i < results.size(); i++) {
-      vec.values[i] = (float) results.get(i).score;
+      vec.values[i] = (float) results.get(i).getScore();
     }
     vec.softmax();
     for (int i = 0; i < results.size(); i++) {
-      results.get(i).probability = vec.values[i];
+      results.get(i).setProbability(vec.values[i]);
     }
   }
 
   // Optional method implemented by online updatable models e.g. Spline, RBF
-  public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
+  public void onlineUpdate(double grad, double learningRate, FeatureVector vector) {
     assert(false);
   }
 
@@ -97,5 +105,9 @@ public abstract class AbstractModel implements Model, Serializable {
     }
     float step = (float) Math.max(0.0, Math.abs(wt) - l1Reg * etaTHalf);
     return sign * step;
+  }
+
+  public boolean needsFeature(Feature feature) {
+    return true;
   }
 }

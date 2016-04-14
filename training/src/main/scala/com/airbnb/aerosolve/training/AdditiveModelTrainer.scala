@@ -1,9 +1,9 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
-import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
+import com.airbnb.aerosolve.core.features.{Family, Feature, FeatureRegistry, MultiFamilyVector}
+import com.airbnb.aerosolve.core.functions.{Function, Linear, Spline}
 import com.airbnb.aerosolve.core.models.AdditiveModel
-import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
@@ -12,7 +12,6 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -32,7 +31,7 @@ object AdditiveModelTrainer {
 
   case class AdditiveTrainerParams(numBins: Int,
                                    numBags: Int,
-                                   rankKey: String,
+                                   labelFamily: Family,
                                    loss: String,
                                    minCount: Int,
                                    learningRate: Double,
@@ -49,16 +48,18 @@ object AdditiveModelTrainer {
                                    rankMargin: Double, // The margin for ranking loss
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
-                                   linearFeatureFamilies: Array[String],
-                                   priors: Array[String])
+                                   linearFeatureFamilies: Array[Family],
+                                   priors: Array[String],
+                                   registry: FeatureRegistry)
 
   def train(sc: SparkContext,
             input: RDD[Example],
             config: Config,
-            key: String): AdditiveModel = {
+            key: String,
+            registry: FeatureRegistry): AdditiveModel = {
     val trainConfig = config.getConfig(key)
     val iterations: Int = trainConfig.getInt("iterations")
-    val params = loadTrainingParameters(trainConfig)
+    val params = loadTrainingParameters(trainConfig, registry)
     val transformed = transformExamples(input, config, key, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
@@ -80,9 +81,9 @@ object AdditiveModelTrainer {
     * During each iteration, we:
     *
     * 1. Sample dataset with subsample (this is analogous to mini-batch sgd?)
-    * 1. Repartition to numBags (this is analogous to ensemble averaging?)
-    * 1. For each bag we run SGD (observation-wise gradient updates)
-    * 1. We then average fitted weights for each feature and return them as updated model
+    * 2. Repartition to numBags (this is analogous to ensemble averaging?)
+    * 3. For each bag we run SGD (observation-wise gradient updates)
+    * 4. We then average fitted weights for each feature and return them as updated model
     *
     * @param input    collection of examples to be trained in sgd iteration
     * @param paramsBC broadcasted model params
@@ -95,24 +96,32 @@ object AdditiveModelTrainer {
     val model = modelBC.value
     val params = paramsBC.value
 
-    input
+    // This returns the entire additive model in order to support familyWeights.
+    val fittedModels: RDD[AdditiveModel] = input
       .sample(false, params.subsample)
       .coalesce(params.numBags, true)
       .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, paramsBC))
+
+    val weightsPerFeature: Array[(AnyRef, Function)] = fittedModels
+      .flatMap(model => model.weights.asScala.iterator ++ model.familyWeights.asScala.iterator)
+      // TODO (Brad): This should be a reduceByKey. It's complicated by the aggregate method in
+      // Function. We'd need to aggregate one function at a time. But it should be possible and
+      // would likely help a lot with performance.
       .groupByKey()
       // Average the feature functions
       // Average the weights
       .mapValues(x => {
-      val scale = 1.0f / paramsBC.value.numBags.toFloat
-      aggregateFuncWeights(x, scale, paramsBC.value.numBins, paramsBC.value.smoothingTolerance.toFloat)
-    })
-      .collect()
-      .foreach(entry => {
-        val family = model.getWeights.get(entry._1._1)
-        if (family != null && family.containsKey(entry._1._2)) {
-          family.put(entry._1._2, entry._2)
-        }
+        val scale = 1.0d / paramsBC.value.numBags
+        aggregateFuncWeights(x, scale, paramsBC.value.numBins, paramsBC.value.smoothingTolerance)
       })
+      .collect()
+
+    weightsPerFeature
+      .foreach {
+        case (key: Family, function: Function) => model.familyWeights.replace(key, function)
+        case (key: Feature, function: Function) => model.weights.replace(key, function)
+      }
+
 
     deleteSmallFunctions(model, params.linfinityThreshold)
     model
@@ -131,7 +140,7 @@ object AdditiveModelTrainer {
   def sgdPartition(index: Int,
                    partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
-                   paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
+                   paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[AdditiveModel] = {
     val workingModel = modelBC.value
     val params = paramsBC.value
     val multiscale = params.multiscale
@@ -140,15 +149,11 @@ object AdditiveModelTrainer {
       val newBins = multiscale(index % multiscale.length)
 
       log.info(s"Resampling to $newBins bins")
-      for(family <- workingModel.getWeights.values) {
-        for(feature <- family.values) {
-          feature.resample(newBins)
-        }
-      }
+      workingModel.weights.values.foreach(_.resample(newBins))
     }
 
     val output = sgdPartitionInternal(partition, workingModel, params)
-    output.iterator
+    Set(output).iterator
   }
 
   /**
@@ -162,18 +167,18 @@ object AdditiveModelTrainer {
     * @return
     */
   private def aggregateFuncWeights(input: Iterable[Function],
-                                   scale: Float,
+                                   scale: Double,
                                    numBins: Int,
-                                   smoothingTolerance: Float): Function = {
+                                   smoothingTolerance: Double): Function = {
     val head: Function = input.head
-    // TODO: revisit asJava performance impact
+    // TODO (Forest): revisit asJava performance impact
     val output = head.aggregate(input.asJava, scale, numBins)
     output.smooth(smoothingTolerance)
     output
   }
 
   /**
-    * Actually perform SGD on examples by applying approriate gradient updates according
+    * Actually perform SGD on examples by applying appropriate gradient updates according
     * to model specification
     *
     * @param partition    list of examples
@@ -183,27 +188,18 @@ object AdditiveModelTrainer {
     */
   private def sgdPartitionInternal(partition: Iterator[Example],
                                    workingModel: AdditiveModel,
-                                   params: AdditiveTrainerParams): mutable.HashMap[(String, String), Function] = {
+                                   params: AdditiveTrainerParams): AdditiveModel = {
     var lossSum: Double = 0.0
     var lossCount: Int = 0
     partition.foreach(example => {
-      lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+      lossSum += pointwiseLoss(example.only(), workingModel, params.loss, params)
       lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
         log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
         lossSum = 0.0
       }
     })
-    val output = mutable.HashMap[(String, String), Function]()
-    // TODO: weights should be a vector instead of stored in hashmap
     workingModel
-      .getWeights
-      .foreach(family => {
-        family._2.foreach(feature => {
-          output.put((family._1, feature._1), feature._2)
-        })
-      })
-    output
   }
 
   /**
@@ -215,98 +211,66 @@ object AdditiveModelTrainer {
     * @param params       model params
     * @return
     */
-  def pointwiseLoss(fv: FeatureVector,
+  def pointwiseLoss(fv: MultiFamilyVector,
                     workingModel: AdditiveModel,
                     loss: String,
                     params: AdditiveTrainerParams): Double = {
     val label: Double = if (loss == "regression") {
-      TrainingUtils.getLabel(fv, params.rankKey)
+      TrainingUtils.getLabel(fv, params.labelFamily)
     } else {
-      TrainingUtils.getLabel(fv, params.rankKey, params.threshold)
+      TrainingUtils.getLabel(fv, params.labelFamily, params.threshold)
     }
 
-    loss match {
-      case "logistic" => updateLogistic(workingModel, fv, label, params)
-      case "hinge" => updateHinge(workingModel, fv, label, params)
-      case "regression" => updateRegressor(workingModel, fv, label, params)
+    val lossFunction = loss match {
+      case "logistic" => logisticLoss _
+      case "hinge" => hingeLoss _
+      case "regression" => regressionLoss _
     }
+    updateWithLossFunction(workingModel, fv, label, lossFunction, params)
   }
 
   // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   // We rescale by 1 / p so that at inference time we don't have to scale by p.
   // In our case p = 1.0 - dropout rate
-  def updateLogistic(model: AdditiveModel,
-                     fv: FeatureVector,
-                     label: Double,
-                     params: AdditiveTrainerParams): Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    // only MultiDimensionSpline use denseFeatures for now
-    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
-    val prediction = (model.scoreFlatFeatures(flatFeatures) +
-      model.scoreDenseFeatures(denseFeatures)) /
-      (1.0 - params.dropout)
-    // To prevent blowup.
+  def updateWithLossFunction(model: AdditiveModel,
+         fv: MultiFamilyVector,
+         label: Double,
+         lossAndGradientFunc: (Double, Double, AdditiveTrainerParams) => (Double, Double),
+         params: AdditiveTrainerParams): Double = {
+    val newVec = fv.withFamilyDropout(params.dropout)
+    val prediction = model.scoreItem(newVec) / (1.0 - params.dropout)
+    val (loss, grad) = lossAndGradientFunc(prediction, label, params)
+    val gradWithLearningRate = grad * params.learningRate
+    if (gradWithLearningRate != 0.0) {
+      model.update(gradWithLearningRate,
+                   params.linfinityCap,
+                   fv)
+    }
+    loss
+  }
+
+  // TODO (Brad): I refactored out the loss functions to reduce code duplication but I'm a bit
+  // concerned I made a logical error.  Would appreciate a close look.
+  def logisticLoss(prediction: Double, label: Double, params: AdditiveTrainerParams): (Double, Double) = {
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat
-    model.update(gradWithLearningRate,
-      params.linfinityCap.toFloat,
-      flatFeatures)
-    model.updateDense(gradWithLearningRate,
-      params.linfinityCap.toFloat,
-      denseFeatures)
-    loss
+    (loss, grad)
   }
 
-  def updateHinge(model: AdditiveModel,
-                  fv: FeatureVector,
-                  label: Double,
-                  params: AdditiveTrainerParams): Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    // only MultiDimensionSpline use denseFeatures for now
-    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
-    val prediction = (model.scoreFlatFeatures(flatFeatures) +
-      model.scoreDenseFeatures(denseFeatures)) /
-      (1.0 - params.dropout)
+  def hingeLoss(prediction: Double, label: Double, params : AdditiveTrainerParams): (Double, Double) = {
     val loss = scala.math.max(0.0, params.margin - label * prediction)
-    if (loss > 0.0) {
-      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat
-      model.update(gradWithLearningRate,
-        params.linfinityCap.toFloat,
-        flatFeatures)
-      model.updateDense(gradWithLearningRate,
-        params.linfinityCap.toFloat,
-        denseFeatures)
-    }
-    loss
+    val grad = if (loss > 0.0) -label else 0.0
+    (loss, grad)
   }
 
-  def updateRegressor(model: AdditiveModel,
-                      fv: FeatureVector,
-                      label: Double,
-                      params: AdditiveTrainerParams): Double = {
-    val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    // only MultiDimensionSpline use denseFeatures for now
-    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
-    val prediction = (model.scoreFlatFeatures(flatFeatures) +
-      model.scoreDenseFeatures(denseFeatures)) /
-      (1.0 - params.dropout)
-    // absolute difference
+  def regressionLoss(prediction: Double, label: Double, params : AdditiveTrainerParams): (Double, Double) = {
     val loss = math.abs(prediction - label)
-    if (prediction - label > params.epsilon) {
-      model.update(params.learningRate.toFloat,
-        params.linfinityCap.toFloat, flatFeatures)
-      model.updateDense(params.learningRate.toFloat,
-        params.linfinityCap.toFloat, denseFeatures)
-    } else if (prediction - label < -params.epsilon) {
-      model.update(-params.learningRate.toFloat,
-        params.linfinityCap.toFloat, flatFeatures)
-      model.updateDense(-params.learningRate.toFloat,
-        params.linfinityCap.toFloat, denseFeatures)
-    }
-    loss
+    val grad = if (prediction - label > params.epsilon) 1.0
+      else if (prediction - label < -params.epsilon) -1.0
+      else 0.0
+    (loss, grad)
   }
 
   private def transformExamples(input: RDD[Example],
@@ -314,9 +278,9 @@ object AdditiveModelTrainer {
                                 key: String,
                                 params: AdditiveTrainerParams): RDD[Example] = {
     if (params.isRanking) {
-      LinearRankerUtils.transformExamples(input, config, key)
+      LinearRankerUtils.transformExamples(input, config, key, params.registry)
     } else {
-      LinearRankerUtils.makePointwiseFloat(input, config, key)
+      LinearRankerUtils.makePointwiseFloat(input, config, key, params.registry)
     }
   }
 
@@ -326,7 +290,7 @@ object AdditiveModelTrainer {
     val initialModel = if (params.initModelPath == "") {
       None
     } else {
-      TrainingUtils.loadScoreModel(params.initModelPath)
+      TrainingUtils.loadScoreModel(params.initModelPath, params.registry)
     }
 
     // sample examples to be used for model initialization
@@ -336,7 +300,7 @@ object AdditiveModelTrainer {
       initModel(params.minCount, params, initExamples, newModel, false)
       newModel
     } else {
-      val newModel = new AdditiveModel()
+      val newModel = new AdditiveModel(params.registry)
       initModel(params.minCount, params, initExamples, newModel, true)
       setPrior(params.priors, newModel)
       newModel
@@ -352,43 +316,27 @@ object AdditiveModelTrainer {
     val linearFeatureFamilies = params.linearFeatureFamilies
     val minMax = TrainingUtils
       .getFeatureStatistics(minCount, examples)
-      .filter(x => x._1._1 != params.rankKey)
+      .filter{ case (feature:Feature, _) => feature.family != params.labelFamily }
+
     log.info("Num features = %d".format(minMax.length))
-    val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
-    val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
-    // add splines
-    for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
-      model.addFunction(featureFamily, featureName, spline, overwrite)
-    }
-    // add linear
-    for (((featureFamily, featureName), stats) <- minMaxLinear) {
-      // set default linear function as f(x) = 0
-      model.addFunction(featureFamily, featureName,
-        new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+
+    minMax.foreach{ case (feature:Feature, stats) =>
+      val function = if (linearFeatureFamilies.contains(feature.family)) {
+        // set default linear function as f(x) = 0
+        new Linear(stats.min, stats.max)
+      } else {
+        new Spline(stats.min, stats.max, params.numBins)
+      }
+      model.addFunction(feature, function, overwrite)
     }
   }
 
   def deleteSmallFunctions(model: AdditiveModel,
                            linfinityThreshold: Double) = {
-    val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
-
-    model.getWeights.asScala.foreach(family => {
-      family._2.asScala.foreach(entry => {
-        val func: Function = entry._2
-        if (func.LInfinityNorm() < linfinityThreshold) {
-          toDelete.append((family._1, entry._1))
-        }
-      })
-    })
-
-    log.info("Deleting %d small functions".format(toDelete.size))
-    toDelete.foreach(entry => {
-      val family = model.getWeights.get(entry._1)
-      if (family != null && family.containsKey(entry._2)) {
-        family.remove(entry._2)
-      }
-    })
+    val newWeights = model.weights.asScala.filter {
+      case (_, func) => func.LInfinityNorm() >= linfinityThreshold
+    }.asJava
+    model.weights(newWeights)
   }
 
   def setPrior(priors: Array[String], model: AdditiveModel): Unit = {
@@ -399,14 +347,12 @@ object AdditiveModelTrainer {
         if (tokens.length == 4) {
           val family = tokens(0)
           val name = tokens(1)
-          val params = Array(tokens(2).toFloat, tokens(3).toFloat)
-          val familyMap = model.getWeights.get(family)
-          if (!familyMap.isEmpty) {
-            val func: Function = familyMap.get(name)
-            if (func != null) {
-              log.info("Setting prior %s:%s <- %f to %f".format(family, name, params(0), params(1)))
-              func.setPriors(params)
-            }
+          val params = Array(tokens(2).toDouble, tokens(3).toDouble)
+          val feature = model.registry.feature(family, name)
+          val func: Function = model.weights.get(feature)
+          if (func != null) {
+            log.info("Setting prior %s:%s <- %f to %f".format(family, name, params(0), params(1)))
+            func.setPriors(params)
           }
         } else {
           log.error("Incorrect number of parameters for %s".format(prior))
@@ -417,7 +363,8 @@ object AdditiveModelTrainer {
     }
   }
 
-  def loadTrainingParameters(config: Config): AdditiveTrainerParams = {
+  def loadTrainingParameters(config: Config,
+                             registry: FeatureRegistry): AdditiveTrainerParams = {
     val loss: String = config.getString("loss")
     val isRanking = loss match {
       case "logistic" => false
@@ -428,7 +375,7 @@ object AdditiveModelTrainer {
     }
     val numBins: Int = config.getInt("num_bins")
     val numBags: Int = config.getInt("num_bags")
-    val rankKey: String = config.getString("rank_key")
+    val labelFamily: Family = registry.family(config.getString("rank_key"))
     val learningRate: Double = config.getDouble("learning_rate")
     val dropout: Double = config.getDouble("dropout")
     val subsample: Double = config.getDouble("subsample")
@@ -443,9 +390,11 @@ object AdditiveModelTrainer {
       config.getDouble("epsilon")
     }.getOrElse(0.0)
     val minCount: Int = config.getInt("min_count")
-    val linearFeatureFamilies: Array[String] = Try(
-      config.getStringList("linear_feature").toList.toArray)
-      .getOrElse(Array[String]())
+    val linearFeaturePath = "linear_feature"
+    val linearFeatureFamilies: Array[Family] = if (config.hasPath(linearFeaturePath)) { 
+        config.getStringList(linearFeaturePath)
+          .map(familyName => registry.family(familyName)).toList.toArray
+      } else Array[Family]()
     val lossMod: Int = Try {
       config.getInt("loss_mod")
     }.getOrElse(100)
@@ -464,7 +413,7 @@ object AdditiveModelTrainer {
     AdditiveTrainerParams(
       numBins,
       numBags,
-      rankKey,
+      labelFamily,
       loss,
       minCount,
       learningRate,
@@ -482,14 +431,16 @@ object AdditiveModelTrainer {
       epsilon,
       initModelPath,
       linearFeatureFamilies,
-      priors)
+      priors,
+      registry)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
                          input: RDD[Example],
                          config: Config,
-                         key: String) = {
-    val model = train(sc, input, config, key)
+                         key: String,
+                          registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

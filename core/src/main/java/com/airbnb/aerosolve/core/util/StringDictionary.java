@@ -1,16 +1,14 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.DictionaryEntry;
 import com.airbnb.aerosolve.core.DictionaryRecord;
-
-import lombok.Getter;
-import lombok.Setter;
-
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureValue;
 import java.io.Serializable;
-import java.util.*;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
+import java.util.HashMap;
+import java.util.Map;
+import lombok.Getter;
 
 /**
  * A class that maps strings to indices. It can be used to map sparse
@@ -37,7 +35,7 @@ public class StringDictionary implements Serializable {
   
   // Returns the dictionary entry, null if not present
   public DictionaryEntry getEntry(String family, String feature) {
-    Map<String, DictionaryEntry> familyMap = dictionary.dictionary.get(family);
+    Map<String, DictionaryEntry> familyMap = dictionary.getDictionary().get(family);
     if (familyMap == null) {
       return null;
     }
@@ -45,31 +43,31 @@ public class StringDictionary implements Serializable {
   }
    
   // Returns -1 if key exists, the index it was inserted if successful.
-  public int possiblyAdd(String family, String feature, double mean, double scale) {
-    Map<String, DictionaryEntry> familyMap = dictionary.dictionary.get(family);
+  public int possiblyAdd(Feature feature, double mean, double scale) {
+    String familyName = feature.family().name();
+    Map<String, DictionaryEntry> familyMap = dictionary.getDictionary().get(familyName);
     if (familyMap == null) {
       familyMap = new HashMap<>();
-      dictionary.dictionary.put(family, familyMap);
+      dictionary.getDictionary().put(familyName, familyMap);
     }
-    if (familyMap.containsKey(feature)) return -1;
+    if (familyMap.containsKey(feature.name())) return -1;
     DictionaryEntry entry = new DictionaryEntry();
     int currIdx = dictionary.getEntryCount();
     entry.setIndex(currIdx);
     entry.setMean(mean);
     entry.setScale(scale);
     dictionary.setEntryCount(currIdx + 1);
-    familyMap.put(feature, entry);
+    familyMap.put(feature.name(), entry);
     return currIdx;
   }
   
-  public FloatVector makeVectorFromSparseFloats(Map<String, Map<String, Double>> sparseFloats) {
+  public FloatVector makeVectorFromSparseFloats(FeatureVector vector) {
     FloatVector vec = new FloatVector(dictionary.getEntryCount());
-    for (Map.Entry<String, Map<String, Double>> kv : sparseFloats.entrySet()) {
-      for (Map.Entry<String, Double> feat : kv.getValue().entrySet()) {
-        DictionaryEntry entry = getEntry(kv.getKey(), feat.getKey());
-        if (entry != null) {
-          vec.values[entry.index] = (float) entry.scale * (feat.getValue().floatValue() - (float) entry.mean);
-        }
+    for (FeatureValue value : vector) {
+      DictionaryEntry entry = getEntry(value.feature().family().name(), value.feature().name());
+      if (entry != null) {
+        vec.values[entry.getIndex()] = (float) (entry.getScale() *
+                                                (value.value() - entry.getMean()));
       }
     }
     return vec;

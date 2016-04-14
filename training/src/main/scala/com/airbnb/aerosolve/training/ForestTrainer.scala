@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
+import com.airbnb.aerosolve.core.features.{Family, FeatureRegistry}
 import com.airbnb.aerosolve.core.models.BoostedStumpsModel
 import com.airbnb.aerosolve.core.models.DecisionTreeModel
 import com.airbnb.aerosolve.core.models.ForestModel
@@ -26,9 +27,10 @@ object ForestTrainer {
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : ForestModel = {
+            key : String,
+            registry: FeatureRegistry) : ForestModel = {
     val candidateSize : Int = config.getInt(key + ".num_candidates")
-    val rankKey : String = config.getString(key + ".rank_key")
+    val labelFamily : Family = registry.family(config.getString(key + ".rank_key"))
     val rankThreshold : Double = config.getDouble(key + ".rank_threshold")
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
@@ -39,9 +41,9 @@ object ForestTrainer {
     val numTrees : Int = config.getInt(key + ".num_trees")
 
     val examples = LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
-        .map(x => Util.flattenFeature(x.example(0)))
-        .filter(x => x.contains(rankKey))
+        .makePointwiseFloat(input, config, key, registry)
+        .map(example => example.only)
+        .filter(vector => vector.contains(labelFamily))
         .coalesce(numTrees, true)
         
     val trees = examples.mapPartitions(part => {
@@ -56,38 +58,37 @@ object ForestTrainer {
           0,
           0,
           maxDepth,
-          rankKey,
+          labelFamily,
           rankThreshold,
           numTries,
           minLeafCount,
           SplitCriteria.splitCriteriaFromName(splitCriteriaName))
       
-      val tree = new DecisionTreeModel()
-      tree.setStumps(stumps)
+      val tree = new DecisionTreeModel(registry)
+      tree.stumps(stumps)
   
       Array(tree).iterator      
     })
     .collect
-    .toArray
     
     log.info("%d trees trained".format(trees.size))
     
-    val forest = new ForestModel()
+    val forest = new ForestModel(registry)
     val scale = 1.0f / numTrees.toFloat
-    forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
+    forest.trees(new java.util.ArrayList[DecisionTreeModel]())
     for (tree <- trees) {
-      for (stump <- tree.getStumps) {
-        if (stump.featureWeight != 0.0f) {
-          stump.featureWeight *= scale
+      for (stump <- tree.stumps) {
+        if (stump.getFeatureWeight != 0.0f) {
+          stump.setFeatureWeight(stump.getFeatureWeight * scale)
         }
-        if (stump.labelDistribution != null) {
-          val dist = stump.labelDistribution.asScala
+        if (stump.getLabelDistribution != null) {
+          val dist = stump.getLabelDistribution.asScala
           for (rec <- dist) {
             dist.put(rec._1, rec._2 * scale)
           }
         }
       }
-      forest.getTrees().append(tree)
+      forest.trees.append(tree)
     }
     forest
   }
@@ -95,8 +96,9 @@ object ForestTrainer {
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                         registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

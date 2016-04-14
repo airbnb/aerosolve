@@ -3,21 +3,22 @@ package com.airbnb.aerosolve.core.models;
 import com.airbnb.aerosolve.core.KDTreeNode;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
-import lombok.Getter;
-import org.apache.commons.codec.binary.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
+import lombok.Getter;
+import lombok.experimental.Accessors;
+import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.airbnb.aerosolve.core.KDTreeNodeType.LEAF;
 
 // A specialized 2D kd-tree that supports point and box queries.
+@Accessors(fluent = true, chain = true)
 public class KDTreeModel implements Serializable {
 
   private static final long serialVersionUID = -2884260218927875695L;
@@ -76,25 +77,25 @@ public class KDTreeModel implements Serializable {
   private int next(int currIdx, double x, double y) {
     KDTreeNode node = nodes[currIdx];
     int nextIndex = -1;
-    switch(node.nodeType) {
+    switch(node.getNodeType()) {
       case X_SPLIT: {
-        if (x < node.splitValue) {
-          nextIndex = node.leftChild;
+        if (x < node.getSplitValue()) {
+          nextIndex = node.getLeftChild();
         } else {
-          nextIndex = node.rightChild;
+          nextIndex = node.getRightChild();
         }
       }
       break;
       case Y_SPLIT: {
-        if (y < node.splitValue) {
-          nextIndex = node.leftChild;
+        if (y < node.getSplitValue()) {
+          nextIndex = node.getLeftChild();
         } else {
-          nextIndex = node.rightChild;
+          nextIndex = node.getRightChild();
         }
       }
       break;
       default:
-        assert (node.nodeType == LEAF);
+        assert (node.getNodeType() == LEAF);
       break;
     }
     return nextIndex;
@@ -112,22 +113,22 @@ public class KDTreeModel implements Serializable {
       int currIdx = stack.pop();
       idx.add(currIdx);
       KDTreeNode node = nodes[currIdx];
-      switch (node.nodeType) {
+      switch (node.getNodeType()) {
         case X_SPLIT: {
-          if (minX < node.splitValue) {
-            stack.push(node.leftChild);
+          if (minX < node.getSplitValue()) {
+            stack.push(node.getLeftChild());
           }
-          if (maxX >= node.splitValue) {
-            stack.push(node.rightChild);
+          if (maxX >= node.getSplitValue()) {
+            stack.push(node.getRightChild());
           }
         }
         break;
         case Y_SPLIT: {
-          if (minY < node.splitValue) {
-            stack.push(node.leftChild);
+          if (minY < node.getSplitValue()) {
+            stack.push(node.getLeftChild());
           }
-          if (maxY >= node.splitValue) {
-            stack.push(node.rightChild);
+          if (maxY >= node.getSplitValue()) {
+            stack.push(node.getRightChild());
           }
         }
         case LEAF:
@@ -165,16 +166,16 @@ public class KDTreeModel implements Serializable {
   public static KDTreeNode stripNode(KDTreeNode node) {
     KDTreeNode newNode = new KDTreeNode();
     if (node.isSetNodeType()) {
-      newNode.setNodeType(node.nodeType);
+      newNode.setNodeType(node.getNodeType());
     }
     if (node.isSetSplitValue()) {
-      newNode.setSplitValue(node.splitValue);
+      newNode.setSplitValue(node.getSplitValue());
     }
     if (node.isSetLeftChild()) {
-      newNode.setLeftChild(node.leftChild);
+      newNode.setLeftChild(node.getLeftChild());
     }
     if (node.isSetRightChild()) {
-      newNode.setRightChild(node.rightChild);
+      newNode.setRightChild(node.getRightChild());
     }
     return newNode;
   }

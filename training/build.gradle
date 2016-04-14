@@ -62,6 +62,8 @@ shadowJar {
   }
 }
 
+idea.module.scopes.COMPILE.plus += [configurations.provided]
+
 test {
   jvmArgs += [ "-XX:MaxPermSize=1024m" ]
 }

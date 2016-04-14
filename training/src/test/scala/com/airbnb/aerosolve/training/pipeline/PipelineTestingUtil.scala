@@ -1,10 +1,11 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector, LabelDictionaryEntry}
+import com.airbnb.aerosolve.core.{Example, LabelDictionaryEntry}
+import com.airbnb.aerosolve.core.features.{FeatureRegistry, SimpleExample}
 import com.airbnb.aerosolve.core.models.{FullRankLinearModel, LinearModel}
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.FloatVector
-import com.google.common.collect.{ImmutableMap, ImmutableSet}
+import com.google.common.collect.ImmutableMap
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.StructType
@@ -21,6 +22,7 @@ import scala.reflect.runtime.universe.TypeTag
  * Misc. utilities that may be useful for testing Spark pipelines.
  */
 object PipelineTestingUtil {
+  val registry = new FeatureRegistry
 
   val transformer = {
     val config = """
@@ -36,14 +38,14 @@ object PipelineTestingUtil {
                    |}
                  """.stripMargin
 
-    new Transformer(ConfigFactory.parseString(config), "model_transforms")
+    new Transformer(ConfigFactory.parseString(config), "model_transforms", registry)
   }
 
   // Simple full rank linear model with 2 label classes and 2 features
   val fullRankLinearModel = {
-    val model = new FullRankLinearModel()
+    val model = new FullRankLinearModel(registry)
 
-    model.setLabelToIndex(ImmutableMap.of("label1", 0, "label2", 1))
+    model.labelToIndex(ImmutableMap.of("label1", 0, "label2", 1))
 
     val labelDictEntry1 = new LabelDictionaryEntry()
     labelDictEntry1.setLabel("label1")
@@ -58,15 +60,15 @@ object PipelineTestingUtil {
     labelDictionary.add(labelDictEntry1)
     labelDictionary.add(labelDictEntry2)
 
-    model.setLabelDictionary(labelDictionary)
+    model.labelDictionary(labelDictionary)
 
     val floatVector1 = new FloatVector(Array(1.2f, 2.1f))
     val floatVector2 = new FloatVector(Array(3.4f, -1.2f))
 
-    model.setWeightVector(
+    model.weightVector.putAll(
       ImmutableMap.of(
-        "f", ImmutableMap.of("feature1", floatVector1, "feature2", floatVector2)
-      )
+        registry.feature("f", "feature1"), floatVector1,
+        registry.feature("f", "feature2"), floatVector2)
     )
 
     model
@@ -74,71 +76,57 @@ object PipelineTestingUtil {
 
   // Simple linear model with 2 features
   val linearModel = {
-    val model = new LinearModel()
+    val model = new LinearModel(registry)
 
-    model.setWeights(ImmutableMap.of("s", ImmutableMap.of("feature1", 1.4f, "feature2", 1.3f)))
+    model.weights.putAll(
+      ImmutableMap.of(
+        registry.feature("s", "feature1"), 1.4d,
+        registry.feature("s", "feature2"), 1.3d))
 
     model
   }
 
   val multiclassExample1 = {
-    val example = new Example()
-    val fv = new FeatureVector()
+    val example = new SimpleExample(registry)
+    val fv = example.createVector()
 
-    fv.setFloatFeatures(ImmutableMap.of(
-      "f", ImmutableMap.of("feature1", 1.2, "feature2", 5.6),
-      "LABEL", ImmutableMap.of("label1", 10.0, "label2", 9.0)
-    ))
-
-    example.addToExample(fv)
+    fv.put("f", "feature1", 1.2)
+    fv.put("f", "feature2", 5.6)
+    fv.put("LABEL", "label1", 10.0)
+    fv.put("LABEL", "label2", 9.0)
 
     example
   }
 
-  val multiclassExample2 = {
-    val example = new Example()
-    val fv = new FeatureVector()
+  val multiclassExample2: Example = {
+    val example = new SimpleExample(registry)
+    val fv = example.createVector()
 
-    fv.setFloatFeatures(ImmutableMap.of(
-      "f", ImmutableMap.of("feature1", 1.8, "feature2", -1.6),
-      "LABEL", ImmutableMap.of("label1", 8.0, "label2", 4.0)
-    ))
-
-    example.addToExample(fv)
+    fv.put("f", "feature1", 1.8)
+    fv.put("f", "feature2", -1.6)
+    fv.put("LABEL", "label1", 8.0)
+    fv.put("LABEL", "label2", 4.0)
 
     example
   }
 
-  val linearExample1 = {
-    val example = new Example()
-    val fv = new FeatureVector()
+  val linearExample1: Example = {
+    val example = new SimpleExample(registry)
+    val fv = example.createVector()
 
-    fv.setFloatFeatures(ImmutableMap.of(
-      "LABEL", ImmutableMap.of("", 3.5)
-    ))
-
-    fv.setStringFeatures(ImmutableMap.of(
-      "s", ImmutableSet.of("feature1", "feature2")
-    ))
-
-    example.addToExample(fv)
+    fv.putString("s", "feature1")
+    fv.putString("s", "feature2")
+    fv.put("LABEL", "", 3.5)
 
     example
   }
 
-  val linearExample2 = {
-    val example = new Example()
-    val fv = new FeatureVector()
+  val linearExample2: Example = {
+    val example = new SimpleExample(registry)
+    val fv = example.createVector()
 
-    fv.setFloatFeatures(ImmutableMap.of(
-      "LABEL", ImmutableMap.of("", -2.0)
-    ))
-
-    fv.setStringFeatures(ImmutableMap.of(
-      "s", ImmutableSet.of("feature1")
-    ))
-
-    example.addToExample(fv)
+    fv.putString("s", "feature1")
+    fv.put("LABEL", "", -2.0)
 
     example
   }

@@ -2,13 +2,11 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
+import com.airbnb.aerosolve.core.{Example, ModelRecord}
+import com.airbnb.aerosolve.core.features.{Family, FeatureRegistry, SimpleExample}
 import com.airbnb.aerosolve.core.models.BoostedStumpsModel
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.ModelRecord
-import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -24,86 +22,82 @@ object BoostedStumpsTrainer {
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : BoostedStumpsModel = {
+            key : String,
+            registry: FeatureRegistry) : BoostedStumpsModel = {
     val candidateSize : Int = config.getInt(key + ".num_candidates")
-    val rankKey : String = config.getString(key + ".rank_key")
+    val labelFamily : Family = registry.family(config.getString(key + ".rank_key"))
 
     val pointwise : RDD[Example] =
       LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
+        .makePointwiseFloat(input, config, key, registry)
 
-    val candidates : Array[ModelRecord] = getCandidateStumps(pointwise, candidateSize, rankKey)
+    val candidates : Array[ModelRecord] = getCandidateStumps(pointwise, candidateSize, labelFamily)
 
-    val data : RDD[Example] = getResponses(sc, pointwise, candidates, rankKey).cache()
+    val data : RDD[Example] = getResponses(sc, pointwise, candidates, labelFamily).cache()
 
-    val weights = LinearRankerTrainer.train(sc, data, config, key).toMap
+    val weights = LinearRankerTrainer.train(sc, data, config, key, registry).toMap
 
     // Lookup each candidate's weights
     (0 until candidates.size).foreach(i => {
       val stump = candidates(i)
-      val pos = weights.getOrElse(("+", i.toString), 0.0)
+      val pos = weights.getOrElse(registry.feature("+", i.toString), 0.0)
       stump.setFeatureWeight(pos)
     })
 
-    val sorted = candidates.toBuffer.sortWith((a, b) => math.abs(a.featureWeight) > math.abs(b.featureWeight))
+    val sorted = candidates.toBuffer.sortWith((a, b) =>
+          math.abs(a.getFeatureWeight) > math.abs(b.getFeatureWeight))
 
     val stumps = new util.ArrayList[ModelRecord]()
     sorted.foreach(stump => {
-      if (math.abs(stump.featureWeight) > 0.0) {
+      if (math.abs(stump.getFeatureWeight) > 0.0) {
         stumps.add(stump)
       }
     })
 
-    val model = new BoostedStumpsModel()
-    model.setStumps(stumps)
+    val model = new BoostedStumpsModel(registry)
+    model.stumps(stumps)
     model
   }
 
   def getCandidateStumps(pointwise : RDD[Example],
                          candidateSize : Int,
-                         rankKey : String) : Array[ModelRecord] = {
+                         labelFamily : Family) : Array[ModelRecord] = {
     val result = collection.mutable.HashSet[ModelRecord]()
     pointwise
-      .flatMap(x => Util.flattenFeature(x.example(0)))
-      .filter(x => x._1 != rankKey)
-      .flatMap(x => {
-        val buffer = collection.mutable.HashMap[(String, String), Double]()
-        x._2.foreach(feature => {
-          buffer.put((x._1, feature._1), feature._2)
-        })
-        buffer
+      .flatMap(example => example.only.iterator)
+      .filter(featureValue => featureValue.feature.family != labelFamily)
+      .take(candidateSize)
+      .foreach(featureValue => {
+        val rec = new ModelRecord()
+        rec.setFeatureFamily(featureValue.feature.family.name)
+        rec.setFeatureName(featureValue.feature.name)
+        rec.setThreshold(featureValue.value)
+        result.add(rec)
       })
-    .take(candidateSize)
-    .foreach(x => {
-      val rec = new ModelRecord()
-      rec.setFeatureFamily(x._1._1)
-      rec.setFeatureName(x._1._2)
-      rec.setThreshold(x._2)
-      result.add(rec)
-    })
-    result.toArray
+      result.toArray
   }
 
   def getResponses(sc : SparkContext,
                    pointwise : RDD[Example],
                    candidates : Array[ModelRecord],
-                   rankKey : String) : RDD[Example] = {
+                   labelFamily : Family) : RDD[Example] = {
     val candidatesBC = sc.broadcast(candidates)
     pointwise.map(example => {
       val cand  = candidatesBC.value
-      val ex = Util.flattenFeature(example.example.get(0))
-      val output = new Example()
-      val fv = Util.createNewFeatureVector()
-      output.addToExample(fv)
-      fv.floatFeatures.put(rankKey, example.example.get(0).floatFeatures.get(rankKey))
-      val pos = new java.util.HashSet[String]()
-      fv.stringFeatures.put("+", pos)
+      val ex = example.only
+      val output = new SimpleExample(ex.registry)
+      val fv = output.createVector()
+      val labelFamilyVector = ex.get(labelFamily)
+      labelFamilyVector.iterator.asScala.foreach(featureValue =>
+        fv.put(featureValue.feature, featureValue.value)
+      )
+      val plusFamily = fv.registry.family("+")
 
-      val count = cand.size
+      val count = cand.length
       for (i <- 0 until count) {
         val resp = BoostedStumpsModel.getStumpResponse(cand(i), ex)
         if (resp) {
-          pos.add(i.toString)
+          fv.putString(plusFamily.feature(i.toString))
         }
       }
       output
@@ -113,8 +107,9 @@ object BoostedStumpsTrainer {
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                         registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

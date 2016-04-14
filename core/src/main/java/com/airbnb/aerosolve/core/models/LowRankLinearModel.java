@@ -1,22 +1,29 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.*;
-
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.LabelDictionaryEntry;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.MulticlassScoringResult;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.features.Feature;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.FeatureValue;
 import com.airbnb.aerosolve.core.util.FloatVector;
-
+import com.airbnb.aerosolve.core.util.Util;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 // A low rank linear model that supports multi-class classification.
 // The class vector y = W' * V * x where x is d-dim feature vector.
@@ -24,6 +31,7 @@ import lombok.Setter;
 // V: D-by-d matrix, mapping from feature space to the joint embedding
 // W: D-by-Y matrix, mapping from label space to the joint embedding
 // Reference: Jason Weston et al. "WSABIE: Scaling Up To Large Vocabulary Image Annotation", IJCAI 2011.
+@Accessors(fluent = true, chain = true)
 public class LowRankLinearModel extends AbstractModel {
 
   static final long serialVersionUID = -8894096678183767660L;
@@ -33,7 +41,7 @@ public class LowRankLinearModel extends AbstractModel {
   // each FloatVector in the map is a D-dim vector
   @Getter
   @Setter
-  private Map<String, Map<String, FloatVector>> featureWeightVector;
+  private Map<Feature, FloatVector> featureWeightVector;
 
   // labelWeightVector represents the projection from label space to embedding
   // Map label to a row in W, each FloatVector in the map is a D-dim vector
@@ -54,8 +62,9 @@ public class LowRankLinearModel extends AbstractModel {
   @Setter
   private int embeddingDimension;
 
-  public LowRankLinearModel() {
-    featureWeightVector = new HashMap<>();
+  public LowRankLinearModel(FeatureRegistry registry) {
+    super(registry);
+    featureWeightVector = new Object2ObjectOpenHashMap<>();
     labelWeightVector = new HashMap<>();
     labelDictionary = new ArrayList<>();
   }
@@ -63,16 +72,15 @@ public class LowRankLinearModel extends AbstractModel {
   // In the binary case this is just the score for class 0.
   // Ideally use a binary model for binary classification.
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
+  public double scoreItem(FeatureVector combinedItem) {
     // Not supported.
     assert (false);
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    FloatVector sum = scoreFlatFeature(flatFeatures);
+    FloatVector sum = scoreFlatFeature(combinedItem);
     return sum.values[0];
   }
 
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
     // TODO(peng) : implement debug.
     return scoreItem(combinedItem);
@@ -88,8 +96,7 @@ public class LowRankLinearModel extends AbstractModel {
 
   public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
     ArrayList<MulticlassScoringResult> results = new ArrayList<>();
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    FloatVector sum = scoreFlatFeature(flatFeatures);
+    FloatVector sum = scoreFlatFeature(combinedItem);
 
     for (int i = 0; i < labelDictionary.size(); i++) {
       MulticlassScoringResult result = new MulticlassScoringResult();
@@ -101,25 +108,22 @@ public class LowRankLinearModel extends AbstractModel {
     return results;
   }
 
-  public FloatVector scoreFlatFeature(Map<String, Map<String, Double>> flatFeatures) {
-    FloatVector fvProjection = projectFeatureToEmbedding(flatFeatures);
+  public FloatVector scoreFlatFeature(FeatureVector vector) {
+    FloatVector fvProjection = projectFeatureToEmbedding(vector);
     return projectEmbeddingToLabel(fvProjection);
   }
 
-  public FloatVector projectFeatureToEmbedding(Map<String, Map<String, Double>> flatFeatures) {
+  public FloatVector projectFeatureToEmbedding(FeatureVector vector) {
     FloatVector fvProjection = new FloatVector(embeddingDimension);
 
     // compute the projection from feature space to D-dim joint space
-    for (Map.Entry<String, Map<String, Double>> entry : flatFeatures.entrySet()) {
-      Map<String, FloatVector> family = featureWeightVector.get(entry.getKey());
-      if (family != null) {
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          FloatVector vec = family.get(feature.getKey());
-          if (vec != null) {
-            fvProjection.multiplyAdd(feature.getValue().floatValue(), vec);
-          }
-        }
+    for (FeatureValue value : vector) {
+      if (!featureWeightVector.containsKey(value.feature())) {
+        continue;
       }
+
+      FloatVector vec = featureWeightVector.get(value.feature());
+      fvProjection.multiplyAdd(value.value(), vec);
     }
     return fvProjection;
   }
@@ -142,7 +146,7 @@ public class LowRankLinearModel extends AbstractModel {
   public void buildLabelToIndex() {
     labelToIndex = new HashMap<>();
     for (int i = 0; i < labelDictionary.size(); i++) {
-      String labelKey = labelDictionary.get(i).label;
+      String labelKey = labelDictionary.get(i).getLabel();
       labelToIndex.put(labelKey, i);
     }
   }
@@ -150,11 +154,7 @@ public class LowRankLinearModel extends AbstractModel {
   public void save(BufferedWriter writer) throws IOException {
     ModelHeader header = new ModelHeader();
     header.setModelType("low_rank_linear");
-    long count = 0;
-    for (Map.Entry<String, Map<String, FloatVector>> familyMap : featureWeightVector.entrySet()) {
-      count += familyMap.getValue().entrySet().size();
-    }
-    header.setNumRecords(count);
+    header.setNumRecords(featureWeightVector.size());
     header.setLabelDictionary(labelDictionary);
     Map<String, java.util.List<Double>> labelEmbedding = new HashMap<>();
     for (Map.Entry<String, FloatVector> labelRepresentation : labelWeightVector.entrySet()) {
@@ -172,19 +172,18 @@ public class LowRankLinearModel extends AbstractModel {
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
-    for (Map.Entry<String, Map<String, FloatVector>> familyMap : featureWeightVector.entrySet()) {
-      for (Map.Entry<String, FloatVector> feature : familyMap.getValue().entrySet()) {
-        ModelRecord record = new ModelRecord();
-        record.setFeatureFamily(familyMap.getKey());
-        record.setFeatureName(feature.getKey());
-        ArrayList<Double> arrayList = new ArrayList<>();
-        for (int i = 0; i < feature.getValue().values.length; i++) {
-          arrayList.add((double) feature.getValue().values[i]);
-        }
-        record.setWeightVector(arrayList);
-        writer.write(Util.encode(record));
-        writer.newLine();
+    for (Map.Entry<Feature, FloatVector> entry : featureWeightVector.entrySet()) {
+      ModelRecord record = new ModelRecord();
+      Feature feature = entry.getKey();
+      record.setFeatureFamily(feature.family().name());
+      record.setFeatureName(feature.name());
+      ArrayList<Double> arrayList = new ArrayList<>();
+      for (int i = 0; i < entry.getValue().values.length; i++) {
+        arrayList.add((double) entry.getValue().values[i]);
       }
+      record.setWeightVector(arrayList);
+      writer.write(Util.encode(record));
+      writer.newLine();
     }
     writer.flush();
   }
@@ -211,22 +210,18 @@ public class LowRankLinearModel extends AbstractModel {
       labelWeightVector.put(labelKey, labelWeight);
     }
 
-    featureWeightVector = new HashMap<>();
+    featureWeightVector = new Reference2ObjectOpenHashMap<>();
     for (long i = 0; i < rows; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
       String family = record.getFeatureFamily();
       String name = record.getFeatureName();
-      Map<String, FloatVector> inner = featureWeightVector.get(family);
-      if (inner == null) {
-        inner = new HashMap<>();
-        featureWeightVector.put(family, inner);
-      }
+      Feature feature = registry.feature(family, name);
       FloatVector vec = new FloatVector(record.getWeightVector().size());
       for (int j = 0; j < record.getWeightVector().size(); j++) {
         vec.values[j] = record.getWeightVector().get(j).floatValue();
       }
-      inner.put(name, vec);
+      featureWeightVector.put(feature, vec);
     }
   }
 }

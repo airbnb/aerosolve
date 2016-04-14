@@ -85,7 +85,7 @@ public class NDTreeModelTest {
   @Test
   public void testDimension() {
     NDTreeModel tree = getNDTreeModel();
-    assertEquals(2, tree.getDimension());
+    assertEquals(2, tree.dimension());
 
     NDTreeNode parent = new NDTreeNode();
     parent.setAxisIndex(0);
@@ -93,10 +93,10 @@ public class NDTreeModelTest {
     one.setAxisIndex(3);
     NDTreeNode[] arr = {parent, one};
     tree = new NDTreeModel(arr);
-    assertEquals(4, tree.getDimension());
+    assertEquals(4, tree.dimension());
 
     tree = NDTreeModelTest.getNDTreeModel1D();
-    assertEquals(1, tree.getDimension());
+    assertEquals(1, tree.dimension());
   }
 
     @Test

@@ -4,61 +4,54 @@ import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.features.Family;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
 import com.airbnb.aerosolve.core.util.Util;
-
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.HashMap;
-import com.google.common.hash.HashCode;
 import com.google.common.base.Optional;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.CharArrayWriter;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class LinearModelTest {
-  private static final Logger log = LoggerFactory.getLogger(LinearModelTest.class);
+  private final FeatureRegistry registry = new FeatureRegistry();
 
-  public FeatureVector makeFeatureVector() {
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    // add a feature that is missing in the model
-    list.add("ccc");
-    HashMap stringFeatures = new HashMap<String, ArrayList<String>>();
-    stringFeatures.put("string_feature", list);
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector() {
+   return TransformTestingHelper.builder(registry)
+       .string("string_feature", "aaa")
+       .string("string_feature", "bbb")
+       .string("string_feature", "ccc")
+        .build();
   }
 
   public LinearModel makeLinearModel() {
-    LinearModel model = new LinearModel();
-    Map<String, Map<String, Float>> weights = new HashMap<>();
-    Map<String, Float> inner = new HashMap<>();
-    weights.put("string_feature", inner);
-    inner.put("aaa", 0.5f);
-    inner.put("bbb", 0.25f);
-    model.setWeights(weights);
-    model.setOffset(0.5f);
-    model.setSlope(1.5f);
+    LinearModel model = new LinearModel(registry);
+    Family stringFamily = registry.family("string_feature");
+    model.weights().put(stringFamily.feature("aaa"), 0.5d);
+    model.weights().put(stringFamily.feature("bbb"), 0.25d);
+    model.offset(0.5d);
+    model.slope(1.5d);
     return model;
   }
 
   @Test
   public void testScoreEmptyFeature() {
-    FeatureVector featureVector = new FeatureVector();
-    LinearModel model = new LinearModel();
-    float score = model.scoreItem(featureVector);
+    MultiFamilyVector featureVector = TransformTestingHelper.makeEmptyVector(registry);
+    LinearModel model = new LinearModel(registry);
+    double score = model.scoreItem(featureVector);
     assertTrue(score < 1e-10f);
     assertTrue(score > -1e-10f);
   }
@@ -66,14 +59,8 @@ public class LinearModelTest {
   @Test
   public void testScoreNonEmptyFeature() {
     FeatureVector featureVector = makeFeatureVector();
-    LinearModel model = new LinearModel();
-    Map<String, Map<String, Float>> weights = new HashMap<>();
-    Map<String, Float> inner = new HashMap<>();
-    weights.put("string_feature", inner);
-    inner.put("aaa", 0.5f);
-    inner.put("bbb", 0.25f);
-    model.setWeights(weights);
-    float score = model.scoreItem(featureVector);
+    LinearModel model = makeLinearModel();
+    double score = model.scoreItem(featureVector);
     assertTrue(score < 0.76f);
     assertTrue(score > 0.74f);
   }
@@ -104,9 +91,9 @@ public class LinearModelTest {
     BufferedReader reader = new BufferedReader(strReader);
     FeatureVector featureVector = makeFeatureVector();
     try {
-      Optional<AbstractModel> model = ModelFactory.createFromReader(reader);
+      Optional<AbstractModel> model = ModelFactory.createFromReader(reader, registry);
       assertTrue(model.isPresent());
-      float score = model.get().scoreItem(featureVector);
+      double score = model.get().scoreItem(featureVector);
       assertTrue(score > 0.89f);
       assertTrue(score < 0.91f);
     } catch (IOException e) {
@@ -134,13 +121,13 @@ public class LinearModelTest {
     List<DebugScoreRecord> scoreRecordsList = model.debugScoreComponents(fv);
     assertTrue(scoreRecordsList.size() == 2);
     for (DebugScoreRecord record : scoreRecordsList) {
-      assertTrue(record.featureFamily == "string_feature");
-      assertTrue(record.featureName == "aaa" || record.featureName == "bbb");
-      assertTrue(record.featureValue == 1.0);
-      if (record.featureName == "aaa") {
-        assertTrue(record.featureWeight == 0.5f);
+      assertTrue("string_feature".equals(record.getFeatureFamily()));
+      assertTrue("aaa".equals(record.getFeatureName()) || "bbb".equals(record.getFeatureName()));
+      assertTrue(record.getFeatureValue() == 1.0);
+      if ("aaa".equals(record.getFeatureName())) {
+        assertTrue(record.getFeatureWeight() == 0.5d);
       } else {
-        assertTrue(record.featureWeight == 0.25f);
+        assertTrue(record.getFeatureWeight() == 0.25d);
       }
     }
   }

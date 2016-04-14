@@ -1,8 +1,6 @@
 package com.airbnb.aerosolve.core.images;
 
 import java.awt.image.BufferedImage;
-import java.lang.Override;
-import java.lang.Math;
 
 /*
  Creates a histogram of oriented gradients.

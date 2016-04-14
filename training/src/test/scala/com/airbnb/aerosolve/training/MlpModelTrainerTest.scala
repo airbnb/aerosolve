@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.core.models.{ModelFactory, MlpModel}
 import com.airbnb.aerosolve.core.Example
 import com.typesafe.config.ConfigFactory
@@ -14,6 +15,8 @@ import scala.collection.JavaConverters._
 
 class MlpModelTrainerTest {
   val log = LoggerFactory.getLogger("MlpModelTrainerTest")
+  val registry = new FeatureRegistry
+
   def makeConfig(dropout : Double,
                  momentumT : Int,
                  loss : String,
@@ -114,13 +117,13 @@ class MlpModelTrainerTest {
     var sc = new SparkContext("local", "MlpModelTrainerTest")
     try {
       val (examples, label, numPos) = if (exampleFunc.equals("poly")) {
-        TrainingTestHelper.makeClassificationExamples
+        TrainingTestHelper.makeClassificationExamples(registry)
       } else {
-        TrainingTestHelper.makeLinearClassificationExamples
+        TrainingTestHelper.makeLinearClassificationExamples(registry)
       }
       val config = ConfigFactory.parseString(makeConfig(dropout, momentumT, loss, extraArgs, weightDecay))
       val input = sc.parallelize(examples)
-      val model = MlpModelTrainer.train(sc, input, config, "model_config")
+      val model = MlpModelTrainer.train(sc, input, config, "model_config", registry)
       testClassificationModel(model, examples, label, numPos)
     } finally {
       sc.stop
@@ -137,7 +140,7 @@ class MlpModelTrainerTest {
     var i : Int = 0
     val labelArr = label.toArray
     for (ex <- examples) {
-      val score = model.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
       if (score * labelArr(i) > 0) {
         numCorrect += 1
       }
@@ -156,12 +159,12 @@ class MlpModelTrainerTest {
     val sreader = new StringReader(str)
     val reader = new BufferedReader(sreader)
     log.info(str)
-    val model2Opt = ModelFactory.createFromReader(reader)
+    val model2Opt = ModelFactory.createFromReader(reader, registry)
     assertTrue(model2Opt.isPresent)
     val model2 = model2Opt.get()
     for (ex <- examples) {
-      val score = model.scoreItem(ex.example.get(0))
-      val score2 = model2.scoreItem(ex.example.get(0))
+      val score = model.scoreItem(ex.only)
+      val score2 = model2.scoreItem(ex.only)
       assertEquals(score, score2, 0.01f)
     }
   }
@@ -172,33 +175,33 @@ class MlpModelTrainerTest {
                           weightDecay : Double,
                           epsilon: Double = 0.1,
                           learningRateInit: Double = 0.1): Unit = {
-    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples()
+    val (trainingExample, trainingLabel) = TrainingTestHelper.makeRegressionExamples(registry)
     var sc = new SparkContext("local", "MlpRegressionTest")
     try {
       val config = ConfigFactory.parseString(makeConfig(
         dropout, momentumT, "regression", extraArgs, weightDecay = weightDecay,
         margin = epsilon, learningRateInit = learningRateInit))
       val input = sc.parallelize(trainingExample)
-      val model = MlpModelTrainer.train(sc, input, config, "model_config")
+      val model = MlpModelTrainer.train(sc, input, config, "model_config", registry)
       val trainLabelArr = trainingLabel.toArray
       var trainTotalError : Double = 0
       var i = 0
       // compute training error
       for (ex <- trainingExample) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val label = trainLabelArr(i)
         trainTotalError += math.abs(score - label)
         i += 1
       }
       val trainError = trainTotalError / trainingExample.size.toDouble
       // compute testing error
-      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(25)
+      val (testingExample, testingLabel) = TrainingTestHelper.makeRegressionExamples(registry, 25)
       val testLabelArr = testingLabel.toArray
       var testTotalError : Double = 0
       // compute training error
       i = 0
       for (ex <- testingExample) {
-        val score = model.scoreItem(ex.example.get(0))
+        val score = model.scoreItem(ex.only)
         val label = testLabelArr(i)
         testTotalError += math.abs(score - label)
         i += 1

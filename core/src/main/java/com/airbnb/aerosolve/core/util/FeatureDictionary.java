@@ -1,13 +1,13 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import lombok.Getter;
-import lombok.Setter;
-
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
 import java.io.Serializable;
-import java.util.*;
-import java.util.AbstractMap.SimpleEntry;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map.Entry;
+import lombok.Setter;
 
 /**
  * A class that maintains a dictionary of features and returns
@@ -15,18 +15,21 @@ import java.util.Map.Entry;
  */
 
 public abstract class FeatureDictionary implements Serializable {
+
+  protected final FeatureRegistry registry;
   /**
    * The dictionary to maintain
    */
   @Setter
-  protected List<FeatureVector> dictionaryList;
+  protected List<MultiFamilyVector> dictionaryList;
 
-  public FeatureDictionary() {
+  public FeatureDictionary(FeatureRegistry registry) {
+    this.registry = registry;
   }
 
-  class EntryComparator implements Comparator<Entry<String, Double>> {
-    public int compare(Entry<String, Double> e1,
-                       Entry<String, Double> e2) {
+  class EntryComparator implements Comparator<Entry<?, Double>> {
+    public int compare(Entry<?, Double> e1,
+                       Entry<?, Double> e2) {
       if (e1.getValue() > e2.getValue()) {
         return 1;
       } else if (e1.getValue() < e2.getValue()) {
@@ -39,7 +42,7 @@ public abstract class FeatureDictionary implements Serializable {
   /**
    * Returns the k-nearest neighbors as floatFeatures in featureVector.
    */
-   public abstract FeatureVector getKNearestNeighbors(
+   public abstract MultiFamilyVector getKNearestNeighbors(
        KNearestNeighborsOptions options,
        FeatureVector featureVector);
 }

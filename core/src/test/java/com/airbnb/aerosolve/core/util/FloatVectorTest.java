@@ -1,18 +1,10 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
-import com.airbnb.aerosolve.core.FeatureVector;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.Set;
-
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee

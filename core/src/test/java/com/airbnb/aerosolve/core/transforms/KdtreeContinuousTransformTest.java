@@ -1,42 +1,19 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class KdtreeContinuousTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(KdtreeContinuousTransformTest.class);
-
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    floatFeatures.put("loc", map);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
-  }
+@Slf4j
+public class KdtreeContinuousTransformTest extends BaseTransformTest {
 
   public String makeConfig() {
     return "test_kdtree {\n" +
@@ -49,37 +26,29 @@ public class KdtreeContinuousTransformTest {
            " output : loc_kdt\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_kdtree");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_kdtree";
   }
 
   @Test
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
     log.info("Model encoded is " + config.getString("test_kdtree.model_base64"));
-    Transform transform = TransformFactory.createTransform(config, "test_kdtree");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-    Map<String, Double> out = floatFeatures.get("loc_kdt");
-    log.info("loc_kdt");
-    for (Map.Entry<String, Double> entry : out.entrySet()) {
-      log.info(entry.getKey() + " = " + entry.getValue());
-    }
-    assertTrue(out.size() == 2);
+    Transform<MultiFamilyVector> transform =
+        TransformFactory.createTransform(config, "test_kdtree", registry, null);
+    MultiFamilyVector featureVector = TransformTestingHelper.makeSimpleVector(registry);
+    transform.apply(featureVector);
+    assertTrue(featureVector.numFamilies() == 3);
+
     //                    4
     //         |--------------- y = 2
     //  1      | 2       3
     //     x = 1
-    assertEquals(out.get("0"), 37.7 - 1.0, 0.1);
-    assertEquals(out.get("2"), 40.0 - 2.0, 0.1);
+    assertSparseFamily(featureVector, "loc_kdt", 2, ImmutableMap.of(
+        "0", 37.7 - 1.0,
+        "2", 40.0 - 2.0
+    ));
   }
 }

@@ -1,12 +1,21 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.transforms.types.StringTransform;
-
+import com.airbnb.aerosolve.core.transforms.base.StringTransform;
+import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import org.apache.commons.lang3.tuple.Pair;
+import org.hibernate.validator.constraints.NotEmpty;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigObject;
+import javax.validation.constraints.NotNull;
 
 /**
  * Replaces all substrings that match a given regex with a replacement string
@@ -15,30 +24,37 @@ import com.typesafe.config.ConfigObject;
  * Replacements are performed in the same order as specified in the list of pairs
  * "replacement" specifies the replacement string
  */
-public class ReplaceAllStringsTransform extends StringTransform {
-  private List<? extends ConfigObject> replacements;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+@NoArgsConstructor(access = AccessLevel.PACKAGE)
+public class ReplaceAllStringsTransform extends StringTransform<ReplaceAllStringsTransform> {
+  @NotNull
+  @NotEmpty
+  private Map<String, String> replacements;
+
+  @Setter(AccessLevel.NONE)
+  private List<Pair<Pattern, String>> patterns;
 
   @Override
-  public void init(Config config, String key) {
-    replacements = config.getObjectList(key + ".replacements");
+  public ReplaceAllStringsTransform configure(Config config, String key) {
+    return super.configure(config, key)
+        .replacements(stringMapFromConfig(config, key, ".replacements", true));
+  }
+
+  @Override
+  protected void setup() {
+    super.setup();
+    patterns = replacements.entrySet().stream()
+        .map(e -> Pair.of(Pattern.compile(e.getKey()), e.getValue()))
+        .collect(Collectors.toList());
   }
 
   @Override
   public String processString(String rawString) {
-    if (rawString == null) {
-      return null;
+    for (Pair<Pattern, String> replacement : patterns) {
+      rawString = replacement.getKey().matcher(rawString).replaceAll(replacement.getValue());
     }
-
-    for (ConfigObject replacementCO : replacements) {
-      Map<String, Object> replacementMap = replacementCO.unwrapped();
-
-      for (Map.Entry<String, Object> replacementEntry : replacementMap.entrySet()) {
-        String regex = replacementEntry.getKey();
-        String replacement = (String) replacementEntry.getValue();
-        rawString = rawString.replaceAll(regex, replacement);
-      }
-    }
-
     return rawString;
   }
 }

@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
+import com.airbnb.aerosolve.core.features.{SimpleExample, FeatureRegistry}
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.{ConfigFactory, Config}
@@ -15,26 +16,16 @@ import scala.collection.mutable.ArrayBuffer
 
 class LinearClassificationTrainerTest {
   val log = LoggerFactory.getLogger("LinearClassificicationTrainerTest")
-
+  val registry = new FeatureRegistry
   // Creates an example with name and target.
   def makeExamples(examples : ArrayBuffer[Example],
                    name : String,
                    target : Double) = {
-    val example = new Example
-    val item: FeatureVector = new FeatureVector
-    item.setStringFeatures(new java.util.HashMap)
-    val itemSet = new java.util.HashSet[String]()
-    itemSet.add(name)
-    val stringFeatures = item.getStringFeatures
-    stringFeatures.put("name", itemSet)
-    val biasSet = new java.util.HashSet[String]()
-    biasSet.add("1")
-    stringFeatures.put("bias", biasSet)
-    item.setFloatFeatures(new java.util.HashMap)
-    val floatFeatures = item.getFloatFeatures
-    floatFeatures.put("$rank", new java.util.HashMap)
-    floatFeatures.get("$rank").put("", target)
-    example.addToExample(item)
+    val example = new SimpleExample(registry)
+    val item: FeatureVector = example.createVector()
+    item.putString("name", name)
+    item.putString("bias", "1")
+    item.put("$rank", "", target)
     examples += example
   }
 
@@ -80,20 +71,20 @@ class LinearClassificationTrainerTest {
       val config = ConfigFactory.parseString(makeConfig)
 
       val input = sc.parallelize(examples)
-      val origWeights = LinearRankerTrainer.train(sc, input, config, "model_config")
+      val origWeights = LinearRankerTrainer.train(sc, input, config, "model_config", registry)
       val weights = origWeights.toMap
 
       origWeights
         .foreach(wt => {
-        log.info("%s:%s=%f".format(wt._1._1, wt._1._2, wt._2))
+        log.info("%s:%s=%f".format(wt._1.family.name, wt._1.name, wt._2))
       })
 
       for (j <- 0 until 10) {
         val name = j.toString
         if (j % 2 == 0) {
-          assertTrue(weights.getOrElse(("name", name), 0.0) >= 1.0)
+          assertTrue(weights.getOrElse(registry.feature("name", name), 0.0) >= 1.0)
         } else {
-          assertTrue(weights.getOrElse(("name", name), 0.0) <= -1.0)
+          assertTrue(weights.getOrElse(registry.feature("name", name), 0.0) <= -1.0)
         }
       }
    } finally {

@@ -1,22 +1,15 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class NormalizeFloatTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(CapFloatTransformTest.class);
+public class NormalizeFloatTransformTest extends BaseTransformTest {
   
   public String makeConfig() {
     return "test_norm {\n" +
@@ -25,31 +18,25 @@ public class NormalizeFloatTransformTest {
            "}";
   }
 
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_norm");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+  @Override
+  public String configKey() {
+    return "test_norm";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_norm");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
 
-    Map<String, Double> feat1 = featureVector.getFloatFeatures().get("loc");
+    assertTrue(featureVector.numFamilies() == 4);
 
-    assertEquals(3, feat1.size());
     double scale = 1.0 / Math.sqrt(37.7 * 37.7 + 40.0 * 40.0 + 20.0 * 20.0);
-    assertEquals(scale * 37.7, feat1.get("lat"), 0.1);
-    assertEquals(scale * 40.0, feat1.get("long"), 0.1);
-    assertEquals(scale * -20.0, feat1.get("z"), 0.1);
+
+    assertSparseFamily(featureVector, "loc", 3,
+                       ImmutableMap.of("lat", scale * 37.7,
+                                       "long", scale * 40.0,
+                                       "z", scale * -20.0));
   }
 
 }

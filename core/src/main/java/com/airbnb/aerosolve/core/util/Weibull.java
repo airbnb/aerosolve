@@ -1,13 +1,14 @@
 package com.airbnb.aerosolve.core.util;
 
-import lombok.experimental.Builder;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 /*
   weibull(x) = exp(a*(x)^k + b)
   default max x is Double.MAX_VALUE
  */
-@Slf4j @Builder public class Weibull {
+@Slf4j @Builder
+public class Weibull {
   final private double k, a, b, maxX;
 
   public WeibullBuilder defaultBuilder() {

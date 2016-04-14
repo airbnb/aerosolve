@@ -1,14 +1,13 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.airbnb.aerosolve.core.features.Features
+import com.airbnb.aerosolve.core.Example
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable.ArrayBuffer
 
 object ExampleUtil {
-  def getFeatures(row: Row, schema: Array[StructField]) = {
-    val features = Features.builder()
+  def putFeatures(example: Example, row: Row, schema: Array[StructField]) = {
     val names = ArrayBuffer[String]()
     val values = ArrayBuffer[AnyRef]()
 
@@ -45,8 +44,7 @@ object ExampleUtil {
       }
     }
 
-    features.names(names.toArray)
-    features.values(values.toArray)
-    features.build()
+    val fv = example.createVector()
+    fv.putAll(names.toArray, values.toArray)
   }
 }

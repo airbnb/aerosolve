@@ -1,11 +1,15 @@
 package com.airbnb.aerosolve.training.pipeline
 
+import com.airbnb.aerosolve.core.features.FeatureRegistry
 import com.airbnb.aerosolve.training.pipeline.PipelineTestingUtil._
 import com.google.common.collect.ImmutableMap
 import org.junit.Assert._
 import org.junit.Test
 
+
 class EvalUtilTest {
+  val registry = new FeatureRegistry
+
   @Test
   def testExampleToEvaluationRecordMulticlass() = {
     val evalResult = EvalUtil.exampleToEvaluationRecord(
@@ -14,7 +18,7 @@ class EvalUtilTest {
       fullRankLinearModel,
       false,
       true,
-      "LABEL",
+      registry.family("LABEL"),
       _ => false
     )
 
@@ -36,7 +40,7 @@ class EvalUtilTest {
       linearModel,
       false,
       false,
-      "LABEL",
+      registry.family("LABEL"),
       _ => false
     )
 
@@ -53,7 +57,7 @@ class EvalUtilTest {
       linearModel,
       true,
       false,
-      "LABEL",
+      registry.family("LABEL"),
       _ => true
     )
 
@@ -68,10 +72,11 @@ class EvalUtilTest {
       val examples = sc.parallelize(Seq(multiclassExample1, multiclassExample2))
 
       val results = EvalUtil.scoreExamplesForEvaluation(
-        sc, transformer, fullRankLinearModel, examples, "LABEL", false, true, _ => false
+        sc, transformer, fullRankLinearModel, examples, registry.family("LABEL"),
+        false, true, _ => false
       ).collect()
 
-      assertEquals(results.size, 2)
+      assertEquals(results.length, 2)
       assertEquals(results(0).getLabels, ImmutableMap.of("label1", 10.0, "label2", 9.0))
       assertEquals(results(1).getLabels, ImmutableMap.of("label1", 8.0, "label2", 4.0))
 

@@ -1,17 +1,16 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.{FeatureVector, Example, FunctionForm}
+import com.airbnb.aerosolve.core.features.{Family, Feature, FeatureRegistry, MultiFamilyVector}
 import com.airbnb.aerosolve.core.models.MlpModel
-
 import com.airbnb.aerosolve.core.util.FloatVector
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, FunctionForm}
 import com.typesafe.config.Config
-import org.slf4j.{LoggerFactory, Logger}
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -29,7 +28,7 @@ object MlpModelTrainer {
                             iteration: Int, // number of iterations to run
                             subsample : Double, // determine mini-batch size
                             threshold : Double, // threshold for binary classification
-                            rankKey: String,
+                            labelFamily : Family,
                             learningRateInit : Double,  // initial learning rate
                             learningRateDecay : Double, // learning rate decay rate
                             momentumInit : Double, // initial momentum value
@@ -40,7 +39,8 @@ object MlpModelTrainer {
                             weightDecay : Double, // l2 regularization parameter
                             weightInitStd : Double, // weight initialization std
                             cache : String,
-                            minCount : Int
+                            minCount : Int,
+                            registry: FeatureRegistry
                            )
 
   case class NetWorkParams(activationFunctions: java.util.ArrayList[FunctionForm],
@@ -49,13 +49,14 @@ object MlpModelTrainer {
   def train(sc : SparkContext,
             input : RDD[Example],
             config : Config,
-            key : String) : MlpModel = {
-    val trainerOptions = parseTrainingOptions(config.getConfig(key))
+            key : String,
+            registry: FeatureRegistry) : MlpModel = {
+    val trainerOptions = parseTrainingOptions(config.getConfig(key), registry)
     val networkOptions = parseNetworkOptions(config.getConfig(key))
 
     val raw : RDD[Example] =
       LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
+        .makePointwiseFloat(input, config, key, trainerOptions.registry)
 
     val pointwise = trainerOptions.cache match {
       case "memory" => raw.cache()
@@ -116,20 +117,19 @@ object MlpModelTrainer {
   def computeGradient(sc : SparkContext,
                       options : TrainerOptions,
                       model : MlpModel,
-                      miniBatch : RDD[Example]) : Map[(String, String), FloatVector] = {
+                      miniBatch : RDD[Example]) : Map[Feature, FloatVector] = {
     // compute the sum of gradient of examples in the mini-batch
     val modelBC = sc.broadcast(model)
     miniBatch
       .mapPartitions(partition => {
         val model = modelBC.value
-        val gradient = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+        val gradient = mutable.HashMap[Feature, FloatVector]()
         partition.foreach(example => {
-          val fv = example.example.get(0)
-          val flatFeatures: java.util.Map[String, java.util.Map[java.lang.String, java.lang.Double]] = Util.flattenFeature(fv)
+          val fv = example.only
           val score = if (options.dropout > 0) {
-            model.forwardPropagationWithDropout(flatFeatures, options.dropout)
+            model.forwardPropagationWithDropout(fv, options.dropout)
           } else {
-            model.forwardPropagation(flatFeatures)
+            model.forwardPropagation(fv)
           }
           val grad = options.loss match {
             case "hinge" => computeHingeGradient(score, fv, options)
@@ -138,13 +138,13 @@ object MlpModelTrainer {
           }
           // back-propagation for updating gradient
           // note: activations have been computed in forwardPropagation
-          val outputLayerId = model.getNumHiddenLayers
-          val func = model.getActivationFunction.get(outputLayerId)
+          val outputLayerId = model.numHiddenLayers
+          val func = model.activationFunction.get(outputLayerId)
           // delta: gradient of loss function w.r.t. node input
           // activation: the output of a node
           val outputNodeDelta = computeActivationGradient(score, func) * grad
 
-          backPropagation(model, outputNodeDelta.toFloat, gradient, flatFeatures, options.weightDecay.toFloat)
+          backPropagation(model, outputNodeDelta.toFloat, gradient, fv, options.weightDecay.toFloat)
         })
         gradient.iterator
       })
@@ -157,46 +157,44 @@ object MlpModelTrainer {
         x._1.scale(1.0f / x._2.toFloat)
         x._1
       })
-      .collectAsMap
+      .collectAsMap()
       .toMap
   }
 
   def backPropagation(model: MlpModel,
                       outputNodeDelta: Float,
-                      gradient: scala.collection.mutable.HashMap[(String, String), FloatVector],
-                      flatFeatures: java.util.Map[String, java.util.Map[java.lang.String, java.lang.Double]],
-                      weightDecay: Float = 0.0f) = {
+                      gradient: mutable.Map[Feature, FloatVector],
+                      vector : MultiFamilyVector,
+                      weightDecay: Double = 0.0d) = {
     // outputNodeDelta: gradient of the loss function w.r.t the input of the output node
-    val numHiddenLayers = model.getNumHiddenLayers
-    val layerNodeNumber = model.getLayerNodeNumber
-    val activationFunctions = model.getActivationFunction
     // set delta for the output layer
     var upperLayerDelta = new FloatVector(1)
     upperLayerDelta.set(0, outputNodeDelta)
     // compute gradient for bias at the output node
     val outputBiasGrad = new FloatVector(1)
     outputBiasGrad.set(0, outputNodeDelta)
-    val outputBiasKey = (LAYER_PREFIX + numHiddenLayers.toString, BIAS_PREFIX)
+    val outputBiasKey = vector.registry.feature(
+      LAYER_PREFIX + model.numHiddenLayers.toString, BIAS_PREFIX)
     outputBiasGrad.add(gradient.getOrElse(outputBiasKey, new FloatVector(1)))
     gradient.put(outputBiasKey, outputBiasGrad)
     // update for hidden layers
-    for (i <- (0 until numHiddenLayers).reverse) {
+    for (i <- (0 until model.numHiddenLayers).reverse) {
       // i decreases from numHiddenLayers-1 to 0
-      val numNode = layerNodeNumber.get(i)
-      val numNodeUpperLayer = layerNodeNumber.get(i + 1)
-      val func = activationFunctions.get(i)
+      val numNode = model.layerNodeNumber.get(i)
+      val numNodeUpperLayer = model.layerNodeNumber.get(i + 1)
+      val func = model.activationFunction.get(i)
       val thisLayerDelta = new FloatVector(numNode)
       // compute gradient of weights from the i-th layer to the (i+1)-th layer
-      val activations = model.getLayerActivations.get(i)
-      val hiddenLayerWeights = model.getHiddenLayerWeights.get(i)
-      val biasKey = (LAYER_PREFIX + i.toString, BIAS_PREFIX)
+      val activations = model.layerActivations.get(i)
+      val hiddenLayerWeights = model.hiddenLayerWeights.get(i)
+      val biasKey = vector.registry.feature(LAYER_PREFIX + i.toString, BIAS_PREFIX)
       val biasGrad = gradient.getOrElse(biasKey, new FloatVector(numNode))
       for (j <- 0 until numNode) {
-        val key = (LAYER_PREFIX + i.toString, NODE_PREFIX + j.toString)
+        val key = vector.registry.feature(LAYER_PREFIX + i.toString, NODE_PREFIX + j.toString)
         val gradFv = gradient.getOrElse(key, new FloatVector(numNodeUpperLayer))
         gradFv.multiplyAdd(activations.get(j), upperLayerDelta)
         if (weightDecay > 0.0f) {
-          val weight = model.getHiddenLayerWeights.get(i).get(j)
+          val weight = model.hiddenLayerWeights.get(i).get(j)
           gradFv.multiplyAdd(weightDecay, weight)
         }
         gradient.put(key, gradFv)
@@ -207,53 +205,49 @@ object MlpModelTrainer {
         thisLayerDelta.set(j, delta.toFloat)
       }
       biasGrad.add(thisLayerDelta)
-      if (weightDecay > 0.0f) {
-        biasGrad.multiplyAdd(weightDecay, model.getBias.get(i))
+      if (weightDecay > 0.0d) {
+        biasGrad.multiplyAdd(weightDecay, model.bias.get(i))
       }
       gradient.put(biasKey, biasGrad)
       upperLayerDelta = thisLayerDelta
     }
 
-    val inputLayerWeights = model.getInputLayerWeights
     // update for the input layer
-    val numNodeUpperLayer = layerNodeNumber.get(0)
-    for (family <- flatFeatures) {
-      for (feature <- family._2) {
-        val key = (family._1, feature._1)
-        // We only care about features in the model.
-        if (inputLayerWeights.containsKey(key._1) && inputLayerWeights.get(key._1).containsKey(key._2)) {
-          val gradFv = gradient.getOrElse(key, new FloatVector(numNodeUpperLayer))
-          gradFv.multiplyAdd(feature._2.toFloat, upperLayerDelta)
-          if (weightDecay > 0.0f) {
-            val weight = inputLayerWeights.get(key._1).get(key._2)
-            gradFv.multiplyAdd(weightDecay, weight)
-          }
-          gradient.put(key, gradFv)
+    val numNodeUpperLayer = model.layerNodeNumber.get(0)
+    for (fv <- vector.iterator) {
+      val key = fv.feature
+      // We only care about features in the model.
+      if (model.inputLayerWeights.containsKey(key)) {
+        val gradFv = gradient.getOrElse(key, new FloatVector(numNodeUpperLayer))
+        gradFv.multiplyAdd(fv.value, upperLayerDelta)
+        if (weightDecay > 0.0d) {
+          val weight = model.inputLayerWeights.get(key)
+          gradFv.multiplyAdd(weightDecay, weight)
         }
+        gradient.put(key, gradFv)
       }
     }
   }
 
   def updateModel(model: MlpModel,
-                  gradientContainer:  Map[(String, String), FloatVector],
-                  updateContainer: scala.collection.mutable.HashMap[(String, String), FloatVector],
-                  momentum: Float,
-                  learningRate: Float,
+                  gradientContainer: Map[Feature, FloatVector],
+                  updateContainer: mutable.Map[Feature, FloatVector],
+                  momentum: Double,
+                  learningRate: Double,
                   dropout: Double) = {
     // computing current updates based on previous updates and new gradient
     // then update model weights (also update the prevUpdateContainer)
-    val numHiddenLayers = model.getNumHiddenLayers
     for ((key, prevUpdate) <- updateContainer) {
-      val weightToUpdate : FloatVector = if (key._1.startsWith(LAYER_PREFIX)) {
-        val layerId: Int = key._1.substring(LAYER_PREFIX.length).toInt
-        assert(layerId >= 0 && layerId <= numHiddenLayers)
-        if (key._2.equals(BIAS_PREFIX)) {
+      val weightToUpdate : FloatVector = if (key.family.name.startsWith(LAYER_PREFIX)) {
+        val layerId: Int = key.family.name.substring(LAYER_PREFIX.length).toInt
+        assert(layerId >= 0 && layerId <= model.numHiddenLayers)
+        if (key.name.equals(BIAS_PREFIX)) {
           // node bias updates
-          model.getBias.get(layerId)
-        } else if (key._2.startsWith(NODE_PREFIX)) {
-          val nodeId = key._2.substring(NODE_PREFIX.length).toInt
+          model.bias.get(layerId)
+        } else if (key.name.startsWith(NODE_PREFIX)) {
+          val nodeId = key.name.substring(NODE_PREFIX.length).toInt
           // hidden layer weight updates
-          model.getHiddenLayerWeights.get(layerId).get(nodeId)
+          model.hiddenLayerWeights.get(layerId).get(nodeId)
         } else {
           // error
           assert(false)
@@ -261,9 +255,9 @@ object MlpModelTrainer {
         }
       } else {
         // input layer weight updates
-        val inputLayerWeight = model.getInputLayerWeights.get(key._1)
+        val inputLayerWeight = model.inputLayerWeights.get(key)
         if (inputLayerWeight != null) {
-          inputLayerWeight.get(key._2)
+          inputLayerWeight
         } else {
           new FloatVector()
         }
@@ -282,19 +276,21 @@ object MlpModelTrainer {
   def trainAndSaveToFile(sc : SparkContext,
                          input : RDD[Example],
                          config : Config,
-                         key : String) = {
-    val model = train(sc, input, config, key)
+                         key : String,
+                         registry: FeatureRegistry) = {
+    val model = train(sc, input, config, key, registry)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 
-  private def parseTrainingOptions(config : Config) : TrainerOptions = {
+  private def parseTrainingOptions(config : Config,
+                                   registry: FeatureRegistry) : TrainerOptions = {
     TrainerOptions(
       loss = config.getString("loss"),
       margin = config.getDouble("margin"),
       iteration = config.getInt("iterations"),
       subsample = config.getDouble("subsample"),
       threshold = Try(config.getDouble("rank_threshold")).getOrElse(0.0),
-      rankKey = config.getString("rank_key"),
+      labelFamily = registry.family(config.getString("rank_key")),
       learningRateInit = config.getDouble("learning_rate_init"),
       learningRateDecay = Try(config.getDouble("learning_rate_decay")).getOrElse(1.0),
       momentumInit = Try(config.getDouble("momentum_init")).getOrElse(0.0),
@@ -305,7 +301,8 @@ object MlpModelTrainer {
       weightDecay = Try(config.getDouble("weight_decay")).getOrElse(0.0),
       weightInitStd = config.getDouble("weight_init_std"),
       cache = Try(config.getString("cache")).getOrElse(""),
-      minCount = Try(config.getInt("min_count")).getOrElse(0)
+      minCount = Try(config.getInt("min_count")).getOrElse(0),
+      registry = registry
     )
   }
 
@@ -332,63 +329,49 @@ object MlpModelTrainer {
                  pointwise : RDD[Example]) : MlpModel = {
     val model = new MlpModel(
       networkOptions.activationFunctions,
-      networkOptions.nodeNumber)
-    val hiddenLayerWeights = model.getHiddenLayerWeights
-    val inputLayerWeights = model.getInputLayerWeights
-    val layerNodeNumber = model.getLayerNodeNumber
-    val numHiddenLayers = model.getNumHiddenLayers
+      networkOptions.nodeNumber,
+      trainerOptions.registry)
 
     val std = trainerOptions.weightInitStd.toFloat
     val stats = TrainingUtils.getFeatureStatistics(trainerOptions.minCount, pointwise)
 
     // set up input layer weights
     var count : Int = 0
-    for (kv <- stats) {
-      val (family, feature) = kv._1
-      if (family != trainerOptions.rankKey) {
-        if (!inputLayerWeights.containsKey(family)) {
-          inputLayerWeights.put(family, new java.util.HashMap[java.lang.String, FloatVector]())
-        }
-        val familyMap = inputLayerWeights.get(family)
-        if (!familyMap.containsKey(feature)) {
-          count = count + 1
-          familyMap.put(feature, FloatVector.getGaussianVector(layerNodeNumber.get(0), std))
-        }
+    for ((feature, featureStats) <- stats) {
+      if (feature.family != trainerOptions.labelFamily && !model.inputLayerWeights.containsKey(feature)) {
+        count = count + 1
+        model.inputLayerWeights.put(feature, FloatVector.getGaussianVector(model.layerNodeNumber.get(0), std))
       }
     }
     // set up hidden layer weights
-    for (i <- 0 until numHiddenLayers) {
+    for (i <- 0 until model.numHiddenLayers) {
       val arr = new java.util.ArrayList[FloatVector]()
-      for (j <- 0 until layerNodeNumber.get(i)) {
-        val fv = FloatVector.getGaussianVector(layerNodeNumber.get(i + 1), std)
+      for (j <- 0 until model.layerNodeNumber.get(i)) {
+        val fv = FloatVector.getGaussianVector(model.layerNodeNumber.get(i + 1), std)
         arr.add(fv)
       }
-      hiddenLayerWeights.put(i, arr)
+      model.hiddenLayerWeights.put(i, arr)
     }
     // note: bias at each node initialized to zero in this trainer
-    log.info(s"Total number of features is $count")
+    log.info(s"Total number of inputFeatures is $count")
     model
   }
 
-  private def setupUpdateContainer(model: MlpModel) : scala.collection.mutable.HashMap[(String, String), FloatVector] = {
-    val container = scala.collection.mutable.HashMap[(String, String), FloatVector]()
+  private def setupUpdateContainer(model: MlpModel) : mutable.Map[Feature, FloatVector] = {
+    val container = mutable.HashMap[Feature, FloatVector]()
     // set up input layer weights gradient
-    val inputLayerWeights = model.getInputLayerWeights
-    val n0 = model.getLayerNodeNumber.get(0)
-    for (family <- inputLayerWeights) {
-      for (feature <- family._2) {
-        val key = (family._1, feature._1)
-        container.put(key, new FloatVector(n0))
-      }
+    val n0 = model.layerNodeNumber.get(0)
+    for (feature <- model.inputLayerWeights.keySet) {
+      container.put(feature, new FloatVector(n0))
     }
 
     // set up hidden layer weights gradient
-    val numHiddenLayers = model.getNumHiddenLayers
+    val numHiddenLayers = model.numHiddenLayers
     for (i <- 0 until numHiddenLayers) {
-      val thisLayerNodeNum = model.getLayerNodeNumber.get(i)
-      val nextLayerNodeNum = model.getLayerNodeNumber.get(i + 1)
+      val thisLayerNodeNum = model.layerNodeNumber.get(i)
+      val nextLayerNodeNum = model.layerNodeNumber.get(i + 1)
       for (j <- 0 until thisLayerNodeNum) {
-        val key = (LAYER_PREFIX + i.toString, NODE_PREFIX + j.toString)
+        val key = model.registry.feature(LAYER_PREFIX + i.toString, NODE_PREFIX + j.toString)
         container.put(key, new FloatVector(nextLayerNodeNum))
       }
     }
@@ -396,16 +379,16 @@ object MlpModelTrainer {
     // set up bias gradient
     for (i <- 0 to numHiddenLayers) {
       // all bias in the same layer are put to the same FloatVector
-      val key = (LAYER_PREFIX + i.toString, BIAS_PREFIX)
-      container.put(key, new FloatVector(model.getLayerNodeNumber.get(i)))
+      val key = model.registry.feature(LAYER_PREFIX + i.toString, BIAS_PREFIX)
+      container.put(key, new FloatVector(model.layerNodeNumber.get(i)))
     }
 
     container
   }
 
   private def computeUpdates(prevUpdate: FloatVector,
-                             momentum: Float,
-                             learningRate: Float,
+                             momentum: Double,
+                             learningRate: Double,
                              gradient: FloatVector): FloatVector = {
     // based on hinton's dropout paper: http://arxiv.org/pdf/1207.0580.pdf
     val update: FloatVector = new FloatVector(prevUpdate.length)
@@ -435,11 +418,11 @@ object MlpModelTrainer {
   }
 
   private def computeHingeGradient(prediction: Double,
-                                   fv: FeatureVector,
+                                   fv: MultiFamilyVector,
                                    option: TrainerOptions): Double = {
     // Returns d_loss / d_output_activation
     // gradient of loss function w.r.t the output node activation
-    val label = TrainingUtils.getLabel(fv, option.rankKey, option.threshold)
+    val label = TrainingUtils.getLabel(fv, option.labelFamily, option.threshold)
     // loss = max(0.0, option.margin - label * prediction)
     if (option.margin - label * prediction > 0) {
       -label
@@ -449,13 +432,13 @@ object MlpModelTrainer {
   }
 
   private def computeRegressionGradient(prediction: Double,
-                                        fv: FeatureVector,
+                                        fv: MultiFamilyVector,
                                         option: TrainerOptions): Double = {
     // epsilon-insensitive loss for regression (as in SVM regression)
     // loss = max(0.0, |prediction - label| - epsilon)
     // where epsilon = option.margin
     assert(option.margin > 0)
-    val label = TrainingUtils.getLabel(fv, option.rankKey)
+    val label = TrainingUtils.getLabel(fv, option.labelFamily)
     if (prediction - label > option.margin) {
       1.0
     } else if (prediction - label < - option.margin) {

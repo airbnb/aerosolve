@@ -3,12 +3,16 @@ package com.airbnb.aerosolve.core.util;
 import com.airbnb.aerosolve.core.DebugScoreDiffRecord;
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.Example;
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.features.Family;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.features.SimpleExample;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
+import com.google.common.collect.Sets;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -16,59 +20,52 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class UtilTest {
-  private static final Logger log = LoggerFactory.getLogger(UtilTest.class);
-
-  public FeatureVector makeFeatureVector() {
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    HashMap stringFeatures = new HashMap<String, ArrayList<String>>();
-    stringFeatures.put("string_feature", list);
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    return featureVector;
-  }
+  private final FeatureRegistry registry = new FeatureRegistry();
 
   @Test
   public void testEncodeDecodeFeatureVector() {
-    FeatureVector featureVector = makeFeatureVector();
-    String str = Util.encode(featureVector);
+    MultiFamilyVector featureVector = makeFeatureVector();
+    String str = Util.encodeFeatureVector(featureVector);
     assertTrue(str.length() > 0);
     log.info(str);
-    FeatureVector featureVector2 = Util.decodeFeatureVector(str);
-    assertTrue(featureVector2.stringFeatures != null);
-    assertTrue(featureVector2.stringFeatures.containsKey("string_feature"));
-    Set<String> list2 = featureVector2.stringFeatures.get("string_feature");
-    assertTrue(list2.size() == 2);
+    MultiFamilyVector featureVector2 = Util.decodeFeatureVector(str, registry);
+    assertTrue(featureVector2.numFamilies() == 2);
+    Family stringFamily = registry.family("string_feature");
+    assertTrue(featureVector2.contains(stringFamily));
+    assertTrue(featureVector2.get(stringFamily).size() == 2);
+
+    Family sparseFamily = registry.family("sparse_feature");
+    assertTrue(featureVector2.contains(sparseFamily));
+    assertTrue(featureVector2.get(sparseFamily).size() == 2);
+  }
+
+  private MultiFamilyVector makeFeatureVector() {
+    MultiFamilyVector vector = TransformTestingHelper.makeEmptyVector(registry);
+
+    Family stringFamily = registry.family("string_feature");
+    vector.putString(stringFamily.feature("aaa"));
+    vector.putString(stringFamily.feature("bbb"));
+
+    Family sparseFamily = registry.family("sparse_feature");
+
+    vector.put(sparseFamily.feature("lat"), 37.7);
+    vector.put(sparseFamily.feature("long"), 40.0);
+
+    return vector;
   }
 
   @Test
   public void testEncodeDecodeExample() {
-    FeatureVector featureVector = makeFeatureVector();
-    Example example = new Example();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    Example example = new SimpleExample(registry);
     example.addToExample(featureVector);
-    String str = Util.encode(example);
+    String str = Util.encodeExample(example);
     assertTrue(str.length() > 0);
     log.info(str);
-    Example example2 = Util.decodeExample(str);
-    assertTrue(example2.example.size() == 1);
-  }
-
-  @Test
-  public void testFlattenFeature() {
-    FeatureVector featureVector = makeFeatureVector();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-    Map<String, Double> tmp = new HashMap<String, Double>();
-    floatFeatures.put("float_feature", tmp);
-    tmp.put("x", 0.3);
-    tmp.put("y", -0.2);
-    featureVector.floatFeatures = floatFeatures;
-    Map<String, Map<String, Double>> flatFeature = Util.flattenFeature(featureVector);
-    assertEquals(1.0, flatFeature.get("string_feature").get("aaa"), 0.1);
-    assertEquals(1.0, flatFeature.get("string_feature").get("bbb"), 0.1);
-    assertEquals(0.3, flatFeature.get("float_feature").get("x"), 0.1);
-    assertEquals(-0.2, flatFeature.get("float_feature").get("y"), 0.1);
+    Example example2 = Util.decodeExample(str, registry);
+    assertTrue(Sets.newHashSet(example2).size() == 1);
   }
 
   @Test

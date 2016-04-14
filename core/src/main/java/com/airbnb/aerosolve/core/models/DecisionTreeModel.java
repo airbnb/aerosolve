@@ -1,19 +1,24 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.features.FeatureRegistry;
+import com.airbnb.aerosolve.core.util.Util;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.lang.StringBuilder;
-import java.util.Map;
-import java.util.List;
 import java.util.ArrayList;
-
-import com.airbnb.aerosolve.core.*;
-import com.airbnb.aerosolve.core.util.Util;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 // A simple decision tree model.
+@Accessors(fluent = true, chain = true)
 public class DecisionTreeModel extends AbstractModel {
 
   private static final long serialVersionUID = 3651061358422885379L;
@@ -21,39 +26,30 @@ public class DecisionTreeModel extends AbstractModel {
   @Getter @Setter
   protected ArrayList<ModelRecord> stumps;
 
-  public DecisionTreeModel() {
+  public DecisionTreeModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlattenedFeature(floatFeatures);
-  }
-
-  @Override
-  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlattenedFeatureMulticlass(floatFeatures);
-  }
-
-  public float scoreFlattenedFeature(Map<String, Map<String, Double>> floatFeatures) {
-    int leaf = getLeafIndex(floatFeatures);
-    if (leaf < 0) return 0.0f;
+  public double scoreItem(FeatureVector vector) {
+    int leaf = getLeafIndex(vector);
+    if (leaf < 0) return 0.0d;
 
     ModelRecord stump = stumps.get(leaf);
-    return (float) stump.featureWeight;
+    return stump.getFeatureWeight();
   }
 
-  public ArrayList<MulticlassScoringResult> scoreFlattenedFeatureMulticlass(Map<String, Map<String, Double>> floatFeatures) {
+  @Override
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector vector) {
     ArrayList<MulticlassScoringResult> results = new ArrayList<>();
-    int leaf = getLeafIndex(floatFeatures);
+    int leaf = getLeafIndex(vector);
     if (leaf < 0) return results;
 
     ModelRecord stump = stumps.get(leaf);
 
-    if (stump.labelDistribution == null) return results;
+    if (stump.getLabelDistribution() == null) return results;
 
-    for (Map.Entry<String, Double> entry : stump.labelDistribution.entrySet()) {
+    for (Map.Entry<String, Double> entry : stump.getLabelDistribution().entrySet()) {
       MulticlassScoringResult result = new MulticlassScoringResult();
       result.setLabel(entry.getKey());
       result.setScore(entry.getValue());
@@ -62,7 +58,7 @@ public class DecisionTreeModel extends AbstractModel {
     return results;
   }
 
-  public int getLeafIndex(Map<String, Map<String, Double>> floatFeatures) {
+  public int getLeafIndex(FeatureVector vector) {
     if (stumps.isEmpty()) return -1;
 
     int index = 0;
@@ -71,11 +67,11 @@ public class DecisionTreeModel extends AbstractModel {
       if (!stump.isSetLeftChild() || !stump.isSetRightChild()) {
         break;
       }
-      boolean response = BoostedStumpsModel.getStumpResponse(stump, floatFeatures);
+      boolean response = BoostedStumpsModel.getStumpResponse(stump, vector);
       if (response) {
-        index = stump.rightChild;
+        index = stump.getRightChild();
       } else {
-        index = stump.leftChild;
+        index = stump.getLeftChild();
       }
     }
     return index;
@@ -83,7 +79,7 @@ public class DecisionTreeModel extends AbstractModel {
 
   @Override
   // Decision trees don't usually have debuggable components.
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
       StringBuilder builder) {
     return 0.0f;
   }
@@ -134,25 +130,25 @@ public class DecisionTreeModel extends AbstractModel {
       ModelRecord stump = stumps.get(i);
       if (stump.isSetLeftChild()) {
         sb.append(String.format("\"node%d\" [\n", i));
-        double thresh = stump.threshold;
+        double thresh = stump.getThreshold();
         sb.append(String.format(
             "label = \"<f0> %s:%s | <f1> less than %f | <f2> greater than or equal%f\";\n",
-            stump.featureFamily,
-            stump.featureName,
+            stump.getFeatureFamily(),
+            stump.getFeatureName(),
             thresh,
             thresh));
         sb.append("shape = \"record\";\n");
         sb.append("];\n");
       } else {
         sb.append(String.format("\"node%d\" [\n", i));
-        if (stump.labelDistribution != null) {
+        if (stump.getLabelDistribution() != null) {
           sb.append(String.format("label = \"<f0> "));
-          for (Map.Entry<String, Double> entry : stump.labelDistribution.entrySet()) {
+          for (Map.Entry<String, Double> entry : stump.getLabelDistribution().entrySet()) {
             sb.append(String.format("%s : %f ", entry.getKey(), entry.getValue()));
           }
           sb.append(" \";\n");
         } else {
-          sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.featureWeight));
+          sb.append(String.format("label = \"<f0> Weight %f\";\n", stump.getFeatureWeight()));
         }
         sb.append("shape = \"record\";\n");
         sb.append("];\n");
@@ -162,9 +158,11 @@ public class DecisionTreeModel extends AbstractModel {
     for (int i = 0; i < stumps.size(); i++) {
       ModelRecord stump = stumps.get(i);
       if (stump.isSetLeftChild()) {
-        sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i, stump.leftChild, count));
+        sb.append(String.format("\"node%d\":f1 -> \"node%d\":f0 [ id = %d ];\n", i,
+                                stump.getLeftChild(), count));
         count = count  + 1;
-        sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i, stump.rightChild, count));
+        sb.append(String.format("\"node%d\":f2 -> \"node%d\":f0 [id = %d];\n", i,
+                                stump.getRightChild(), count));
         count = count + 1;
       }
     }
@@ -183,13 +181,14 @@ public class DecisionTreeModel extends AbstractModel {
         // Parent node, node id, family, name, threshold, left, right  
         sb.append(
             String.format("P,%d,%s,%s,%f,%d,%d", i,
-                stump.featureFamily,
-                stump.featureName,
-                stump.threshold,
-                stump.leftChild, stump.rightChild));
+                          stump.getFeatureFamily(),
+                          stump.getFeatureName(),
+                          stump.getThreshold(),
+                          stump.getLeftChild(),
+                          stump.getRightChild()));
       } else {
         // Leaf node, node id, feature weight, human readable leaf name.  
-        sb.append(String.format("L,%d,%f,LEAF_%d", i, stump.featureWeight, i));  
+        sb.append(String.format("L,%d,%f,LEAF_%d", i, stump.getFeatureWeight(), i));
       }
       sb.append("\"\n");
     }
@@ -198,10 +197,11 @@ public class DecisionTreeModel extends AbstractModel {
   }
 
   // Constructs a tree from human readable transform list.
-  public static DecisionTreeModel fromHumanReadableTransform(List<String> rows) {
-    DecisionTreeModel tree = new DecisionTreeModel();  
+  public static DecisionTreeModel fromHumanReadableTransform(List<String> rows,
+                                                             FeatureRegistry registry) {
+    DecisionTreeModel tree = new DecisionTreeModel(registry);
     ArrayList<ModelRecord> records = new ArrayList<>();
-    tree.setStumps(records);
+    tree.stumps(records);
     for (String row : rows) {
       ModelRecord rec = new ModelRecord();
       records.add(rec);

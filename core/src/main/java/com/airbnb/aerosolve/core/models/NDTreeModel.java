@@ -4,6 +4,7 @@ import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import java.util.Stack;
 /*
   N-Dimensional KDTreeModel.
  */
+@Accessors(fluent = true, chain = true)
 public class NDTreeModel implements Serializable {
   private static final long serialVersionUID = -2884260218927875615L;
   private static final Logger log = LoggerFactory.getLogger(NDTreeModel.class);
@@ -33,7 +35,7 @@ public class NDTreeModel implements Serializable {
     this.nodes = nodes;
     int max = 0;
     for (NDTreeNode node : nodes) {
-      max = Math.max(max, node.axisIndex);
+      max = Math.max(max, node.getAxisIndex());
     }
     dimension = max + 1;
   }
@@ -42,7 +44,7 @@ public class NDTreeModel implements Serializable {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
   }
 
-  public int leaf(float ... coordinates) {
+  public int leaf(double ... coordinates) {
     if (nodes == null || nodes.length == 0) return -1;
     return binarySearch(nodes, coordinates, 0);
   }
@@ -80,13 +82,13 @@ public class NDTreeModel implements Serializable {
       int currIdx = stack.pop();
       idx.add(currIdx);
       NDTreeNode node = nodes[currIdx];
-      int index = node.axisIndex;
+      int index = node.getAxisIndex();
       if (index > LEAF) {
-        if (min.get(index) < node.splitValue) {
-          stack.push(node.leftChild);
+        if (min.get(index) < node.getSplitValue()) {
+          stack.push(node.getLeftChild());
         }
-        if (max.get(index) >= node.splitValue) {
-          stack.push(node.rightChild);
+        if (max.get(index) >= node.getSplitValue()) {
+          stack.push(node.getRightChild());
         }
       }
     }
@@ -143,7 +145,7 @@ public class NDTreeModel implements Serializable {
 
   // TODO use https://github.com/facebook/swift
   private static int next(NDTreeNode node, Object key) {
-    int index = node.axisIndex;
+    int index = node.getAxisIndex();
     if (index == NDTreeModel.LEAF) {
       // leaf
       return -1;
@@ -164,18 +166,18 @@ public class NDTreeModel implements Serializable {
   }
 
   private static int nextChild(NDTreeNode node, float value) {
-    if (value < node.splitValue) {
-      return node.leftChild;
+    if (value < node.getSplitValue()) {
+      return node.getLeftChild();
     } else {
-      return node.rightChild;
+      return node.getRightChild();
     }
   }
 
   private static int nextChild(NDTreeNode node, Number value) {
-    if (value.doubleValue() < node.splitValue) {
-      return node.leftChild;
+    if (value.doubleValue() < node.getSplitValue()) {
+      return node.getLeftChild();
     } else {
-      return node.rightChild;
+      return node.getRightChild();
     }
   }
 }

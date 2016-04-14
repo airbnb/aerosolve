@@ -2,13 +2,12 @@ package com.airbnb.aerosolve.core.models;
 
 import com.airbnb.aerosolve.core.KDTreeNode;
 import com.airbnb.aerosolve.core.KDTreeNodeType;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;

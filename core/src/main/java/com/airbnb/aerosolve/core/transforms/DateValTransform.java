@@ -1,76 +1,84 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.features.FeatureValue;
+import com.airbnb.aerosolve.core.features.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.base.BaseFeaturesTransform;
 import com.airbnb.aerosolve.core.util.Util;
-
 import com.typesafe.config.Config;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeFieldType;
 
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.text.ParseException;
+import javax.validation.constraints.NotNull;
 
 /**
  * Get the date value from date string
  * "field1" specifies the key of feature
- * "field2" specifies the type of date value
+ * "date_type" specifies the type of date value
  */
-public class DateValTransform implements Transform {
-  protected String fieldName1;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Slf4j
+@Accessors(fluent = true, chain = true)
+@NoArgsConstructor(access = AccessLevel.PACKAGE)
+public class DateValTransform extends BaseFeaturesTransform<DateValTransform> {
+  protected DateTimeFieldType dateTimeFieldType;
+
+  @NotNull
   protected String dateType;
-  protected String outputName;
-  protected final static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+
   @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
-    dateType = config.getString(key + ".date_type");
-    outputName = config.getString(key + ".output");
+  public DateValTransform configure(Config config, String key) {
+    return super.configure(config, key)
+        .dateType(stringFromConfig(config, key, ".date_type"));
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) {
-      return ;
+  protected void setup() {
+    super.setup();
+    dateTimeFieldType = getDateTimeFieldType(dateType);
+  }
+
+  private DateTimeFieldType getDateTimeFieldType(String dateType) {
+    switch (dateType) {
+      case "day_of_month":
+        return DateTimeFieldType.dayOfMonth();
+      case "day_of_week":
+        return DateTimeFieldType.dayOfWeek();
+      case "day_of_year":
+        return DateTimeFieldType.dayOfYear();
+      case "year":
+        return DateTimeFieldType.year();
+      case "month":
+        return DateTimeFieldType.monthOfYear();
+      default:
+        return null;
     }
+  }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return ;
-    }
-
-    Util.optionallyCreateFloatFeatures(featureVector);
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
-
-    for (String dateStr: feature1) {
+  @Override
+  protected void doTransform(MultiFamilyVector featureVector) {
+    for (FeatureValue value : getInput(featureVector)) {
+      String dateStr = value.feature().name();
       try {
-        Date date = format.parse(dateStr);
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        double dateVal;
-        switch (dateType) {
-          case "day_of_month":
-            dateVal = cal.get(Calendar.DAY_OF_MONTH);
-            break;
-          case "day_of_week":
-            dateVal = cal.get(Calendar.DAY_OF_WEEK);
-            break;
-          case "day_of_year":
-            dateVal = cal.get(Calendar.DAY_OF_YEAR);
-            break;
-          case "year":
-            dateVal = cal.get(Calendar.YEAR);
-            break;
-          case "month":
-            dateVal = cal.get(Calendar.MONTH) + 1;
-            break;
-          default:
-            return ;
+        DateTime date = Util.DATE_FORMAT.parseDateTime(dateStr);
+        double dateVal = date.get(dateTimeFieldType);
+        if (dateTimeFieldType.equals(DateTimeFieldType.dayOfWeek())) {
+          // Joda DateTimes start the week with Monday.  So, Sunday is 7. We mod 7 to bring it to
+          // 0 and add 1 to every day to offset.
+          dateVal = (double) ((((int) dateVal) % 7) + 1);
         }
-        output.put(dateStr, dateVal);
-      } catch (ParseException e) {
-        e.printStackTrace();
-        continue ;
+        featureVector.put(outputFamily.feature(dateStr), dateVal);
+      } catch (IllegalArgumentException e) {
+        log.error("Error parsing date String %s with format %s: %s",
+                  dateStr, Util.DATE_FORMAT.toString(), e.getMessage());
+        // Let's just continue here.  It doesn't seem worth aborting on a malformed String.
+        // Hopefully someone checks the logs when this happens.
       }
     }
   }

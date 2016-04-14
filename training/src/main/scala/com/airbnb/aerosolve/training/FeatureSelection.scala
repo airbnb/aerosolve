@@ -1,30 +1,12 @@
 package com.airbnb.aerosolve.training
 
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
-import java.util
-
-import com.airbnb.aerosolve.core.{ModelRecord, ModelHeader, FeatureVector, Example}
-import com.airbnb.aerosolve.core.models.LinearModel
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.features.{Family, Feature, FeatureRegistry}
 import com.typesafe.config.Config
-import org.slf4j.{LoggerFactory, Logger}
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.HashSet
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.Buffer
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-import scala.util.Random
-import scala.math.abs
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 
 object FeatureSelection {
   private final val log: Logger = LoggerFactory.getLogger("FeatureSelection")
@@ -35,47 +17,49 @@ object FeatureSelection {
   def pointwiseMutualInformation(examples : RDD[Example],
                                  config : Config,
                                  key : String,
-                                 rankKey : String,
+                                 labelFamily : Family,
                                  posThreshold : Double,
                                  minPosCount : Double,
-                                 newCrosses : Boolean) : RDD[((String, String), Double)] = {
-    val pointwise = LinearRankerUtils.makePointwise(examples, config, key, rankKey)
+                                 newCrosses : Boolean,
+                                  registry : FeatureRegistry) : RDD[(Feature, Double)] = {
+    val pointwise = LinearRankerUtils.makePointwiseFloat(examples, config, key, registry)
+    val allFeature = registry.feature(allKey._1, allKey._2)
+
     val features = pointwise
       .mapPartitions(part => {
-      // The tuple2 is var, var | positive
-      val output = scala.collection.mutable.HashMap[(String, String), (Double, Double)]()
-      part.foreach(example =>{
-        val featureVector = example.example.get(0)
-        val isPos = if (featureVector.floatFeatures.get(rankKey).asScala.head._2 > posThreshold) 1.0
-        else 0.0
-        val all : (Double, Double) = output.getOrElse(allKey, (0.0, 0.0))
-        output.put(allKey, (all._1 + 1.0, all._2 + 1.0 * isPos))
+        // The tuple2 is var, var | positive
+        val output = scala.collection.mutable.HashMap[Feature, (Double, Double)]()
+        part.foreach(example =>{
+          val featureVector = example.only
+          val labelVal = featureVector.get(labelFamily).iterator.next.value
+          val isPos = if (labelVal > posThreshold) 1.0 else 0.0
+          val all : (Double, Double) = output.getOrElse(allFeature, (0.0, 0.0))
+          output.put(allFeature, (all._1 + 1.0, all._2 + 1.0 * isPos))
 
-        val features : Array[(String, String)] =
-          LinearRankerUtils.getFeatures(featureVector)
-        if (newCrosses) {
-          for (i <- features) {
-            for (j <- features) {
-              if (i._1 < j._1) {
-                val key = ("%s<NEW>%s".format(i._1, j._1),
-                           "%s<NEW>%s".format(i._2, j._2))
-                val x = output.getOrElse(key, (0.0, 0.0))
-                output.put(key, (x._1 + 1.0, x._2 + 1.0 * isPos))
+          if (newCrosses) {
+            for (fv1 <- featureVector.iterator) {
+              for (fv2 <- featureVector.iterator) {
+                if (fv1.feature.compareTo(fv2.feature) <= 0) {
+                  val feature = registry.feature(
+                    "%s<NEW>%s".format(fv1.feature.family.name, fv2.feature.family.name),
+                     "%s<NEW>%s".format(fv1.feature.name, fv2.feature.name))
+                  val x = output.getOrElse(feature, (0.0, 0.0))
+                  output.put(feature, (x._1 + 1.0, x._2 + 1.0 * isPos))
+                }
               }
             }
           }
-        }
-        for (feature <- features) {
-          val x = output.getOrElse(feature, (0.0, 0.0))
-          output.put(feature, (x._1 + 1.0, x._2 + 1.0 * isPos))
-        }
+          for (featureValue <- featureVector.iterator()) {
+            val x = output.getOrElse(featureValue.feature, (0.0, 0.0))
+            output.put(featureValue.feature, (x._1 + 1.0, x._2 + 1.0 * isPos))
+          }
+        })
+        output.iterator
       })
-      output.iterator
-    })
-    .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
-    .filter(x => x._2._2 >= minPosCount)
+      .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
+      .filter(x => x._2._2 >= minPosCount)
 
-    val allCount = features.filter(x => x._1.equals(allKey)).take(1).head
+    val allCount = features.filter(x => x._1.equals(allFeature)).take(1).head
 
     features.map(x => {
       val prob = x._2._1 / allCount._2._1

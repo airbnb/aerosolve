@@ -5,23 +5,20 @@
  */
 
 namespace java com.airbnb.aerosolve.core
-// Function name correspondent to Function class,
-// so it can be created by java reflection
-// we can save string ModelRecord, but that breaks released model file
-// so to add new function, please add to FunctionForm in order
+// Please add new function to the end of FunctionForm in order not to break serialization.
 enum FunctionForm {
-  Spline,
-  Linear,
+  SPLINE,
+  LINEAR,
   RADIAL_BASIS_FUNCTION,
   ARC_COSINE,
   SIGMOID,
   RELU,
   TANH,
   IDENTITY,
-  MultiDimensionSpline
+  MULTI_DIMENSION_SPLINE
 }
 
-struct FeatureVector {
+struct ThriftFeatureVector {
   // The first field is the feature family. e.g. "geo"
   // The rest are string feature values. e.g. "SF," CA", "USA"
   // e.g. "geo" -> "San Francisco", "CA", "USA"
@@ -42,13 +39,13 @@ struct FeatureVector {
   3: optional map<string, list<double>> denseFeatures;
 }
 
-struct Example {
+struct ThriftExample {
   // Repeated list of examples in a bag, e.g. groups by user session
   // or ranked list.
-  1: optional list<FeatureVector> example;
+  1: optional list<ThriftFeatureVector> example;
   // The context feature, e.g. query / user features that is in common
   // over the whole session.
-  2: optional FeatureVector context;
+  2: optional ThriftFeatureVector context;
 }
 
 struct DictionaryEntry {
