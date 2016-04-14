@@ -1,9 +1,8 @@
 package com.airbnb.aerosolve.core.features;
 
-import lombok.Getter;
-
 import java.util.HashMap;
 import java.util.Map;
+import lombok.Getter;
 
 public class FloatFamily extends FeatureFamily<Double> {
   @Getter

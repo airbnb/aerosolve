@@ -1,29 +1,23 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
  * Created by christhetree on 1/27/16.
  */
-public class ReplaceAllStringsTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(ReplaceAllStringsTransformTest.class);
+public class ReplaceAllStringsTransformTest extends BaseTransformTest {
+
+  public String makeConfig() {
+    return makeConfig(makeReplacements(), false);
+  }
 
   public String makeConfig(List<Map<String, String>> replacements, boolean overwriteInput) {
     StringBuilder sb = new StringBuilder();
@@ -50,17 +44,16 @@ public class ReplaceAllStringsTransformTest {
     return sb.toString();
   }
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.builder(registry)
+        .string("strFeature1", "I like blueberry pie, apple pie; and I also like blue!")
+        .string("strFeature1", "I'm so  excited: I   like blue!?!!")
+        .build();
+  }
 
-    Set<String> list = new HashSet<>();
-    list.add("I like blueberry pie, apple pie; and I also like blue!");
-    list.add("I'm so  excited: I   like blue!?!!");
-    stringFeatures.put("strFeature1", list);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    return featureVector;
+  @Override
+  public String configKey() {
+    return "test_replace_all_strings";
   }
 
   public List<Map<String, String>> makeReplacements() {
@@ -78,50 +71,31 @@ public class ReplaceAllStringsTransformTest {
   }
 
   @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig(makeReplacements(), false));
-    Transform transform = TransformFactory.createTransform(config, "test_replace_all_strings");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-
-    assertTrue(featureVector.getStringFeatures() == null);
-  }
-
-  @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig(makeReplacements(), false));
-    Transform transform = TransformFactory.createTransform(config, "test_replace_all_strings");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    assertNotNull(stringFeatures);
-    assertEquals(2, stringFeatures.size());
+    assertTrue(featureVector.numFamilies() == 2);
 
-    Set<String> output = stringFeatures.get("bar");
-
-    assertNotNull(output);
-    assertEquals(2, output.size());
-    assertTrue(output.contains("you like blackberry pie, apple pie; and you also like black!"));
-    assertTrue(output.contains("I'm so  excited: you   like black!?!!"));
+    assertStringFamily(featureVector, "bar", 2, ImmutableSet.of(
+        "you like blackberry pie, apple pie; and you also like black!",
+        "I'm so  excited: you   like black!?!!"
+    ));
   }
 
   @Test
   public void testTransformOverwriteInput() {
-    Config config = ConfigFactory.parseString(makeConfig(makeReplacements(), true));
-    Transform transform = TransformFactory.createTransform(config, "test_replace_all_strings");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    Transform<MultiFamilyVector> transform = getTransform(makeConfig(makeReplacements(), true),
+                                                          configKey());
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    assertNotNull(stringFeatures);
-    assertEquals(1, stringFeatures.size());
+    assertTrue(featureVector.numFamilies() == 1);
 
-    Set<String> output = stringFeatures.get("strFeature1");
-
-    assertNotNull(output);
-    assertEquals(2, output.size());
-    assertTrue(output.contains("you like blackberry pie, apple pie; and you also like black!"));
-    assertTrue(output.contains("I'm so  excited: you   like black!?!!"));
+    assertStringFamily(featureVector, "strFeature1", 2, ImmutableSet.of(
+        "you like blackberry pie, apple pie; and you also like black!",
+        "I'm so  excited: you   like black!?!!"
+    ));
   }
 }

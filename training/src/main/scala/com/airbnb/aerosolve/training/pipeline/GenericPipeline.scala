@@ -454,8 +454,8 @@ object GenericPipeline {
 
     builder ++= "\nString Features:"
 
-    if (fv.stringFeatures != null) {
-      fv.stringFeatures.asScala.foreach(x => {
+    if (fv.getStringFeatures != null) {
+      fv.getStringFeatures.asScala.foreach(x => {
         builder ++= "FAMILY : " + x._1 + '\n'
         x._2.asScala.foreach(y => {builder ++= "--> " + y + '\n'})
       })
@@ -463,8 +463,8 @@ object GenericPipeline {
 
     builder ++= "\nFloat Features:"
 
-    if (fv.floatFeatures != null) {
-      fv.floatFeatures.asScala.foreach(x =>  {
+  if (fv.getFloatFeatures != null) {
+      fv.getFloatFeatures.asScala.foreach(x =>  {
         builder ++= "FAMILY : " + x._1 + '\n'
         x._2.asScala.foreach(y => {builder ++= "--> " + y.toString + '\n'})
       })

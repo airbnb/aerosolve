@@ -42,7 +42,7 @@ public class NDTreeModel implements Serializable {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
   }
 
-  public int leaf(float ... coordinates) {
+  public int leaf(double ... coordinates) {
     if (nodes == null || nodes.length == 0) return -1;
     return binarySearch(nodes, coordinates, 0);
   }

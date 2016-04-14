@@ -2,130 +2,49 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.models.AbstractModel;
+import com.airbnb.aerosolve.core.perf.DenseVector;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.FeatureValue;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
 import com.typesafe.config.Config;
-
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
 public class Transformer implements Serializable {
 
   private static final long serialVersionUID = 1569952057032186608L;
   // The transforms to be applied to the context, item and combined
   // (context | item) respectively.
-  private final Transform contextTransform;
-  private final Transform itemTransform;
-  private final Transform combinedTransform;
+  private final Transform<MultiFamilyVector> contextTransform;
+  private final Transform<MultiFamilyVector> itemTransform;
+  private final Transform<MultiFamilyVector> combinedTransform;
 
-  public Transformer(Config config, String key) {
+  public Transformer(Config config, String key, FeatureRegistry registry, AbstractModel model) {
     // Configures the model transforms.
     // context_transform : name of ListTransform to apply to context
     // item_transform : name of ListTransform to apply to each item
     // combined_transform : name of ListTransform to apply to each (item context) pair
     String contextTransformName = config.getString(key + ".context_transform");
-    contextTransform = TransformFactory.createTransform(config, contextTransformName);
+    contextTransform = TransformFactory.createTransform(config, contextTransformName,
+                                                        registry, model);
     String itemTransformName = config.getString(key + ".item_transform");
-    itemTransform = TransformFactory.createTransform(config, itemTransformName);
+    itemTransform = TransformFactory.createTransform(config, itemTransformName,
+                                                     registry, model);
     String combinedTransformName = config.getString(key + ".combined_transform");
-    combinedTransform = TransformFactory.createTransform(config, combinedTransformName);
+    combinedTransform = TransformFactory.createTransform(config, combinedTransformName,
+                                                         registry, model);
   }
 
-  // Helper functions for transforming context, items or combined feature vectors.
-  public void transformContext(FeatureVector context) {
-    if (contextTransform != null && context != null) {
-      contextTransform.doTransform(context);
-    }
+  public Transform<MultiFamilyVector> getContextTransform() {
+    return contextTransform;
   }
 
-  public void transformItem(FeatureVector item) {
-    if (itemTransform != null && item != null) {
-      itemTransform.doTransform(item);
-    }
+  public Transform<MultiFamilyVector> getItemTransform() {
+    return itemTransform;
   }
 
-  public void transformItems(List<FeatureVector> items) {
-    if (items != null) {
-      for (FeatureVector item : items) {
-        transformItem(item);
-      }
-    }
-  }
-
-  public void transformCombined(FeatureVector combined) {
-    if (combinedTransform != null && combined != null) {
-      combinedTransform.doTransform(combined);
-    }
-  }
-
-  // In place apply all the transforms to the context and items
-  // and apply the combined transform to items.
-  public void combineContextAndItems(Example examples) {
-    transformContext(examples.context);
-    transformItems(examples.example);
-    addContextToItemsAndTransform(examples);
-  }
-
-  // Adds the context to items and applies the combined transform
-  public void addContextToItemsAndTransform(Example examples) {
-    Map<String, Set<String>> contextStringFeatures = null;
-    Map<String, Map<String, Double>> contextFloatFeatures = null;
-    Map<String, List<Double>> contextDenseFeatures = null;
-    if (examples.context != null) {
-      if (examples.context.stringFeatures != null) {
-        contextStringFeatures = examples.context.getStringFeatures();
-      }
-      if (examples.context.floatFeatures != null) {
-        contextFloatFeatures = examples.context.getFloatFeatures();
-      }
-      if (examples.context.denseFeatures != null) {
-        contextDenseFeatures = examples.context.getDenseFeatures();
-      }
-    }
-    for (FeatureVector item : examples.example) {
-      addContextToItemAndTransform(
-          contextStringFeatures, contextFloatFeatures, contextDenseFeatures, item);
-    }
-  }
-
-  public void addContextToItemAndTransform(Map<String, Set<String>> contextStringFeatures,
-                                           Map<String, Map<String, Double>> contextFloatFeatures,
-                                           Map<String, List<Double>> contextDenseFeatures,
-                                           FeatureVector item) {
-    if (contextStringFeatures != null) {
-      if (item.getStringFeatures() == null) {
-        item.setStringFeatures(new HashMap<>());
-      }
-      Map<String, Set<String>> itemStringFeatures = item.getStringFeatures();
-      for (Map.Entry<String, Set<String>> stringFeature : contextStringFeatures.entrySet()) {
-        Set<String> stringFeatureValueCopy = new HashSet<>(stringFeature.getValue());
-        itemStringFeatures.put(stringFeature.getKey(), stringFeatureValueCopy);
-      }
-    }
-    if (contextFloatFeatures != null) {
-      if (item.getFloatFeatures() == null) {
-        item.setFloatFeatures(new HashMap<>());
-      }
-      Map<String, Map<String, Double>> itemFloatFeatures = item.getFloatFeatures();
-      for (Map.Entry<String, Map<String, Double>> floatFeature : contextFloatFeatures.entrySet()) {
-        Map<String, Double> floatFeatureValueCopy = new HashMap<>(floatFeature.getValue());
-        itemFloatFeatures.put(floatFeature.getKey(), floatFeatureValueCopy);
-      }
-    }
-    if (contextDenseFeatures != null) {
-      if (item.getDenseFeatures() == null) {
-        item.setDenseFeatures(new HashMap<>());
-      }
-      Map<String, List<Double>> itemDenseFeatures = item.getDenseFeatures();
-      for (Map.Entry<String, List<Double>> denseFeature : contextDenseFeatures.entrySet()) {
-        List<Double> denseFeatureValueCopy = new ArrayList<>(denseFeature.getValue());
-        itemDenseFeatures.put(denseFeature.getKey(), denseFeatureValueCopy);
-      }
-    }
-    transformCombined(item);
+  public Transform<MultiFamilyVector> getCombinedTransform() {
+    return combinedTransform;
   }
 }

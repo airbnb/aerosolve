@@ -15,11 +15,11 @@ import java.util.List;
 public abstract class AbstractFunction implements Function {
   @Getter
   @Setter
-  protected float[] weights;
+  protected double[] weights;
   @Getter
-  protected float minVal;
+  protected double minVal;
   @Getter
-  protected float maxVal;
+  protected double maxVal;
 
   @Override
   public String toString() {
@@ -28,12 +28,12 @@ public abstract class AbstractFunction implements Function {
   }
 
   @Override
-  public float evaluate(List<Double> values) {
+  public double evaluate(List<Double> values) {
     throw new RuntimeException("method not implemented");
   }
 
   @Override
-  public void update(float delta, List<Double> values){
+  public void update(double delta, List<Double> values){
     throw new RuntimeException("method not implemented");
   }
 

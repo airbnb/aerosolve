@@ -1,77 +1,104 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.types.DualFeatureTransform;
 import com.airbnb.aerosolve.core.models.KDTreeModel;
+import com.airbnb.aerosolve.core.KDTreeNode;
 import com.google.common.base.Optional;
 import com.typesafe.config.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Inputs = fieldName1 (value1, value2)
- * Outputs = list of kdtree nodes
+ * Outputs = list of kdtree nodes and the distance from the split
+ * This is the continuous version of the kd-tree transform and encodes
+ * the distance from each splitting plane to the point being queried.
+ * One can think of this as a tree kernel transform of a point.
  */
-public class KdtreeTransform implements Transform {
-  private String fieldName1;
-  private String value1;
-  private String value2;
-  private String outputName;
+@Slf4j
+@LegacyNames("kdtree_continuous")
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+public class KdtreeTransform extends DualFeatureTransform<KdtreeTransform> {
   private Integer maxCount;
+  private String modelEncoded;
+  private boolean continuous;
+
+  @Setter(AccessLevel.NONE)
   private Optional<KDTreeModel> modelOptional;
-  private static final Logger log = LoggerFactory.getLogger(KdtreeTransform.class);
 
   @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
-    value1 = config.getString(key + ".value1");
-    value2 = config.getString(key + ".value2");
-    outputName = config.getString(key + ".output");
-    maxCount = config.getInt(key + ".max_count");
-    String modelEncoded = config.getString(key + ".model_base64");
+  public KdtreeTransform configure(Config config, String key) {
+    return super.configure(config, key)
+        .maxCount(intFromConfig(config, key, ".max_count"))
+        .modelEncoded(stringFromConfig(config, key, ".model_base64"))
+        .continuous(isContinuous(config, key));
+  }
 
+  private boolean isContinuous(Config config, String key) {
+    if (!booleanFromConfig(config, key, ".continuous")) {
+      String transformType = getTransformType(config, key);
+      // For legacy transform types.
+      return transformType != null && transformType.endsWith("continuous");
+    }
+    return true;
+  }
+
+  @Override
+  protected void setup() {
+    super.setup();
     modelOptional = KDTreeModel.readFromGzippedBase64String(modelEncoded);
+  }
+
+  @Override
+  protected void validate() {
+    super.validate();
 
     if (!modelOptional.isPresent()) {
-      log.error("Could not load KDTree from encoded field");
+      String message = "Could not load KDTree from encoded field";
+      log.error(message);
+      throw new IllegalStateException(message);
     }
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    if (!modelOptional.isPresent()) {
-      return;
-    }
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-
-    if (floatFeatures == null) {
-      return;
-    }
-
-    Map<String, Double> feature1 = floatFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
-
-    Double v1 = feature1.get(value1);
-    Double v2 = feature1.get(value2);
-
-    if (v1 == null || v2 == null) {
-      return;
-    }
-
-    Util.optionallyCreateStringFeatures(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
+  public void doTransform(MultiFamilyVector featureVector) {
+    double v1 = featureVector.getDouble(inputFeature);
+    double v2 = featureVector.getDouble(otherFeature);
 
     ArrayList<Integer> result = modelOptional.get().query(v1, v2);
     int count = Math.min(result.size(), maxCount);
 
-    for (int i = 0; i < count; i++) {
-      Integer res = result.get(result.size() - 1 - i);
-      output.add(res.toString());
+    if (continuous) {
+      KDTreeNode[] nodes = modelOptional.get().getNodes();
+
+      for (int i = 0; i < count; i++) {
+        Integer res = result.get(result.size() - 1 - i);
+        double split = nodes[res].getSplitValue();
+        switch (nodes[res].getNodeType()) {
+          case X_SPLIT: {
+            featureVector.put(outputFamily.feature(res.toString()), v1 - split);
+          }
+          break;
+          case Y_SPLIT: {
+            featureVector.put(outputFamily.feature(res.toString()), v2 - split);
+          }
+          break;
+        }
+      }
+    } else {
+      for (int i = 0; i < count; i++) {
+        Integer res = result.get(result.size() - 1 - i);
+        featureVector.putString(outputFamily.feature(res.toString()));
+      }
     }
   }
 }

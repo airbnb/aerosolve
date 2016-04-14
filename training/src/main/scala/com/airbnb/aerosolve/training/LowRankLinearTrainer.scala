@@ -323,7 +323,7 @@ object LowRankLinearTrainer {
     model.buildLabelToIndex()
     normalizeWeightVectors(model, options.maxNorm)
     log.info(s"Total number of labels is ${dict.size()}")
-    log.info(s"Total number of features is $count")
+    log.info(s"Total number of inputFeatures is $count")
 
     model
   }

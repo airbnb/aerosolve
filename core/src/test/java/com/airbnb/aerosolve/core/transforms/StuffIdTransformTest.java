@@ -1,44 +1,24 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class StuffIdTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(StuffIdTransformTest.class);
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+public class StuffIdTransformTest extends BaseTransformTest {
 
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
 
-    Map<String, Double> map = new HashMap<>();
-    map.put("searches", 37.7);
-    floatFeatures.put("FEAT", map);
-
-    Map<String, Double> map2 = new HashMap<>();
-    map2.put("id", 123456789.0);
-    floatFeatures.put("ID", map2);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.builder(registry)
+        .simpleStrings()
+        .sparse("FEAT", "searches", 37.7)
+        .sparse("ID", "id", 123456789.0)
+        .build();
   }
 
   public String makeConfig() {
@@ -51,32 +31,21 @@ public class StuffIdTransformTest {
            " output : bar\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_stuff");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_stuff";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_stuff");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    log.info(featureVector.toString());
+    assertTrue(featureVector.numFamilies() == 4);
 
-    Map<String, Double> out = featureVector.floatFeatures.get("bar");
-    for (Map.Entry<String, Double> entry : out.entrySet()) {
-      log.info(entry.getKey() + "=" + entry.getValue());
-    }
-    assertTrue(out.size() == 1);
-    assertEquals(37.7, out.get("searches@123456789"), 0.1);
+    assertSparseFamily(featureVector, "bar", 1,
+                       ImmutableMap.of("searches@123456789", 37.7));
   }
 }

@@ -1,26 +1,30 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.models.AbstractModel;
 import com.airbnb.aerosolve.core.models.KernelModel;
-
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class ReinforcementLearningTest {
-  private static final Logger log = LoggerFactory.getLogger(ReinforcementLearningTest.class);
-  
+  private final FeatureRegistry registry = new FeatureRegistry();
+
   StringDictionary makeDictionary() {
     StringDictionary dict = new StringDictionary();
     // The locations vary between 0 and 10
@@ -32,36 +36,42 @@ public class ReinforcementLearningTest {
     return dict;
   }
   
-  public HashMap makeState(double x, double y) {
-    HashMap stateFeatures = new HashMap<String, Double>();
+  public Map<String, Double> makeState(double x, double y) {
+    Map<String, Double> stateFeatures = new HashMap<>();
     stateFeatures.put("x", x);
     stateFeatures.put("y", y);
     return stateFeatures;
   }
   
-  public HashMap makeAction(double dx, double dy) {
-    HashMap actionFeatures = new HashMap<String, Double>();
+  public Map<String, Double> makeAction(double dx, double dy) {
+    Map<String, Double> actionFeatures = new HashMap<>();
     actionFeatures.put("dx", dx);
     actionFeatures.put("dy", dy);
     return actionFeatures;
   }
 
-  public FeatureVector makeFeatureVector(HashMap state, HashMap action) {
-    HashMap floatFeatures = new HashMap<String, HashMap<String, Double>>();
-    floatFeatures.put("S", state);
-    floatFeatures.put("A", action);
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector(Map<String, Double> state,
+                                             Map<String, Double> action) {
+    MultiFamilyVector vector = TransformTestingHelper.makeEmptyVector(registry);
+    loadVector(vector, registry.family("S"), state);
+    loadVector(vector, registry.family("A"), action);
+
+    return vector;
   }
-  
+
+  private void loadVector(MultiFamilyVector vector, Family family, Map<String, Double> values) {
+    for (Map.Entry<String, Double> entry : values.entrySet()) {
+      vector.put(family.feature(entry.getKey()), entry.getValue());
+    }
+  }
+
   public ArrayList<FeatureVector> stateActions(double x, double y) {
-    HashMap currState = makeState(x, y);
+    Map<String, Double> currState = makeState(x, y);
     ArrayList<FeatureVector> potential = new ArrayList<>();
-    HashMap up = makeAction(0.0f, 1.0f);
-    HashMap down = makeAction(0.0f, -1.0f);
-    HashMap left = makeAction(-1.0f, 0.0f);
-    HashMap right = makeAction(1.0f, 0.0f);
+    Map<String, Double> up = makeAction(0.0f, 1.0f);
+    Map<String, Double> down = makeAction(0.0f, -1.0f);
+    Map<String, Double> left = makeAction(-1.0f, 0.0f);
+    Map<String, Double> right = makeAction(1.0f, 0.0f);
 
     potential.add(makeFeatureVector(currState, up));
     potential.add(makeFeatureVector(currState, down));
@@ -71,7 +81,7 @@ public class ReinforcementLearningTest {
   }
 
   AbstractModel makeModel() {
-    KernelModel model = new KernelModel();
+    KernelModel model = new KernelModel(registry);
     StringDictionary dict = makeDictionary();
     model.setDictionary(dict);
     List<SupportVector> supportVectors = model.getSupportVectors();
@@ -80,7 +90,7 @@ public class ReinforcementLearningTest {
       for (double y = 0.0; y <= 10.0; y += 1.0) {
         ArrayList<FeatureVector> potential = stateActions(x, y);
         for (FeatureVector sa : potential) {
-          FloatVector vec = dict.makeVectorFromSparseFloats(Util.flattenFeature(sa));
+          FloatVector vec = dict.makeVectorFromSparseFloats(sa);
           SupportVector sv = new SupportVector(vec, FunctionForm.RADIAL_BASIS_FUNCTION, 1.0f, 0.0f);
           supportVectors.add(sv);
         }

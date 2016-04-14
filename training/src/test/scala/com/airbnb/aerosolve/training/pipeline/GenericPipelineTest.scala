@@ -50,7 +50,7 @@ class GenericPipelineTest {
       )
       assertEquals(
         floatFeatures.get("d"),
-        ImmutableMap.of("doubleFeature", 11.0)
+        ImmutableMap.of("sparseFeature", 11.0)
       )
       assertEquals(
         stringFeatures.get("b"),

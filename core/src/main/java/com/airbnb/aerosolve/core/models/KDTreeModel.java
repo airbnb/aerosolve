@@ -3,17 +3,16 @@ package com.airbnb.aerosolve.core.models;
 import com.airbnb.aerosolve.core.KDTreeNode;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
-import lombok.Getter;
-import org.apache.commons.codec.binary.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
+import lombok.Getter;
+import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.airbnb.aerosolve.core.KDTreeNodeType.LEAF;
 

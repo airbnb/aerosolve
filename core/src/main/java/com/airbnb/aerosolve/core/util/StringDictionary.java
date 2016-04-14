@@ -1,16 +1,13 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.DictionaryEntry;
 import com.airbnb.aerosolve.core.DictionaryRecord;
-
-import lombok.Getter;
-import lombok.Setter;
-
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.perf.FeatureValue;
 import java.io.Serializable;
-import java.util.*;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
+import java.util.HashMap;
+import java.util.Map;
+import lombok.Getter;
 
 /**
  * A class that maps strings to indices. It can be used to map sparse
@@ -62,14 +59,12 @@ public class StringDictionary implements Serializable {
     return currIdx;
   }
   
-  public FloatVector makeVectorFromSparseFloats(Map<String, Map<String, Double>> sparseFloats) {
+  public FloatVector makeVectorFromSparseFloats(FeatureVector vector) {
     FloatVector vec = new FloatVector(dictionary.getEntryCount());
-    for (Map.Entry<String, Map<String, Double>> kv : sparseFloats.entrySet()) {
-      for (Map.Entry<String, Double> feat : kv.getValue().entrySet()) {
-        DictionaryEntry entry = getEntry(kv.getKey(), feat.getKey());
-        if (entry != null) {
-          vec.values[entry.index] = (float) entry.scale * (feat.getValue().floatValue() - (float) entry.mean);
-        }
+    for (FeatureValue value : vector) {
+      DictionaryEntry entry = getEntry(value.feature().family().name(), value.feature().name());
+      if (entry != null) {
+        vec.values[entry.index] = (float) (entry.scale * (value.getDoubleValue() - entry.mean));
       }
     }
     return vec;

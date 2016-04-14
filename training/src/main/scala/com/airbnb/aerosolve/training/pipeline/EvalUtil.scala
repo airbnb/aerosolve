@@ -46,7 +46,7 @@ object EvalUtil {
 
     if (isMulticlass) {
       val score = model.scoreItemMulticlass(example.example.get(0)).asScala
-      val multiclassLabel = example.example.get(0).floatFeatures.get(label).asScala
+      val multiclassLabel = example.example.get(0).getFloatFeatures.get(label).asScala
       val evalScores = new java.util.HashMap[java.lang.String, java.lang.Double]()
       val evalLabels = new java.util.HashMap[java.lang.String, java.lang.Double]()
 
@@ -63,7 +63,7 @@ object EvalUtil {
     } else {
       val score = model.scoreItem(example.example.get(0))
       val prob = if (useProb) model.scoreProbability(score) else score
-      val rank = example.example.get(0).floatFeatures.get(label).values().iterator().next()
+      val rank = example.example.get(0).getFloatFeatures.get(label).values().iterator().next()
 
       result.setScore(prob)
       result.setLabel(rank)
@@ -86,7 +86,7 @@ object EvalUtil {
     transformerBC.value.combineContextAndItems(example)
     val score = modelBC.value.scoreItem(example.example.get(0))
     val prob = modelBC.value.scoreProbability(score)
-    val rank = example.example.get(0).floatFeatures.get("$rank").get("")
+    val rank = example.example.get(0).getFloatFeatures.get("$rank").get("")
 
     result.setScore(prob)
     result.setLabel(rank)

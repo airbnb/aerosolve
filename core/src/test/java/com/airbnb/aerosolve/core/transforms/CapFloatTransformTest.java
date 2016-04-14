@@ -1,23 +1,15 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class CapFloatTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(CapFloatTransformTest.class);
-  
+public class CapFloatTransformTest extends BaseTransformTest {
   public String makeConfig() {
     return "test_cap {\n" +
            " transform : cap_float\n" +
@@ -38,54 +30,42 @@ public class CapFloatTransformTest {
         " output : new_output \n" +
         "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_cap");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_cap";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_cap");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+    assertTrue(featureVector.numFamilies() == 4);
 
-    Map<String, Double> feat1 = featureVector.getFloatFeatures().get("loc");
-
-    assertEquals(3, feat1.size());
-    assertEquals(37.7, feat1.get("lat"), 0.1);
-    assertEquals(39.0, feat1.get("long"), 0.1);
-    assertEquals(1.0, feat1.get("z"), 0.1);
+    assertSparseFamily(featureVector, "loc", 3,
+                       ImmutableMap.of("lat", 37.7,
+                                       "long", 39.0,
+                                       "z", 1.0));
   }
 
   @Test
   public void testTransformWithNewOutput() {
-    Config config = ConfigFactory.parseString(makeConfigWithOutput());
-    Transform transform = TransformFactory.createTransform(config, "test_cap");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform(makeConfigWithOutput(), "test_cap");
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+    assertTrue(featureVector.numFamilies() == 5);
+
     // original feature should not change
-    Map<String, Double> feat1 = featureVector.getFloatFeatures().get("loc");
-    assertEquals(3, feat1.size());
-    assertEquals(37.7, feat1.get("lat"), 0.1);
-    assertEquals(40.0, feat1.get("long"), 0.1);
-    assertEquals(-20, feat1.get("z"), 0.1);
+    assertSparseFamily(featureVector, "loc", 3,
+                       ImmutableMap.of("lat", 37.7,
+                                       "long", 40.0,
+                                       "z", -20.0));
 
     // capped features are in a new feature family
-    assertTrue(featureVector.getFloatFeatures().containsKey("new_output"));
-    Map<String, Double> feat2 = featureVector.getFloatFeatures().get("new_output");
-    assertEquals(3, feat2.size());
-    assertEquals(37.7, feat2.get("lat"), 0.1);
-    assertEquals(39.0, feat2.get("long"), 0.1);
-    assertEquals(1.0, feat2.get("z"), 0.1);
+    assertSparseFamily(featureVector, "new_output", 3,
+                       ImmutableMap.of("lat", 37.7,
+                                       "long", 39.0,
+                                       "z", 1.0));
   }
 }

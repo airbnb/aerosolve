@@ -1,46 +1,34 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.Example;
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.perf.SimpleExample;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
 import static org.junit.Assert.assertTrue;
 
 // Tests all the model transforms.
-public class ModelTransformsTest {
-  private static final Logger log = LoggerFactory.getLogger(ModelTransformsTest.class);
+@Slf4j
+public class ModelTransformsTest extends BaseTransformTest {
 
   // Creates a feature vector given a feature family name and latitude and longitude features.
-  public FeatureVector makeFeatureVector(String familyName,
-                                         Double lat,
-                                         Double lng) {
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-    Map<String, List<Double>> denseFeatures = new HashMap<>();
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", lat);
-    map.put("long", lng);
-    floatFeatures.put(familyName, map);
-
-    List<Double> list = new ArrayList<>();
-    list.add(lat);
-    list.add(lng);
-    String denseFamilyName = familyName + "_dense";
-    denseFeatures.put(denseFamilyName, list);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setFloatFeatures(floatFeatures);
-    featureVector.setDenseFeatures(denseFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector(
+      MultiFamilyVector vector,
+      String familyName,
+      Double lat,
+      Double lng) {
+    return TransformTestingHelper.builder(registry, vector)
+        .sparse(familyName, "lat", lat)
+        .sparse(familyName, "long", lng)
+        .dense(familyName + "_dense", new double[]{lat, lng})
+        .build();
   }
 
   public String makeConfig() {
@@ -82,38 +70,49 @@ public class ModelTransformsTest {
   }
 
   private Example makeExample() {
-    Example example = new Example();
-    example.setContext(makeFeatureVector("guest_loc", 1.0, 2.0));
-    example.addToExample(makeFeatureVector("host_loc", 3.1, 4.2));
-    example.addToExample(makeFeatureVector("host_loc", 5.3, 6.4));
+    Example example = new SimpleExample(registry);
+    makeFeatureVector(example.context(), "guest_loc", 1.0, 2.0);
+    makeFeatureVector(example.createVector(), "host_loc", 3.1, 4.2);
+    makeFeatureVector(example.createVector(), "host_loc", 5.3, 6.4);
     return example;
+  }
+
+  // Bit of a hack to use the quantize_guest_loc config.  I did this because the main transform
+  // won't work with the base test.
+  @Override
+  public String configKey() {
+    return "quantize_guest_loc";
   }
 
   @Test
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
-    Transformer transformer = new Transformer(config, "model_transforms");
+    Transformer transformer = new Transformer(config, "model_transforms", registry, null);
     Example example = makeExample();
-    transformer.combineContextAndItems(example);
-    assertTrue(example.example.size() == 2);
-    FeatureVector ex = example.example.get(0);
-    assertTrue(ex.stringFeatures.size() == 3);
-    assertTrue(ex.stringFeatures.get("guest_loc_quantized").contains("lat=10"));
-    assertTrue(ex.stringFeatures.get("guest_loc_quantized").contains("long=20"));
-    assertTrue(ex.stringFeatures.get("host_loc_quantized").contains("lat=31"));
-    assertTrue(ex.stringFeatures.get("host_loc_quantized").contains("long=42"));
-    assertTrue(ex.stringFeatures.get("gxh_loc").contains("lat=10^lat=31"));
-    assertTrue(ex.stringFeatures.get("gxh_loc").contains("long=20^lat=31"));
-    assertTrue(ex.stringFeatures.get("gxh_loc").contains("lat=10^long=42"));
-    assertTrue(ex.stringFeatures.get("gxh_loc").contains("long=20^long=42"));
-    assertTrue(ex.floatFeatures.get("guest_loc").get("lat") == 1.0);
-    assertTrue(ex.floatFeatures.get("guest_loc").get("long") == 2.0);
-    assertTrue(ex.floatFeatures.get("host_loc").get("lat") == 3.1);
-    assertTrue(ex.floatFeatures.get("host_loc").get("long") == 4.2);
-    assertTrue(ex.denseFeatures.get("guest_loc_dense").contains(1.0));
-    assertTrue(ex.denseFeatures.get("guest_loc_dense").contains(2.0));
-    assertTrue(ex.denseFeatures.get("host_loc_dense").contains(3.1));
-    assertTrue(ex.denseFeatures.get("host_loc_dense").contains(4.2));
+    example.transform(transformer);
+
+    assertTrue(Iterables.size(example) == 2);
+    MultiFamilyVector ex = example.iterator().next();
+
+    assertStringFamily(ex, "guest_loc_quantized", 2,
+                       ImmutableSet.of("lat=10", "long=20"));
+
+    assertStringFamily(ex, "host_loc_quantized", 2,
+                       ImmutableSet.of("lat=31", "long=42"));
+
+    assertStringFamily(ex, "gxh_loc", 4,
+                       ImmutableSet.of("lat=10^lat=31", "long=20^lat=31",
+                                       "lat=10^long=42", "long=20^long=42"));
+
+    assertSparseFamily(ex, "guest_loc", 2,
+                       ImmutableMap.of("lat", 1.0, "long", 2.0));
+
+    assertSparseFamily(ex, "host_loc", 2,
+                       ImmutableMap.of("lat", 3.1, "long", 4.2));
+
+    assertDenseFamily(ex, "guest_loc_dense", new double[]{1.0, 2.0});
+    assertDenseFamily(ex, "host_loc_dense", new double[]{3.1, 4.2});
+
     log.info(example.toString());
   }
 }

@@ -1,37 +1,29 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.List;
-import java.util.Set;
+import com.airbnb.aerosolve.core.perf.DenseVector;
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
 
 public class FeatureVectorUtil {
   /**
-   * Computes the min kernel for one feature family.
-   * @param featureKey - name of feature e.g. "rgb"
-   * @param a - first feature vector
-   * @param b - second feature vector
+   * Computes the min kernel between two double arrays.
+   * @param a - first double array
+   * @param b - second double array
    * @return - sum(min(a(i), b(i))
    */
-  public static double featureMinKernel(String featureKey,
-                                        FeatureVector a,
-                                        FeatureVector b) {
+  public static double minKernel(double[] a, double[] b) {
     double sum = 0.0;
-    if (a.getDenseFeatures() == null || b.getDenseFeatures() == null) {
+    if (a == null || b == null) {
       return 0.0;
     }
-    List<Double> aFeat = a.getDenseFeatures().get(featureKey);
-    List<Double> bFeat = b.getDenseFeatures().get(featureKey);
-    if (aFeat == null || bFeat == null) {
-      return 0.0;
-    }
-    int count = aFeat.size();
-    for (int i = 0; i < count; i++) {
-      if (aFeat.get(i) < bFeat.get(i)) {
-        sum += aFeat.get(i);
-      } else {
-        sum += bFeat.get(i);
-      }
+
+    // This stops at the shorter array. Since we're taking the min, we can assume the shorter array
+    // could be interpreted as 0 beyond it's length and that would be less than b.  Is this true?
+    // what if the other array has negatives?
+    for (int i = 0; i < Math.min(a.length, b.length); i++) {
+      sum += Math.min(a[i], b[i]);
     }
     return sum;
   }
@@ -44,14 +36,23 @@ public class FeatureVectorUtil {
    */
   public static double featureVectorMinKernel(FeatureVector a,
                                               FeatureVector b) {
-    double sum = 0.0;
-    if (a.getDenseFeatures() == null) {
-      return 0.0;
+    if (a instanceof MultiFamilyVector && b instanceof MultiFamilyVector) {
+      double sum = 0.0;
+
+      MultiFamilyVector multiB = (MultiFamilyVector) b;
+      for (FamilyVector vec : ((MultiFamilyVector) a).families()) {
+        sum += denseVectorMinKernel(vec, multiB.get(vec.family()));
+      }
+      return sum;
     }
-    Set<String> keys = a.getDenseFeatures().keySet();
-    for (String key : keys) {
-      sum += featureMinKernel(key, a, b);
+    return denseVectorMinKernel(a, b);
+  }
+
+  private static double denseVectorMinKernel(FeatureVector a,
+                                            FeatureVector b) {
+    if (a instanceof DenseVector && b instanceof DenseVector) {
+      return minKernel(((DenseVector) a).getValues(), ((DenseVector) b).getValues());
     }
-    return sum;
+    return 0.0;
   }
 }

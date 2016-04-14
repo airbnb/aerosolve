@@ -5,6 +5,10 @@ import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
+import com.airbnb.aerosolve.core.perf.DenseVector;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.primitives.Doubles;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -56,10 +60,10 @@ public class MultiDimensionSpline implements Function {
   // Spline is multi scale, so it needs numBins
   // MultiDimensionSpline does not support multi scale.
   @Override
-  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
+  public Function aggregate(Iterable<Function> functions, double scale, int numBins) {
     // functions size == 1/scale
     int length = points.size();
-    float[] aggWeights = new float[length];
+    double[] aggWeights = new double[length];
     for (Function fun: functions) {
       MultiDimensionSpline spline = (MultiDimensionSpline) fun;
 
@@ -74,7 +78,7 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public float evaluate(float ... coordinates) {
+  public double evaluate(double ... coordinates) {
     List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
     double[] distance = new double[list.size()];
     double sum = 0;
@@ -87,7 +91,7 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public float evaluate(List<Double> coordinates) {
+  public double evaluate(List<Double> coordinates) {
     List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
     double[] distance = new double[list.size()];
     double sum = 0;
@@ -99,8 +103,8 @@ public class MultiDimensionSpline implements Function {
     return score(list, distance, sum);
   }
 
-  private static float score(List<MultiDimensionPoint> list, double[] distance, double sum) {
-    float score = 0;
+  private static double score(List<MultiDimensionPoint> list, double[] distance, double sum) {
+    double score = 0;
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
       score += point.getWeight() * (distance[i]/sum);
@@ -109,7 +113,7 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public void update(float delta, float ... values) {
+  public void update(double delta, double ... values) {
     List<MultiDimensionPoint> list = getNearbyPoints(values);
     double[] distance = new double[list.size()];
     double sum = 0;
@@ -122,7 +126,7 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public void update(float delta, List<Double> values){
+  public void update(double delta, List<Double> values){
     List<MultiDimensionPoint> list = getNearbyPoints(values);
     double[] distance = new double[list.size()];
     double sum = 0;
@@ -134,7 +138,7 @@ public class MultiDimensionSpline implements Function {
     update(delta, list, distance, sum);
   }
 
-  private static void update(float delta, List<MultiDimensionPoint> list, double[] distance, double sum) {
+  private static void update(double delta, List<MultiDimensionPoint> list, double[] distance, double sum) {
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
       point.updateWeight(delta * (distance[i]/sum));
@@ -144,7 +148,7 @@ public class MultiDimensionSpline implements Function {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm(FunctionForm.MultiDimensionSpline);
+    record.setFunctionForm(FunctionForm.MULTI_DIMENSION_SPLINE);
     record.setFeatureFamily(featureFamily);
     record.setWeightVector(getWeightsFromList());
     record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
@@ -176,7 +180,7 @@ public class MultiDimensionSpline implements Function {
     return r;
   }
 
-  @Override public void setPriors(float[] params) {
+  @Override public void setPriors(double[] params) {
     assert (params.length == points.size());
     for (int i = 0; i < points.size(); i++) {
       MultiDimensionPoint p = points.get(i);
@@ -185,11 +189,11 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public void LInfinityCap(float cap) {
+  public void LInfinityCap(double cap) {
     if (cap <= 0.0f) return;
-    float currentNorm = LInfinityNorm();
+    double currentNorm = LInfinityNorm();
     if (currentNorm > cap) {
-      float scale = cap / currentNorm;
+      double scale = cap / currentNorm;
       for (int i = 0; i < points.size(); i++) {
         points.get(i).scaleWeight(scale);
       }
@@ -197,12 +201,12 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public float LInfinityNorm() {
-    return (float) Math.max(Collections.max(points).getWeight(),
+  public double LInfinityNorm() {
+    return (double) Math.max(Collections.max(points).getWeight(),
         Math.abs(Collections.min(points).getWeight()));
   }
 
-  private List<MultiDimensionPoint> getNearbyPoints(float ... coordinates) {
+  private List<MultiDimensionPoint> getNearbyPoints(double ... coordinates) {
     int index = ndTreeModel.leaf(coordinates);
     assert (index != -1 && weights.containsKey(index));
     return weights.get(index);
@@ -221,10 +225,10 @@ public class MultiDimensionSpline implements Function {
   @Override
   public void smooth(double tolerance) {
     if (!canDoSmooth()) return;
-    float[] weights = new float[points.size()];
+    double[] weights = new double[points.size()];
     for (int i = 0; i < points.size(); i++) {
       MultiDimensionPoint p = points.get(i);
-      weights[i] = (float) p.getWeight();
+      weights[i] = (double) p.getWeight();
     }
     if (FunctionUtil.smooth(tolerance, weights)) {
       for (int i = 0; i < points.size(); i++) {
@@ -241,15 +245,25 @@ public class MultiDimensionSpline implements Function {
   /*
     This drop out is specific for MultiDimensionSpline
    */
+  // TODO (Brad): Ugh
   public static Map<String, List<Double>> featureDropout(
       FeatureVector featureVector,
       double dropout) {
-    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
-    if (denseFeatures == null) return Collections.EMPTY_MAP;
     Map<String, List<Double>> out = new HashMap<>();
-    for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-      if (Math.random() < dropout) continue;
-      out.put(feature.getKey(), feature.getValue());
+    if (!(featureVector instanceof MultiFamilyVector)) {
+      return out;
+    }
+    MultiFamilyVector vector = (MultiFamilyVector) featureVector;
+    Set<? extends FamilyVector> familyVectors = vector.families();
+    if (familyVectors == null) {
+      return out;
+    }
+    for (FamilyVector familyVector : familyVectors) {
+      if (familyVector instanceof DenseVector) {
+        if (Math.random() < dropout) continue;
+        List<Double> dense = Doubles.asList(((DenseVector) familyVector).getValues());
+        out.put(familyVector.family().name(), dense);
+      }
     }
     return out;
   }

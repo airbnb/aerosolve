@@ -308,7 +308,7 @@ object FullRankLinearTrainer {
         family._2.put(key, new FloatVector(dim))
       }
     }
-    log.info(s"Total number of features is $count")
+    log.info(s"Total number of inputFeatures is $count")
     model.buildLabelToIndex()
 
     model

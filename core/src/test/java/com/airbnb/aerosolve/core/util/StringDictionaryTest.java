@@ -1,29 +1,22 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
-
-import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.DictionaryEntry;
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class StringDictionaryTest {
-  private static final Logger log = LoggerFactory.getLogger(StringDictionaryTest.class);
-  
+  private final FeatureRegistry registry = new FeatureRegistry();
+
   StringDictionary makeDictionary() {
     StringDictionary dict = new StringDictionary();
     DictionaryEntry result = dict.getEntry("foo", "bar");
@@ -51,21 +44,18 @@ public class StringDictionaryTest {
    
   @Test
   public void testStringDictionaryVector() {
-    Map<String, Map<String, Double>> feature = new HashMap<>();
-    Map<String, Double> loc = new HashMap<>();
-    Map<String, Double> foo = new HashMap<>();
+    MultiFamilyVector vector = TransformTestingHelper.makeEmptyVector(registry);
+    Family loc = registry.family("LOC");
+    Family foo = registry.family("foo");
 
-    feature.put("LOC", loc);
-    feature.put("foo", foo);
-    
-    loc.put("lat", 1.0);
-    loc.put("lng", 2.0);
-    foo.put("bar", 3.0);
-    foo.put("baz", 4.0);
+    vector.put(loc.feature("lat"), 1.0);
+    vector.put(loc.feature("lng"), 2.0);
+    vector.put(foo.feature("bar"), 3.0);
+    vector.put(foo.feature("baz"), 4.0);
     
     StringDictionary dict = makeDictionary();
 
-    FloatVector vec = dict.makeVectorFromSparseFloats(feature);
+    FloatVector vec = dict.makeVectorFromSparseFloats(vector);
     assertEquals(3, vec.values.length);
     assertEquals(0.1 * (1.0 - 0.1), vec.values[0], 0.1f);
     assertEquals(0.2 * (2.0 - 0.2), vec.values[1], 0.1f);

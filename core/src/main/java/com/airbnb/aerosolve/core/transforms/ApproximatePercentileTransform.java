@@ -1,67 +1,80 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.perf.Feature;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.types.ConfigurableTransform;
 import com.typesafe.config.Config;
-
-import java.util.Map;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * Given a fieldName1, low, upper key
  * Remaps fieldName2's key2 value such that low = 0, upper = 1.0 thus approximating
  * the percentile using linear interpolation.
  */
-public class ApproximatePercentileTransform implements Transform {
-  private String fieldName1;
-  private String fieldName2;
-  private String lowKey;
-  private String upperKey;
-  private String key2;
-  private String outputName;
-  private String outputKey;
-  private double minDiff;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+public class ApproximatePercentileTransform
+    extends ConfigurableTransform<ApproximatePercentileTransform> {
+
+  protected String lowFamilyName;
+  protected String lowFeatureName;
+  protected String upperFamilyName;
+  protected String upperFeatureName;
+  protected String valueFamilyName;
+  protected String valueFeatureName;
+  protected String outputFamilyName;
+  protected String outputFeatureName;
+  protected double minDiff;
+
+  @Setter(AccessLevel.NONE)
+  protected Feature upperFeature;
+  @Setter(AccessLevel.NONE)
+  protected Feature lowFeature;
+  @Setter(AccessLevel.NONE)
+  protected Feature valueFeature;
+  @Setter(AccessLevel.NONE)
+  protected Feature outputFeature;
 
   @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
-    fieldName2 = config.getString(key + ".field2");
-    lowKey = config.getString(key + ".low");
-    upperKey = config.getString(key + ".upper");
-    minDiff = config.getDouble(key + ".minDiff");
-    key2 =  config.getString(key + ".key2");
-    outputName = config.getString(key + ".output");
-    outputKey = config.getString(key + ".outputKey");
+  public ApproximatePercentileTransform configure(Config config, String key) {
+    return lowFamilyName(stringFromConfig(config, key, ".field1"))
+        .lowFeatureName(stringFromConfig(config, key, ".low"))
+        .upperFamilyName(stringFromConfig(config, key, ".field1"))
+        .upperFeatureName(stringFromConfig(config, key, ".upper"))
+        .valueFeatureName(stringFromConfig(config, key, ".field2"))
+        .valueFeatureName(stringFromConfig(config, key, ".key2"))
+        .minDiff(doubleFromConfig(config, key, ".minDiff"))
+        .outputFamilyName(stringFromConfig(config, key, ".output"))
+        .outputFeatureName(stringFromConfig(config, key, ".outputKey"));
+  }
+
+  protected void setup() {
+    super.setup();
+    this.lowFeature = registry.feature(lowFamilyName, lowFeatureName);
+    this.upperFeature = registry.feature(upperFamilyName, upperFeatureName);
+    this.valueFeature = registry.feature(valueFamilyName, valueFeatureName);
+    this.outputFeature = registry.feature(outputFamilyName, outputFeatureName);
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+  protected boolean checkPreconditions(MultiFamilyVector vector) {
+    return super.checkPreconditions(vector) &&
+           vector.containsKey(lowFeature) &&
+           vector.containsKey(upperFeature) &&
+           vector.containsKey(valueFeature);
+  }
 
-    if (floatFeatures == null) {
-      return;
-    }
+  @Override
+  protected void doTransform(MultiFamilyVector vector) {
 
-    Map<String, Double> feature1 = floatFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
-
-    Map<String, Double> feature2 = floatFeatures.get(fieldName2);
-    if (feature2 == null) {
-      return;
-    }
-
-    Double val = feature2.get(key2);
-    if (val == null) {
-      return;
-    }
-
-    Double low = feature1.get(lowKey);
-    Double upper = feature1.get(upperKey);
-    
-    if (low == null || upper == null) {
-      return;
-    }
+    double low = vector.getDouble(lowFeature);
+    double upper = vector.getDouble(upperFeature);
+    double val = vector.getDouble(valueFeature);
 
     // Abstain if the percentiles are too close.
     double denom = upper - low;
@@ -69,17 +82,15 @@ public class ApproximatePercentileTransform implements Transform {
       return;
     }
 
-    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
-
-    Double outVal = 0.0;
+    double outVal;
     if (val <= low) {
-      outVal = 0.0;
+      outVal = 0.0d;
     } else if (val >= upper) {
-      outVal = 1.0;
+      outVal = 1.0d;
     } else {
       outVal = (val - low) / denom;
     }
 
-    output.put(outputKey, outVal);
+    vector.put(outputFeature, outVal);
   }
 }

@@ -1,12 +1,21 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import lombok.Setter;
-
-import java.io.Serializable;
-import java.util.*;
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.FastMultiFamilyVector;
+import com.airbnb.aerosolve.core.perf.Feature;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.FeatureValue;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.Sets;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 /**
  * A class that maintains a dictionary for sparse features and returns
@@ -15,57 +24,47 @@ import java.util.Map.Entry;
 
 public class LocalitySensitiveHashSparseFeatureDictionary extends FeatureDictionary {
 
-  private Map<String, Set<Integer>> LSH;
-  private boolean haveLSH;
+  private Map<Feature, Set<Integer>> LSH;
 
-  public LocalitySensitiveHashSparseFeatureDictionary() {
-     haveLSH = false;
+  public LocalitySensitiveHashSparseFeatureDictionary(FeatureRegistry registry) {
+    super(registry);
   }
 
-  private int similarity(FeatureVector f1,
-                            FeatureVector f2,
-                            String featureKey) {
-    Set<String> s1 = f1.getStringFeatures().get(featureKey);
-    if (s1 == null) {
+  private int similarity(MultiFamilyVector f1,
+                         MultiFamilyVector f2,
+                          Family featureKey) {
+    FamilyVector fam1 = f1.get(featureKey);
+    FamilyVector fam2 = f2.get(featureKey);
+    if (fam1 == null || fam2 == null) {
       return 0;
     }
-    Set<String> s2 = f2.getStringFeatures().get(featureKey);
-    if (s2 == null) {
-      return 0;
-    }
-    Set<String> intersection = new HashSet<String>(s1);
-    intersection.retainAll(s2);
-
-    return intersection.size();
+    return Sets.intersection(fam1.keySet(), fam2.keySet()).size();
   }
 
   // Builds the hash table lookup for the LSH.
-  private void buildHashTable(String featureKey) {
+  private void buildHashTable(Family featureKey) {
     LSH = new HashMap<>();
     assert(dictionaryList instanceof ArrayList);
     int size = dictionaryList.size();
     for (int i = 0; i < size; i++) {
-      FeatureVector featureVector = dictionaryList.get(i);
-      Set<String> keys = featureVector.getStringFeatures().get(featureKey);
-      if (keys == null) {
+      MultiFamilyVector featureVector = dictionaryList.get(i);
+      FamilyVector vec = featureVector.get(featureKey);
+      if (vec == null) {
         continue;
       }
-      for (String key : keys) {
-        Set<Integer> row = LSH.get(key);
-        if (row == null) {
-          row = new HashSet<>();
-          LSH.put(key, row);
-        }
+      for (FeatureValue value : vec) {
+        Set<Integer> row = LSH.computeIfAbsent(value.feature(),
+                                               f -> new HashSet<>());
         row.add(i);
       }
     }
   }
 
   // Returns all the candidates with a hash overlap.
-  private Set<Integer> getCandidates(Set<String> keys) {
+  private Set<Integer> getCandidates(FamilyVector vector) {
     Set<Integer> result = new HashSet<>();
-    for (String key : keys) {
-      Set<Integer> row = LSH.get(key);
+    for (FeatureValue value : vector) {
+      Set<Integer> row = LSH.get(value.feature());
       if (row != null) {
         result.addAll(row);
       }
@@ -74,60 +73,67 @@ public class LocalitySensitiveHashSparseFeatureDictionary extends FeatureDiction
   }
 
   @Override
-  public FeatureVector getKNearestNeighbors(
+  public MultiFamilyVector getKNearestNeighbors(
       KNearestNeighborsOptions options,
       FeatureVector featureVector) {
-    FeatureVector result = new FeatureVector();
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    MultiFamilyVector result = new FastMultiFamilyVector(registry);
 
-    if (stringFeatures == null) {
+    if (!(featureVector instanceof MultiFamilyVector)) {
       return result;
     }
 
-    String featureKey = options.getFeatureKey();
-    Set<String> keys = stringFeatures.get(featureKey);
+    MultiFamilyVector vector = (MultiFamilyVector) featureVector;
+
+    Family featureKey = options.getFeatureKey();
+
+    FamilyVector keys = vector.get(featureKey);
     if (keys == null) {
       return result;
     }
 
-    if (!haveLSH) {
+    if (LSH == null) {
       buildHashTable(featureKey);
     }
-    String idKey = options.getIdKey();
-    PriorityQueue<SimpleEntry<String, Double>> pq = new PriorityQueue<>(
+    Family idKey = options.getIdKey();
+    PriorityQueue<SimpleEntry<Feature, Double>> pq = new PriorityQueue<>(
         options.getNumNearest() + 1,
         new EntryComparator());
 
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-    String myId = featureVector.getStringFeatures()
-        .get(idKey).iterator().next();
+    FamilyVector idVector = vector.get(idKey);
+    if (idVector == null || idVector.isEmpty()) {
+      return result;
+    }
+
+    Feature myId = idVector.iterator().next().feature();
 
     Set<Integer> candidates = getCandidates(keys);
 
     for (Integer candidate : candidates) {
-      FeatureVector supportVector = dictionaryList.get(candidate);
-      double sim = similarity(featureVector,
-                                  supportVector,
-                                  featureKey);
-      Set<String> idSet = supportVector.getStringFeatures().get(idKey);
-      String id = idSet.iterator().next();
+      MultiFamilyVector supportVector = dictionaryList.get(candidate);
+      double sim = similarity(vector,
+                              supportVector,
+                              featureKey);
+
+      FamilyVector idSet = supportVector.get(idKey);
+      if (idSet == null) {
+        continue;
+      }
+      Feature id = idSet.iterator().next().feature();
       if (id == myId) {
         continue;
       }
-      SimpleEntry<String, Double> entry = new SimpleEntry<String, Double>(id, sim);
-      pq.add(entry);
+      pq.add(new SimpleEntry<>(id, sim));
       if (pq.size() > options.getNumNearest()) {
         pq.poll();
       }
     }
 
-    HashMap<String, Double> newFeature = new HashMap<>();
+    Family outputFamily = options.getOutputKey();
     while (pq.peek() != null) {
-      SimpleEntry<String, Double> entry = pq.poll();
-      newFeature.put(entry.getKey(), entry.getValue());
+      SimpleEntry<Feature, Double> entry = pq.poll();
+      Feature outputFeature = outputFamily.feature(entry.getKey().name());
+      result.put(outputFeature, (double) entry.getValue());
     }
-    floatFeatures.put(options.getOutputKey(), newFeature);
-    result.setFloatFeatures(floatFeatures);
 
     return result;
   }

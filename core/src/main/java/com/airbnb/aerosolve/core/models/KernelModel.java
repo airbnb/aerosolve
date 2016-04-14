@@ -1,27 +1,19 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.PriorityQueue;
-import java.util.AbstractMap;
-
-import com.airbnb.aerosolve.core.DictionaryRecord;
+import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.DebugScoreRecord;
-import com.airbnb.aerosolve.core.FunctionForm;
-import com.airbnb.aerosolve.core.util.Util;
-import com.airbnb.aerosolve.core.util.StringDictionary;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
 import com.airbnb.aerosolve.core.util.FloatVector;
+import com.airbnb.aerosolve.core.util.StringDictionary;
 import com.airbnb.aerosolve.core.util.SupportVector;
-
+import com.airbnb.aerosolve.core.util.Util;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -38,25 +30,24 @@ public class KernelModel extends AbstractModel {
   @Getter @Setter
   List<SupportVector> supportVectors;
 
-  public KernelModel() {
+  public KernelModel(FeatureRegistry registry) {
+    super(registry);
     dictionary = new StringDictionary();
     supportVectors = new ArrayList<>();
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
+  public double scoreItem(FeatureVector combinedItem) {
+    FloatVector vec = dictionary.makeVectorFromSparseFloats(combinedItem);
     float sum = 0.0f;
-    for (int i = 0; i < supportVectors.size(); i++) {
-      SupportVector sv = supportVectors.get(i);
+    for (SupportVector sv : supportVectors) {
       sum += sv.evaluate(vec);
     }
     return sum;
   }
   
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
     return 0.0f;
   }
@@ -64,18 +55,17 @@ public class KernelModel extends AbstractModel {
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
     // (TODO) implement debugScoreComponents
-    List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
-    return scoreRecordsList;
+    return new ArrayList<>();
   }
 
   @Override
-  public void onlineUpdate(float grad, float learningRate, Map<String, Map<String, Double>> flatFeatures) {
-    FloatVector vec = dictionary.makeVectorFromSparseFloats(flatFeatures);
-    float deltaG = - learningRate * grad;
+  public void onlineUpdate(double grad, double learningRate, FeatureVector vector) {
+    FloatVector vec = dictionary.makeVectorFromSparseFloats(vector);
+    double deltaG = - learningRate * grad;
     for (SupportVector sv : supportVectors) {
-      float response = sv.evaluateUnweighted(vec);
-      float deltaW = deltaG * response;
-      sv.setWeight(sv.getWeight() + deltaW);
+      double response = sv.evaluateUnweighted(vec);
+      double deltaW = deltaG * response;
+      sv.setWeight((float) (sv.getWeight() + deltaW));
     }
   }
 

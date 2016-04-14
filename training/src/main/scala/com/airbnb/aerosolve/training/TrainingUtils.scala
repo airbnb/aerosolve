@@ -190,7 +190,7 @@ object TrainingUtils {
   
   def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
     // get label for classification
-    val rank = fv.floatFeatures.get(rankKey).asScala.head._2
+    val rank = fv.getFloatFeatures.get(rankKey).asScala.head._2
     val label = if (rank <= threshold) {
       -1.0
     } else {
@@ -200,12 +200,12 @@ object TrainingUtils {
   }
 
   def getLabelDistribution(fv : FeatureVector, rankKey : String) : Map[String, Double] = {
-    fv.floatFeatures.get(rankKey).asScala.map(x => (x._1.toString, x._2.toDouble)).toMap
+    fv.getFloatFeatures.get(rankKey).asScala.map(x => (x._1.toString, x._2.toDouble)).toMap
   }
 
   def getLabel(fv : FeatureVector, rankKey : String) : Double = {
     // get label for regression
-    fv.floatFeatures.get(rankKey).asScala.head._2.toDouble
+    fv.getFloatFeatures.get(rankKey).asScala.head._2.toDouble
   }
 
   // Returns the statistics of a feature

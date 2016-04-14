@@ -1,45 +1,24 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class ApproximatePercentileTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(ApproximatePercentileTransformTest.class);
+public class ApproximatePercentileTransformTest extends BaseTransformTest {
 
-  public FeatureVector makeFeatureVector(double low, double high, double val) {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
-
-    Map<String, Double> map = new HashMap<>();
-    map.put("10th", low);
-    map.put("90th", high);
-    floatFeatures.put("DECILES", map);
-
-    Map<String, Double> map2 = new HashMap<>();
-    map2.put("foo", val);
-    floatFeatures.put("F", map2);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector(double low, double high, double val) {
+    return TransformTestingHelper.builder(registry)
+        .simpleStrings()
+        .sparse("DECILES", "10th", low)
+        .sparse("DECILES", "90th", high)
+        .sparse("F", "foo", val)
+        .build();
   }
 
   public String makeConfig() {
@@ -55,20 +34,15 @@ public class ApproximatePercentileTransformTest {
            " outputKey : percentile\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_approximate_percentile");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_approximate_percentile";
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_approximate_percentile");
+    Transform<MultiFamilyVector> transform = getTransform();
 
     double[] values = { -1.0, 10.0, 15.0, 20.0, 50.0, 60.0, 100.0, 200.0 };
     double[] expected = { 0.0, 0.0, 0.05, 0.11, 0.44, 0.55, 1.0, 1.0 };
@@ -76,24 +50,21 @@ public class ApproximatePercentileTransformTest {
     for (int i = 0; i < values.length; i++) {
       double val = values[i];
 
-      FeatureVector featureVector = makeFeatureVector(10.0, 100.0, val);
-      transform.doTransform(featureVector);
-      Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-      assertTrue(stringFeatures.size() == 1);
+      MultiFamilyVector featureVector = makeFeatureVector(10.0, 100.0, val);
+      transform.apply(featureVector);
+      assertTrue(featureVector.numFamilies() == 4);
 
-      Map<String, Double> out = featureVector.floatFeatures.get("PERCENTILE");
-      assertTrue(out.size() == 1);
-      assertEquals(expected[i], out.get("percentile"), 0.01);
+      assertSparseFamily(featureVector, "PERCENTILE", 1,
+                         ImmutableMap.of("percentile", expected[i]));
     }
   }
 
   @Test
   public void testAbstain() {
-    Config config = ConfigFactory.parseString(makeConfig());
-    Transform transform = TransformFactory.createTransform(config, "test_approximate_percentile");
+    Transform<MultiFamilyVector> transform = getTransform();
 
-    FeatureVector featureVector = makeFeatureVector(10.0, 11.0, 1.0);
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.floatFeatures.get("PERCENTILE") == null);
+    MultiFamilyVector featureVector = makeFeatureVector(10.0, 11.0, 1.0);
+    transform.apply(featureVector);
+    assertFalse(featureVector.contains(registry.family("PERCENTILE")));
   }
 }

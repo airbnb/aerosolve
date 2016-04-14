@@ -25,7 +25,7 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
   public void updateWeight(double delta) {
     weight += delta;
   }
-  public void scaleWeight(float scale) {
+  public void scaleWeight(double scale) {
     weight *= scale;
   }
 
@@ -104,11 +104,11 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
     return sb.toString();
   }
 
-  public float getDistance(float[] coordinates) {
+  public double getDistance(double[] coordinates) {
     return Util.euclideanDistance(coordinates, this.coordinates);
   }
 
-  public float getDistance(List<Double> coordinates) {
+  public double getDistance(List<Double> coordinates) {
     return Util.euclideanDistance(coordinates, this.coordinates);
   }
 

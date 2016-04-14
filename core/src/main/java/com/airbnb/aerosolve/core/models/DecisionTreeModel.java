@@ -1,15 +1,18 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.util.Util;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.lang.StringBuilder;
-import java.util.Map;
-import java.util.List;
 import java.util.ArrayList;
-
-import com.airbnb.aerosolve.core.*;
-import com.airbnb.aerosolve.core.util.Util;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,32 +24,23 @@ public class DecisionTreeModel extends AbstractModel {
   @Getter @Setter
   protected ArrayList<ModelRecord> stumps;
 
-  public DecisionTreeModel() {
+  public DecisionTreeModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlattenedFeature(floatFeatures);
-  }
-
-  @Override
-  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlattenedFeatureMulticlass(floatFeatures);
-  }
-
-  public float scoreFlattenedFeature(Map<String, Map<String, Double>> floatFeatures) {
-    int leaf = getLeafIndex(floatFeatures);
+  public double scoreItem(FeatureVector vector) {
+    int leaf = getLeafIndex(vector);
     if (leaf < 0) return 0.0f;
 
     ModelRecord stump = stumps.get(leaf);
     return (float) stump.featureWeight;
   }
 
-  public ArrayList<MulticlassScoringResult> scoreFlattenedFeatureMulticlass(Map<String, Map<String, Double>> floatFeatures) {
+  @Override
+  public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector vector) {
     ArrayList<MulticlassScoringResult> results = new ArrayList<>();
-    int leaf = getLeafIndex(floatFeatures);
+    int leaf = getLeafIndex(vector);
     if (leaf < 0) return results;
 
     ModelRecord stump = stumps.get(leaf);
@@ -62,7 +56,7 @@ public class DecisionTreeModel extends AbstractModel {
     return results;
   }
 
-  public int getLeafIndex(Map<String, Map<String, Double>> floatFeatures) {
+  public int getLeafIndex(FeatureVector vector) {
     if (stumps.isEmpty()) return -1;
 
     int index = 0;
@@ -71,7 +65,7 @@ public class DecisionTreeModel extends AbstractModel {
       if (!stump.isSetLeftChild() || !stump.isSetRightChild()) {
         break;
       }
-      boolean response = BoostedStumpsModel.getStumpResponse(stump, floatFeatures);
+      boolean response = BoostedStumpsModel.getStumpResponse(stump, vector, registry);
       if (response) {
         index = stump.rightChild;
       } else {
@@ -83,7 +77,7 @@ public class DecisionTreeModel extends AbstractModel {
 
   @Override
   // Decision trees don't usually have debuggable components.
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
       StringBuilder builder) {
     return 0.0f;
   }
@@ -198,8 +192,9 @@ public class DecisionTreeModel extends AbstractModel {
   }
 
   // Constructs a tree from human readable transform list.
-  public static DecisionTreeModel fromHumanReadableTransform(List<String> rows) {
-    DecisionTreeModel tree = new DecisionTreeModel();  
+  public static DecisionTreeModel fromHumanReadableTransform(List<String> rows,
+                                                             FeatureRegistry registry) {
+    DecisionTreeModel tree = new DecisionTreeModel(registry);
     ArrayList<ModelRecord> records = new ArrayList<>();
     tree.setStumps(records);
     for (String row : rows) {

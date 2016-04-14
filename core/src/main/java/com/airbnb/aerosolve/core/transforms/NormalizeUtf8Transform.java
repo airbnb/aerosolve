@@ -1,10 +1,13 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.transforms.types.StringTransform;
-
-import java.text.Normalizer;
-
 import com.typesafe.config.Config;
+import java.text.Normalizer;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * Normalizes strings to UTF-8 NFC, NFD, NFKC or NFKD form (NFD by default)
@@ -13,16 +16,29 @@ import com.typesafe.config.Config;
  * "output" optionally specifies the key of the output feature, if it is not given the transform
  * overwrites / replaces the input feature
  */
-public class NormalizeUtf8Transform extends StringTransform {
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+public class NormalizeUtf8Transform extends StringTransform<NormalizeUtf8Transform> {
   public static final Normalizer.Form DEFAULT_NORMALIZATION_FORM = Normalizer.Form.NFD;
 
+  private String normalizationFormString;
+
+  @Setter(AccessLevel.NONE)
   private Normalizer.Form normalizationForm;
 
   @Override
-  public void init(Config config, String key) {
-    String normalizationFormString = DEFAULT_NORMALIZATION_FORM.name();
-    if (config.hasPath(key + ".normalization_form")) {
-      normalizationFormString = config.getString(key + ".normalization_form");
+  public NormalizeUtf8Transform configure(Config config, String key) {
+    return super.configure(config, key)
+        .normalizationFormString(stringFromConfig(config, key, ".normalization_form", false));
+  }
+
+  @Override
+  protected void setup() {
+    super.setup();
+    if (normalizationForm == null) {
+      normalizationForm = DEFAULT_NORMALIZATION_FORM;
+      return;
     }
     if (normalizationFormString.equalsIgnoreCase("NFC")) {
       normalizationForm = Normalizer.Form.NFC;
@@ -39,10 +55,6 @@ public class NormalizeUtf8Transform extends StringTransform {
 
   @Override
   public String processString(String rawString) {
-    if (rawString == null) {
-      return null;
-    }
-
     return Normalizer.normalize(rawString, normalizationForm);
   }
 }

@@ -1,10 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
-import com.typesafe.config.Config;
-
-import java.util.Map;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.types.DualFeatureTransform;
 
 /**
  * id = fieldName1.key1
@@ -18,49 +15,14 @@ import java.util.Map;
  * On the other hand searches_at_leaf @ 123 can tell you how the model changes
  * for searches at a particular place changing from day to day.
  */
-public class StuffIdTransform implements Transform {
-  private String fieldName1;
-  private String fieldName2;
-  private String key1;
-  private String key2;
-  private String outputName;
+public class StuffIdTransform extends DualFeatureTransform<StuffIdTransform> {
 
   @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
-    fieldName2 = config.getString(key + ".field2");
-    key1 = config.getString(key + ".key1");
-    key2 = config.getString(key + ".key2");
-    outputName = config.getString(key + ".output");
-  }
+  public void doTransform(MultiFamilyVector featureVector) {
+    double v1 = featureVector.getDouble(inputFeature);
+    double v2 = featureVector.getDouble(otherFeature);
 
-  @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-
-    if (floatFeatures == null) {
-      return;
-    }
-
-    Map<String, Double> feature1 = floatFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
-
-    Map<String, Double> feature2 = floatFeatures.get(fieldName2);
-    if (feature2 == null) {
-      return;
-    }
-
-    Double v1 = feature1.get(key1);
-    Double v2 = feature2.get(key2);
-    if (v1 == null || v2 == null) {
-      return;
-    }
-
-    Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
-
-    String newname = key2 + '@' + v1.longValue();
-    output.put(newname, v2);
+    String newname = otherFeature.name() + '@' + (long)v1;
+    featureVector.put(outputFamily.feature(newname), v2);
   }
 }

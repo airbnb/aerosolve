@@ -94,7 +94,7 @@ public class MultiDimensionPointTest {
 
   @Test
   public void testZero() {
-    float[] af = new float[]{0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f};
+    double[] af = new double[]{0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f};
     List<Float> al = Arrays.asList(0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f);
     List<Float> b = Arrays.asList(0f, 1.0f,  -2.0f, 3.4f, 5.0f, -6.7f, 8.9f);
 
@@ -104,8 +104,8 @@ public class MultiDimensionPointTest {
 
   @Test
   public void test() {
-    float[] af = new float[]{1.0f, -2.0f, 3.0f, 4.0f};
-    float[] bf = new float[]{-5.0f, -6.0f, 7.0f, 8.0f};
+    double[] af = new double[]{1.0f, -2.0f, 3.0f, 4.0f};
+    double[] bf = new double[]{-5.0f, -6.0f, 7.0f, 8.0f};
     List<Float> a = Arrays.asList(1.0f, -2.0f, 3.0f, 4.0f);
     List<Float> b = Arrays.asList(-5.0f, -6.0f, 7.0f, 8.0f);
 

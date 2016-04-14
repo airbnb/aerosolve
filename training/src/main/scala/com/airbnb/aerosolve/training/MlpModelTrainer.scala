@@ -366,7 +366,7 @@ object MlpModelTrainer {
       hiddenLayerWeights.put(i, arr)
     }
     // note: bias at each node initialized to zero in this trainer
-    log.info(s"Total number of features is $count")
+    log.info(s"Total number of inputFeatures is $count")
     model
   }
 

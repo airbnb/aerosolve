@@ -48,7 +48,7 @@ class TrainingUtilsTest {
       assertEquals(4, dictionary.getDictionary().getEntryCount())
       val ex = TrainingTestHelper.makeExample(2.0, 1.0, 2)
       log.info(ex.toString)
-      val vec = dictionary.makeVectorFromSparseFloats(Util.flattenFeature(ex.example.get(0)));
+      val vec = dictionary.makeVectorFromSparseFloats();
       assertEquals(4, vec.values.length);
       log.info(vec.toString)
       val arr = scala.collection.mutable.ArrayBuffer[Float]()

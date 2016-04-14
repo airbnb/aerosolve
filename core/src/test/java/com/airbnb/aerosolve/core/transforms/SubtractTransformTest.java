@@ -1,24 +1,17 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class SubtractTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(SubtractTransformTest.class);
+public class SubtractTransformTest extends BaseTransformTest {
 
-  public String makeConfigWithKeys() {
+  public String makeConfig() {
     return "test_subtract {\n" +
         " transform : subtract\n" +
         " field1 : loc\n" +
@@ -28,31 +21,22 @@ public class SubtractTransformTest {
         " output : bar\n" +
         "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfigWithKeys());
-    Transform transform = TransformFactory.createTransform(config, "test_subtract");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_subtract";
   }
 
   @Test
   public void testTransformWithKeys() {
-    Config config = ConfigFactory.parseString(makeConfigWithKeys());
-    Transform transform = TransformFactory.createTransform(config, "test_subtract");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
 
-    Map<String, Double> out = featureVector.floatFeatures.get("bar");
-    for (Map.Entry<String, Double> entry : out.entrySet()) {
-      log.info(entry.getKey() + "=" + entry.getValue());
-    }
-    assertTrue(out.size() == 2);
-    assertEquals(36.2, out.get("lat-foo"), 0.1);
-    assertEquals(1.0, out.get("bar_fv"), 0.1);
+    assertTrue(featureVector.numFamilies() == 4);
+
+    assertSparseFamily(featureVector, "bar", 2,
+                       ImmutableMap.of("lat-foo", 36.2,
+                                       "bar_fv", 1.0));
   }
 }

@@ -1,9 +1,8 @@
 package com.airbnb.aerosolve.core.features;
 
-import lombok.Getter;
-
 import java.util.HashSet;
 import java.util.Set;
+import lombok.Getter;
 
 public class StringFamily extends FeatureFamily<String> {
   @Getter
@@ -24,7 +23,7 @@ public class StringFamily extends FeatureFamily<String> {
     return add(name, value);
   }
 
-  protected String getBooleanFeatureAsString(String name, Boolean feature) {
+  protected static String getBooleanFeatureAsString(String name, Boolean feature) {
     if (feature) {
       return name + ":T";
     } else {

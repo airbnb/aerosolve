@@ -53,7 +53,7 @@ object KernelTrainer {
       val gradient = computeGradient(model, candidate.example(0), loss, rankKey, rankThreshold)
       if (gradient != 0.0) {
         val flatFeatures = Util.flattenFeature(candidate.example(0));
-        val vec = model.getDictionary().makeVectorFromSparseFloats(flatFeatures);
+        val vec = model.getDictionary().makeVectorFromSparseFloats();
         addNewSupportVector(model, kernel, scale, vec, maxSV)
         model.onlineUpdate(gradient, learningRate, flatFeatures)
       }

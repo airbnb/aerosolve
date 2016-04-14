@@ -1,21 +1,15 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class MoveFloatToStringTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(MoveFloatToStringTransformTest.class);
+public class MoveFloatToStringTransformTest extends BaseTransformTest {
 
   public String makeConfig(boolean moveAllKeys) {
     StringBuilder sb = new StringBuilder();
@@ -32,49 +26,38 @@ public class MoveFloatToStringTransformTest {
     sb.append("}");
     return sb.toString();
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig(false));
-    Transform transform = TransformFactory.createTransform(config, "test_move_float_to_string");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_move_float_to_string";
+  }
+
+  @Override
+  public String makeConfig() {
+    return makeConfig(true);
   }
 
   @Test
   public void testTransform() {
-    Config config = ConfigFactory.parseString(makeConfig(false));
-    Transform transform = TransformFactory.createTransform(config, "test_move_float_to_string");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
-    Set<String> out = stringFeatures.get("loc_quantized");
-    assertTrue(out.size() == 1);
-    log.info("quantize output");
-    for (String string : out) {
-      log.info(string);
-    }
-    assertTrue(out.contains("lat=37.0"));
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+
+    assertTrue(featureVector.numFamilies() == 5);
+
+    assertStringFamily(featureVector, "loc_quantized", 1,
+                       ImmutableSet.of("lat=37.0"));
   }
 
   @Test
   public void testTransformMoveAllKeys() {
-    Config config = ConfigFactory.parseString(makeConfig(true));
-    Transform transform = TransformFactory.createTransform(config, "test_move_float_to_string");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
-    Set<String> out = stringFeatures.get("loc_quantized");
-    assertTrue(out.size() == 3);
-    log.info("quantize output");
-    for (String string : out) {
-      log.info(string);
-    }
-    assertTrue(out.contains("lat=37.0"));
-    assertTrue(out.contains("long=40.0"));
-    assertTrue(out.contains("z=-20.0"));
+    Transform<MultiFamilyVector> transform = getTransform(makeConfig(false), configKey());
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+
+    assertTrue(featureVector.numFamilies() == 5);
+
+    assertStringFamily(featureVector, "loc_quantized", 3,
+                       ImmutableSet.of("lat=37.0", "long=40.0", "z=-20.0"));
   }
 }

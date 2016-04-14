@@ -2,8 +2,7 @@ package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.google.common.primitives.Floats;
-
+import com.google.common.primitives.Doubles;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,25 +11,25 @@ public class Spline extends AbstractFunction {
   private static final long serialVersionUID = 5166347177557768302L;
 
   private int numBins;
-  private float scale;
-  private float binSize;
-  private float binScale;
+  private double scale;
+  private double binSize;
+  private double binScale;
 
-  public Spline(float minVal, float maxVal, float[] weights) {
+  public Spline(double minVal, double maxVal, double[] weights) {
     setupSpline(minVal, maxVal, weights);
   }
 
-  public Spline(float minVal, float maxVal, int numBins) {
+  public Spline(double minVal, double maxVal, int numBins) {
     if (maxVal <= minVal) {
       maxVal = minVal + 1.0f;
     }
-    setupSpline(minVal, maxVal, new float[numBins]);
+    setupSpline(minVal, maxVal, new double[numBins]);
   }
 
   /*
     Generates new weights[] from numBins
    */
-  public float[] weightsByNumBins(int numBins) {
+  public double[] weightsByNumBins(int numBins) {
     if (numBins == this.numBins) {
       return weights;
     } else {
@@ -38,14 +37,14 @@ public class Spline extends AbstractFunction {
     }
   }
 
-  private float[] newWeights(int numBins) {
+  private double[] newWeights(int numBins) {
     assert (numBins != this.numBins);
-    float[] newWeights = new float[numBins];
-    float scale = 1.0f / (numBins - 1.0f);
-    float diff = maxVal - minVal;
+    double[] newWeights = new double[numBins];
+    double scale = 1.0d / (numBins - 1.0d);
+    double diff = maxVal - minVal;
     for (int i = 0; i < numBins; i++) {
-      float t = i * scale;
-      float x = diff * t + minVal;
+      double t = i * scale;
+      double x = diff * t + minVal;
       newWeights[i] = evaluate(x);
     }
     return newWeights;
@@ -53,39 +52,39 @@ public class Spline extends AbstractFunction {
 
   // A constructor from model record
   public Spline(ModelRecord record) {
-    this.minVal = (float) record.getMinVal();
-    this.maxVal = (float) record.getMaxVal();
+    this.minVal = record.getMinVal();
+    this.maxVal = record.getMaxVal();
     List<Double> weightVec = record.getWeightVector();
     this.numBins = weightVec.size();
-    this.weights = new float[this.numBins];
+    this.weights = new double[this.numBins];
     for (int j = 0; j < numBins; j++) {
-      this.weights[j] = weightVec.get(j).floatValue();
+      this.weights[j] = weightVec.get(j);
     }
-    float diff = Math.max(maxVal - minVal, 1e-10f);
-    this.scale = 1.0f / diff;
-    this.binSize = diff / (numBins - 1.0f);
-    this.binScale = 1.0f / binSize;
+    double diff = Math.max(maxVal - minVal, 1e-10d);
+    this.scale = 1.0d / diff;
+    this.binSize = diff / (numBins - 1.0d);
+    this.binScale = 1.0d / binSize;
   }
 
-  private void setupSpline(float minVal, float maxVal, float[] weights) {
+  private void setupSpline(double minVal, double maxVal, double[] weights) {
     this.weights = weights;
     this.numBins = weights.length;
     this.minVal = minVal;
     this.maxVal = maxVal;
-    float diff = Math.max(maxVal - minVal, 1e-10f);
-    this.scale = 1.0f / diff;
-    this.binSize = diff / (numBins - 1.0f);
-    this.binScale = 1.0f / binSize;
+    double diff = Math.max(maxVal - minVal, 1e-10d);
+    this.scale = 1.0d / diff;
+    this.binSize = diff / (numBins - 1.0d);
+    this.binScale = 1.0d / binSize;
   }
 
   @Override
-  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
+  public Function aggregate(Iterable<Function> functions, double scale, int numBins) {
     int length = weights.length;
-    float[] aggWeights = new float[length];
+    double[] aggWeights = new double[length];
 
     for (Function fun : functions) {
       Spline spline = (Spline) fun;
-      float[] w = spline.weightsByNumBins(numBins);
+      double[] w = spline.weightsByNumBins(numBins);
       for (int i = 0; i < length; i++) {
         aggWeights[i] += scale * w[i];
       }
@@ -94,27 +93,25 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public float evaluate(float... x) {
+  public double evaluate(double... x) {
     int bin = getBin(x[0]);
     if (bin == numBins - 1) {
       return weights[numBins - 1];
     }
-    float t = getBinT(x[0], bin);
-    t = Math.max(0.0f, Math.min(1.0f, t));
-    float result = (1.0f - t) * weights[bin] + t * weights[bin + 1];
-    return result;
+    double t = getBinT(x[0], bin);
+    return (1.0f - t) * weights[bin] + t * weights[bin + 1];
   }
 
   @Override
-  public void update(float delta, float... values) {
-    float x = values[0];
+  public void update(double delta, double... values) {
+    double x = values[0];
     int bin = getBin(x);
     if (bin == numBins - 1) {
       weights[numBins - 1] += delta;
     } else {
-      float t = getBinT(x, bin);
-      t = Math.max(0.0f, Math.min(1.0f, t));
-      weights[bin] += (1.0f - t) * delta;
+      double t = getBinT(x, bin);
+      t = Math.max(0.0d, Math.min(1.0d, t));
+      weights[bin] += (1.0d - t) * delta;
       weights[bin + 1] += t * delta;
     }
   }
@@ -122,12 +119,12 @@ public class Spline extends AbstractFunction {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm(FunctionForm.Spline);
+    record.setFunctionForm(FunctionForm.SPLINE);
     record.setFeatureFamily(featureFamily);
     record.setFeatureName(featureName);
-    ArrayList<Double> arrayList = new ArrayList<Double>();
-    for (int i = 0; i < weights.length; i++) {
-      arrayList.add((double) weights[i]);
+    ArrayList<Double> arrayList = new ArrayList<>();
+    for (double weight : weights) {
+      arrayList.add(weight);
     }
     record.setWeightVector(arrayList);
     record.setMinVal(minVal);
@@ -143,39 +140,39 @@ public class Spline extends AbstractFunction {
   }
 
   // Returns the lower bound bin
-  public int getBin(float x) {
-    int bin = (int) Math.floor((x - minVal) * scale * (numBins - 1));
+  public int getBin(double x) {
+    int bin = (int) ((x - minVal) * scale * (numBins - 1));
     bin = Math.max(0, Math.min(numBins - 1, bin));
     return bin;
   }
 
   // Returns the t value in the bin (0, 1)
-  public float getBinT(float x, int bin) {
-    float lowerX = bin * binSize + minVal;
-    float t = (x - lowerX) * binScale;
-    t = Math.max(0.0f, Math.min(1.0f, t));
+  public double getBinT(double x, int bin) {
+    double lowerX = bin * binSize + minVal;
+    double t = (x - lowerX) * binScale;
+    t = Math.max(0.0d, Math.min(1.0d, t));
     return t;
   }
 
-  public float L1Norm() {
-    float sum = 0.0f;
-    for (int i = 0; i < weights.length; i++) {
-      sum += Math.abs(weights[i]);
+  public double L1Norm() {
+    double sum = 0.0d;
+    for (double weight : weights) {
+      sum += Math.abs(weight);
     }
     return sum;
   }
 
   @Override
-  public float LInfinityNorm() {
-    return Math.max(Floats.max(weights), Math.abs(Floats.min(weights)));
+  public double LInfinityNorm() {
+    return Math.max(Doubles.max(weights), Math.abs(Doubles.min(weights)));
   }
 
   @Override
-  public void LInfinityCap(float cap) {
-    if (cap <= 0.0f) return;
-    float currentNorm = this.LInfinityNorm();
+  public void LInfinityCap(double cap) {
+    if (cap <= 0.0d) return;
+    double currentNorm = this.LInfinityNorm();
     if (currentNorm > cap) {
-      float scale = cap / currentNorm;
+      double scale = cap / currentNorm;
       for (int i = 0; i < weights.length; i++) {
         weights[i] *= scale;
       }
@@ -183,13 +180,13 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void setPriors(float[] params) {
-    float start = params[0];
-    float end = params[1];
+  public void setPriors(double[] params) {
+    double start = params[0];
+    double end = params[1];
     // fit a line based on the input starting weight and ending weight
     for (int i = 0; i < numBins; i++) {
-      float t = i / (numBins - 1.0f);
-      weights[i] = ((1.0f - t) * start + t * end);
+      double t = i / (numBins - 1.0d);
+      weights[i] = ((1.0d - t) * start + t * end);
     }
   }
 

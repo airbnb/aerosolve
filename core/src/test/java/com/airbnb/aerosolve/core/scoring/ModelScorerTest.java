@@ -1,15 +1,19 @@
 package com.airbnb.aerosolve.core.scoring;
 
 import com.airbnb.aerosolve.core.Example;
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.features.*;
-import lombok.extern.slf4j.Slf4j;
-import org.junit.Test;
-
+import com.airbnb.aerosolve.core.features.FeatureGen;
+import com.airbnb.aerosolve.core.features.FeatureMapping;
+import com.airbnb.aerosolve.core.features.FeatureVectorGen;
+import com.airbnb.aerosolve.core.features.Features;
+import com.airbnb.aerosolve.core.features.FloatFamily;
+import com.airbnb.aerosolve.core.features.StringFamily;
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -17,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 @Slf4j
 public class ModelScorerTest {
+  private final FeatureRegistry registry = new FeatureRegistry();
 
   @Test
   public void rawProbability() throws Exception {
@@ -26,7 +31,7 @@ public class ModelScorerTest {
         .key("spline_model")
         .build();
 
-    ModelScorer modelScorer = new ModelScorer(incomeModel);
+    ModelScorer modelScorer = new ModelScorer(incomeModel, registry);
 
     FeatureMapping featureMapping = new FeatureMapping();
     featureMapping.add(dataName1);
@@ -46,18 +51,17 @@ public class ModelScorerTest {
     List<FloatFamily> floatFamilies = new ArrayList<>();
     floatFamilies.add(new FloatFamily("F"));
 
-    Example example = FeatureVectorGen.toSingleFeatureVectorExample(features, stringFamilies, floatFamilies);
+    Example example = FeatureVectorGen.toSingleFeatureVectorExample(features, stringFamilies,
+                                                                    floatFamilies, registry);
 
-    FeatureVector featureVector = example.getExample().get(0);
-    final Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-    Map<String, Double> floatFeatureFamily = floatFeatures.get("F");
-    assertEquals(floatFeatureFamily.get("age"), 30, 0.1);
-    assertEquals(floatFeatureFamily.get("hours"), 40, 0.1);
+    MultiFamilyVector featureVector = example.iterator().next();
+    Family floatFeatureFamily = registry.family("F");
+    assertEquals(featureVector.get(floatFeatureFamily.feature("age")), 30, 0.1);
+    assertEquals(featureVector.get(floatFeatureFamily.feature("hours")), 40, 0.1);
 
-    final Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Set<String> stringFeatureFamily = stringFeatures.get("S");
-    assertFalse(stringFeatureFamily.contains("marital-status"));
-    assertTrue(stringFeatureFamily.contains("married"));
+    Family stringFeatureFamily = registry.family("S");
+    assertFalse(featureVector.containsKey(stringFeatureFamily.feature("marital-status")));
+    assertTrue(featureVector.containsKey(stringFeatureFamily.feature("marital-status:married")));
 
     double score = modelScorer.score(example);
 

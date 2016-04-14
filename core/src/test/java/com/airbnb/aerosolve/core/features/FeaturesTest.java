@@ -48,7 +48,7 @@ public class FeaturesTest {
   @Test
   public void toExample() throws Exception {
     Example example = createFeature().toExample(false);
-    FeatureVector featureVector = example.getExample().get(0);
+    FeatureVector featureVector = example.iterator().next();
     final Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     final Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
 
@@ -158,28 +158,28 @@ public class FeaturesTest {
 
   @Test
   public void isLabel() throws Exception {
-    assertTrue(Features.isLabel(Features.getFamily("LABEL")));
-    assertFalse(Features.isLabel(Features.getFamily("LABE_ab")));
+    assertTrue(Features.isLabel(Features.splitName("LABEL")));
+    assertFalse(Features.isLabel(Features.splitName("LABE_ab")));
   }
 
   @Test(expected = RuntimeException.class)
   public void getFamilyEmpty() throws Exception {
-    Pair<String, String> p = Features.getFamily("");
+    Pair<String, String> p = Features.splitName("");
   }
 
   @Test(expected = RuntimeException.class)
   public void getFamilyNotLABEL() throws Exception {
-    Pair<String, String> p = Features.getFamily("LABE");
+    Pair<String, String> p = Features.splitName("LABE");
   }
 
   @Test(expected = RuntimeException.class)
   public void getFamilyPrefix() throws Exception {
-    Pair<String, String> p = Features.getFamily("_abc");
+    Pair<String, String> p = Features.splitName("_abc");
   }
 
   @Test
   public void getFamily() throws Exception {
-    Pair<String, String> p = Features.getFamily("f_ab_cd");
+    Pair<String, String> p = Features.splitName("f_ab_cd");
     assertEquals(p.getLeft(), "f");
     assertEquals(p.getRight(), "ab_cd");
   }

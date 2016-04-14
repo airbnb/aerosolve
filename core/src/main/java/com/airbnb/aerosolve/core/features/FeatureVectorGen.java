@@ -2,8 +2,9 @@ package com.airbnb.aerosolve.core.features;
 
 import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.*;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.SimpleExample;
+import java.util.List;
 
 /*
   Generate Example from input features and defined featureFamily.
@@ -12,24 +13,13 @@ import java.util.*;
 public class FeatureVectorGen {
 
   // TODO add a new function to consider dense feature.
-  public static FeatureVector toFeatureVector(Features features,
-                              List<StringFamily> stringFamilies,
-                              List<FloatFamily> floatFamilies) {
-    FeatureVector featureVector = new FeatureVector();
+  protected static void populateVector(FeatureVector vector,
+                                                FeatureRegistry registry,
+                                                Features features,
+                                                List<StringFamily> stringFamilies,
+                                                List<FloatFamily> floatFamilies) {
     // Set string features.
-    final Map<String, Set<String>> stringFeatures = new HashMap<>();
-    featureVector.setStringFeatures(stringFeatures);
-    setBIAS(stringFeatures);
-
-    for (StringFamily featureFamily : stringFamilies) {
-      stringFeatures.put(featureFamily.getFamilyName(), featureFamily.getFeatures());
-    }
-
-    final Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-    featureVector.setFloatFeatures(floatFeatures);
-    for (FloatFamily featureFamily : floatFamilies) {
-      floatFeatures.put(featureFamily.getFamilyName(), featureFamily.getFeatures());
-    }
+    setBIAS(registry, vector);
 
     for (int i = 0; i < features.names.length; ++i) {
       Object feature = features.values[i];
@@ -40,35 +30,44 @@ public class FeatureVectorGen {
         if (feature instanceof Double || feature instanceof Float ||
             feature instanceof Integer || feature instanceof Long) {
           for (FloatFamily featureFamily : floatFamilies) {
-            if (featureFamily.add(name, feature)) break;
+            if (featureFamily.isMyFamily(name)) {
+              vector.put(registry.feature(featureFamily.getFamilyName(), name),
+                         (double) feature);
+              break;
+            }
           }
         } else if (feature instanceof String) {
           for (StringFamily featureFamily : stringFamilies) {
-            if (featureFamily.add(name, feature)) break;
+            if (featureFamily.isMyFamily(name)) {
+              vector.putString(registry.feature(featureFamily.getFamilyName(),
+                                                name + ":" + feature));
+              break;
+            }
           }
         } else if (feature instanceof Boolean){
           for (StringFamily featureFamily : stringFamilies) {
-            if (featureFamily.add(name, (Boolean) feature)) break;
+            if (featureFamily.isMyFamily(name)) {
+              vector.putString(registry.feature(featureFamily.getFamilyName(),
+                              StringFamily.getBooleanFeatureAsString(name, (Boolean) feature)));
+              break;
+            }
           }
         }
       }
     }
-    return featureVector;
   }
 
   public static Example toSingleFeatureVectorExample(Features features,
                                                      List<StringFamily> stringFamilies,
-                                                     List<FloatFamily> floatFamilies) {
-    Example example = new Example();
-    FeatureVector featureVector = toFeatureVector(
-        features, stringFamilies, floatFamilies);
-    example.addToExample(featureVector);
+                                                     List<FloatFamily> floatFamilies,
+                                                     FeatureRegistry registry) {
+    Example example = new SimpleExample(registry);
+    FeatureVector vector = example.createVector();
+    populateVector(vector, registry, features, stringFamilies, floatFamilies);
     return example;
   }
 
-  protected static void setBIAS(final Map<String, Set<String>> stringFeatures) {
-    final Set<String> bias = new HashSet<>();
-    bias.add("B");
-    stringFeatures.put("BIAS", bias);
+  protected static void setBIAS(FeatureRegistry registry, FeatureVector vector) {
+    vector.putString(registry.feature("BIAS", "B"));
   }
 }

@@ -26,7 +26,7 @@ object LinearRankerUtils {
 
   def getFeatures(sample : FeatureVector) : Array[(String, String)] = {
     val features = HashSet[(String, String)]()
-    sample.stringFeatures.foreach(family => {
+    sample.getStringFeatures.foreach(family => {
       family._2.foreach(value => {
         features.add((family._1, value))
       })
@@ -44,11 +44,11 @@ object LinearRankerUtils {
     val samples : Seq[FeatureVector] = examples.example
     val buckets = HashMap[Int, Buffer[Array[(String, String)]]]()
     samples
-      .filter(x => x.stringFeatures != null &&
-                   x.floatFeatures != null &&
-                   x.floatFeatures.get(rankKey) != null)
+      .filter(x => x.getStringFeatures != null &&
+                   x.getFloatFeatures != null &&
+                   x.getFloatFeatures.get(rankKey) != null)
       .foreach(sample => {
-      val rankBucket : Int = sample.floatFeatures.get(rankKey).toSeq.head._2.toInt
+      val rankBucket : Int = sample.getFloatFeatures.get(rankKey).toSeq.head._2.toInt
       val features = getFeatures(sample)
       val entryOpt = buckets.get(rankBucket)
       if (entryOpt.isEmpty) {

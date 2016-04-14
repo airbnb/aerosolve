@@ -1,16 +1,19 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.util.Util;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.lang.StringBuilder;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
 import java.util.ArrayList;
-
-import com.airbnb.aerosolve.core.*;
-import com.airbnb.aerosolve.core.util.Util;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,18 +25,17 @@ public class ForestModel extends AbstractModel {
   @Getter @Setter
   protected ArrayList<DecisionTreeModel> trees;
 
-  public ForestModel() {
+  public ForestModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-
+  public double scoreItem(FeatureVector combinedItem) {
     float sum = 0.0f;
     // Note: we sum instead of average so that the trainer has the option of boosting the
     // trees together.
-    for (int i = 0; i < trees.size(); i++) {
-      sum += trees.get(i).scoreFlattenedFeature(floatFeatures);
+    for (DecisionTreeModel tree : trees) {
+      sum += tree.scoreItem(combinedItem);
     }
     return sum;
   }
@@ -42,13 +44,10 @@ public class ForestModel extends AbstractModel {
   public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
     HashMap<String, Double> map = new HashMap<>();
 
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
-
     // Note: we sum instead of average so that the trainer has the option of boosting the
     // trees together.
-    for (int i = 0; i < trees.size(); i++) {
-      ArrayList<MulticlassScoringResult> tmp = trees.get(i).scoreFlattenedFeatureMulticlass(
-          floatFeatures);
+    for (DecisionTreeModel tree : trees) {
+      ArrayList<MulticlassScoringResult> tmp = tree.scoreItemMulticlass(combinedItem);
       for (MulticlassScoringResult result : tmp) {
         Double v = map.get(result.label);
         if (v == null) {
@@ -72,7 +71,7 @@ public class ForestModel extends AbstractModel {
 
   @Override
   // Forests don't usually have debuggable components.
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
       StringBuilder builder) {
     return 0.0f;
   }
@@ -110,7 +109,7 @@ public class ForestModel extends AbstractModel {
     for (long i = 0; i < numTrees; i++) {
       String line = reader.readLine();
       ModelRecord record = Util.decodeModel(line);
-      DecisionTreeModel tree = new DecisionTreeModel();
+      DecisionTreeModel tree = new DecisionTreeModel(registry);
       tree.loadInternal(record.getModelHeader(), reader);
       trees.add(tree);
     }

@@ -10,7 +10,7 @@ public abstract class FeatureFamily <T> {
     this.familyName = familyName;
   }
 
-  protected boolean isMyFamily(String name) {
+  public boolean isMyFamily(String name) {
     return true;
   }
 

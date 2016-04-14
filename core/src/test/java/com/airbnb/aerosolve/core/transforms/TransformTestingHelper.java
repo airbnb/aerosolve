@@ -1,39 +1,106 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import com.airbnb.aerosolve.core.perf.FastMultiFamilyVector;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
 
 public class TransformTestingHelper {
-  public static FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+  public static MultiFamilyVector makeEmptyVector() {
+    FeatureRegistry registry = new FeatureRegistry();
+    return makeEmptyVector(registry);
+  }
 
-    Set list = new HashSet<String>();
-    list.add("aaa");
-    list.add("bbb");
-    stringFeatures.put("strFeature1", list);
+  public static MultiFamilyVector makeEmptyVector(FeatureRegistry registry) {
+    return new FastMultiFamilyVector(registry);
+  }
 
-    Map<String, Double> map = new HashMap<>();
-    map.put("lat", 37.7);
-    map.put("long", 40.0);
-    map.put("z", -20.0);
-    floatFeatures.put("loc", map);
+  public static MultiFamilyVector makeSimpleVector(FeatureRegistry registry) {
+    return builder(registry)
+        .simpleStrings()
+        .location()
+        .build();
+  }
 
-    Map<String, Double> map2 = new HashMap<>();
-    map2.put("foo", 1.5);
-    floatFeatures.put("F", map2);
+  public static MultiFamilyVector makeFoobarVector(FeatureRegistry registry) {
+    return builder(registry)
+        .simpleStrings()
+        .location()
+        .foobar()
+        .build();
+  }
 
-    Map<String, Double> map3 = new HashMap<>();
-    map3.put("bar_fv", 1.0);
-    floatFeatures.put("bar", map3);
+  public static VectorBuilder builder(FeatureRegistry registry) {
+    return new VectorBuilder(registry);
+  }
 
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public static VectorBuilder builder(FeatureRegistry registry, MultiFamilyVector vector) {
+    return new VectorBuilder(registry, vector);
+  }
+
+  // Not actually a real builder. But calling things twice should be idempotent so . . .
+  public static class VectorBuilder {
+    private final FeatureRegistry registry;
+    private final MultiFamilyVector vector;
+
+    public VectorBuilder(FeatureRegistry registry) {
+      this(registry, new FastMultiFamilyVector(registry));
+    }
+
+    public VectorBuilder(FeatureRegistry registry, MultiFamilyVector vector) {
+      this.registry = registry;
+      this.vector = vector;
+    }
+
+    public MultiFamilyVector build() {
+      return vector;
+    }
+
+    public VectorBuilder sparse(String family, String name, double value) {
+      vector.put(registry.feature(family, name), value);
+      return this;
+    }
+
+    public VectorBuilder string(String family, String name) {
+      vector.putString(registry.feature(family, name));
+      return this;
+    }
+
+    public VectorBuilder dense(String family, double[] values) {
+      vector.putDense(registry.family(family), values);
+      return this;
+    }
+
+    public VectorBuilder simpleStrings() {
+      return this
+          .string("strFeature1", "aaa")
+          .string("strFeature1", "bbb");
+    }
+
+    public VectorBuilder location() {
+      return this
+          .sparse("loc", "lat", 37.7)
+          .sparse("loc", "long", 40.0);
+    }
+
+    public VectorBuilder foobar() {
+      return this
+          .sparse("loc", "z", -20.0)
+          .sparse("F", "foo", 1.5)
+          .sparse("bar", "bar_fv", 1.0);
+    }
+
+    public VectorBuilder complexLocation() {
+      return this
+          .sparse("loc", "a", 0.0)
+          .sparse("loc", "b", 0.13)
+          .sparse("loc", "c", 1.23)
+          .sparse("loc", "d", 5.0)
+          .sparse("loc", "e", 17.5)
+          .sparse("loc", "f", 99.98)
+          .sparse("loc", "g", 365.0)
+          .sparse("loc", "h", 65537.0)
+          .sparse("loc", "i", -1.0)
+          .sparse("loc", "j", -23.0);
+    }
   }
 }

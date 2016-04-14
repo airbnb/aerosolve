@@ -6,20 +6,59 @@ package com.airbnb.aerosolve.core.util;
  * Utilities for machine learning
  */
 
-import com.airbnb.aerosolve.core.*;
+import com.airbnb.aerosolve.core.DebugScoreDiffRecord;
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.Example;
+import com.airbnb.aerosolve.core.KDTreeNode;
+import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.ThriftExample;
+import com.airbnb.aerosolve.core.ThriftFeatureVector;
+import com.airbnb.aerosolve.core.perf.DenseVector;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.FastMultiFamilyVector;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.FeatureValue;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.perf.SimpleExample;
+import com.google.common.collect.Lists;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.common.primitives.Doubles;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TSerializer;
-
-import java.io.*;
-import java.util.*;
 import java.util.zip.GZIPInputStream;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.thrift.TBase;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TSerializer;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
+@Slf4j
 public class Util implements Serializable {
+
+  // SimpleDateFormat is not thread safe. . .
+  public static final DateTimeFormatter DATE_FORMAT = DateTimeFormat.forPattern("yyyy-MM-dd");
+
   private static double LOG2 = Math.log(2);
   // Coder / decoder utilities for various protos. This makes it easy to
   // manipulate in spark. e.g. if we  wanted to see the 50 weights in a model
@@ -33,30 +72,71 @@ public class Util implements Serializable {
       return "";
     }
   }
-  public static FeatureVector decodeFeatureVector(String str) {
-    return decode(FeatureVector.class, str);
+
+  public static String encodeFeatureVector(MultiFamilyVector vector) {
+    return encode(getThriftFeatureVector(vector));
   }
 
-  public static FeatureVector createNewFeatureVector() {
-    FeatureVector featureVector = new FeatureVector();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+  private static ThriftFeatureVector getThriftFeatureVector(MultiFamilyVector vector) {
+    ThriftFeatureVector tVec = new ThriftFeatureVector();
     Map<String, Set<String>> stringFeatures = new HashMap<>();
-    featureVector.setFloatFeatures(floatFeatures);
-    featureVector.setStringFeatures(stringFeatures);
-
-    return featureVector;
+    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+    Map<String, List<Double>> denseFeatures = new HashMap<>();
+    for (FamilyVector familyVector : vector.families()) {
+      String familyName = familyVector.family().name();
+      // This might seem to break compatibility because we write all SparseVectors
+      // as floatFeatures.  But it's fine as long as we don't try to read this vector in
+      // old versions of aerosolve.
+      if (familyVector instanceof DenseVector) {
+        denseFeatures.put(familyName, Doubles.asList(((DenseVector) familyVector).getValues()));
+      } else {
+        floatFeatures.put(familyName, familyVector.entrySet()
+                              .stream()
+                              .map(e -> Pair.of(e.getKey().name(), e.getValue()))
+                              .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
+      }
+    }
+    tVec.setDenseFeatures(denseFeatures);
+    tVec.setStringFeatures(stringFeatures);
+    tVec.setFloatFeatures(floatFeatures);
+    return tVec;
   }
 
-  public static Example createNewExample() {
-    Example example = new Example();
-    example.setContext(createNewFeatureVector());
-    example.setExample(new ArrayList<FeatureVector>());
-
-    return example;
+  public static String encodeExample(Example example) {
+    return encode(getThriftExample(example));
   }
 
-  public static Example decodeExample(String str) {
-    return decode(Example.class, str);
+  public static ThriftExample getThriftExample(Example example) {
+    ThriftExample thriftExample = new ThriftExample();
+    thriftExample.setContext(getThriftFeatureVector(example.context()));
+    for (MultiFamilyVector innerVec : example) {
+      thriftExample.addToExample(getThriftFeatureVector(innerVec));
+    }
+    return thriftExample;
+  }
+
+  public static MultiFamilyVector decodeFeatureVector(String str, FeatureRegistry registry) {
+    ThriftFeatureVector tmp = new ThriftFeatureVector();
+    try {
+      byte[] bytes = Base64.decodeBase64(str.getBytes());
+      TDeserializer deserializer = new TDeserializer();
+      deserializer.deserialize(tmp, bytes);
+    } catch (Exception e) {
+      log.error("Error deserializing ThriftFeatureVector", e);
+    }
+    return new FastMultiFamilyVector(tmp, registry);
+  }
+
+  public static Example decodeExample(String str, FeatureRegistry registry) {
+    ThriftExample tmp = new ThriftExample();
+    try {
+      byte[] bytes = Base64.decodeBase64(str.getBytes());
+      TDeserializer deserializer = new TDeserializer();
+      deserializer.deserialize(tmp, bytes);
+    } catch (Exception e) {
+      log.error("Error deserializing ThriftExample", e);
+    }
+    return new SimpleExample(tmp, registry);
   }
 
   public static ModelRecord decodeModel(String str) {
@@ -73,6 +153,8 @@ public class Util implements Serializable {
     }
     return base;
   }
+
+
 
   public static <T extends TBase> T decode(Class<T> clazz, String str) {
     try {
@@ -112,76 +194,6 @@ public class Util implements Serializable {
     }
     return Collections.EMPTY_LIST;
   }
-
-  public static void optionallyCreateStringFeatures(FeatureVector featureVector) {
-    if (featureVector.getStringFeatures() == null) {
-      Map<String, Set<String>> stringFeatures = new HashMap<>();
-      featureVector.setStringFeatures(stringFeatures);
-    }
-  }
-
-  public static void optionallyCreateFloatFeatures(FeatureVector featureVector) {
-    if (featureVector.getFloatFeatures() == null) {
-      Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-      featureVector.setFloatFeatures(floatFeatures);
-    }
-  }
-
-  public static void setStringFeature(
-      FeatureVector featureVector,
-      String family,
-      String value) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) {
-      stringFeatures = new HashMap<>();
-      featureVector.setStringFeatures(stringFeatures);
-    }
-    Set<String> stringFamily = getOrCreateStringFeature(family, stringFeatures);
-    stringFamily.add(value);
-  }
-
-  public static Set<String> getOrCreateStringFeature(
-      String name,
-      Map<String, Set<String>> stringFeatures) {
-    Set<String> output = stringFeatures.get(name);
-    if (output == null) {
-      output = new HashSet<>();
-      stringFeatures.put(name, output);
-    }
-    return output;
-  }
-
-  public static Map<String, Double> getOrCreateFloatFeature(
-      String name,
-      Map<String, Map<String, Double>> floatFeatures) {
-    Map<String, Double> output = floatFeatures.get(name);
-    if (output == null) {
-      output = new HashMap<>();
-      floatFeatures.put(name, output);
-    }
-    return output;
-  }
-
-  public static Map<String, List<Double>> getOrCreateDenseFeatures(FeatureVector featureVector) {
-    if (featureVector.getDenseFeatures() == null) {
-      Map<String, List<Double>> dense = new HashMap<>();
-      featureVector.setDenseFeatures(dense);
-    }
-    return featureVector.getDenseFeatures();
-  }
-
-  public static void setDenseFeature(
-      FeatureVector featureVector,
-      String name,
-      List<Double> value) {
-    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
-    if (denseFeatures == null) {
-      denseFeatures = new HashMap<>();
-      featureVector.setDenseFeatures(denseFeatures);
-    }
-    denseFeatures.put(name, value);
-  }
-
 
   public static HashCode getHashCode(String family, String value) {
     Hasher hasher = Hashing.murmur3_128().newHasher();
@@ -249,57 +261,6 @@ public class Util implements Serializable {
       rankMap.put(j, util);
     }
     return rankMap;
-  }
-
-  public static  Map<String, Map<String, Double>> flattenFeature(
-      FeatureVector featureVector) {
-    Map<String, Map<String, Double>> flatFeature = new HashMap<>();
-    if (featureVector.stringFeatures != null) {
-      for (Map.Entry<String, Set<String>> entry : featureVector.stringFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (String feature : entry.getValue()) {
-          out.put(feature, 1.0);
-        }
-      }
-    }
-    if (featureVector.floatFeatures != null) {
-      for (Map.Entry<String, Map<String, Double>> entry : featureVector.floatFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          out.put(feature.getKey(), feature.getValue());
-        }
-      }
-    }
-    return flatFeature;
-  }
-
-  public static  Map<String, Map<String, Double>> flattenFeatureWithDropout(
-      FeatureVector featureVector,
-      double dropout) {
-    Map<String, Map<String, Double>> flatFeature = new HashMap<>();
-    if (featureVector.stringFeatures != null) {
-      for (Map.Entry<String, Set<String>> entry : featureVector.stringFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (String feature : entry.getValue()) {
-          if (Math.random() < dropout) continue;
-          out.put(feature, 1.0);
-        }
-      }
-    }
-    if (featureVector.floatFeatures != null) {
-      for (Map.Entry<String, Map<String, Double>> entry : featureVector.floatFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          if (Math.random() < dropout) continue;
-          out.put(feature.getKey(), feature.getValue());
-        }
-      }
-    }
-    return flatFeature;
   }
 
   public static class DebugDiffRecordComparator implements Comparator<DebugScoreDiffRecord> {
@@ -373,23 +334,23 @@ public class Util implements Serializable {
     return debugDiffRecord;
   }
 
-  public static float euclideanDistance(float[] x, List<Float> y) {
+  public static double euclideanDistance(double[] x, List<Float> y) {
     assert (x.length == y.size());
     double sum = 0;
     for (int i = 0; i < x.length; i++) {
       final double dp = x[i] - y.get(i);
       sum += dp * dp;
     }
-    return (float) Math.sqrt(sum);
+    return Math.sqrt(sum);
   }
 
-  public static float euclideanDistance(List<Double> x, List<Float> y) {
+  public static double euclideanDistance(List<Double> x, List<Float> y) {
     assert (x.size() == y.size());
     double sum = 0;
     for (int i = 0; i < y.size(); i++) {
       final double dp = x.get(i) - y.get(i);
       sum += dp * dp;
     }
-    return (float) Math.sqrt(sum);
+    return Math.sqrt(sum);
   }
 }

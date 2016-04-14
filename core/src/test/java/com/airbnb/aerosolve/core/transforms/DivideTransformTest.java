@@ -1,24 +1,17 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class DivideTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(DivideTransformTest.class);
+public class DivideTransformTest extends BaseTransformTest {
 
-  public String makeConfigWithKeys() {
+  public String makeConfig() {
     return "test_divide {\n" +
            " transform : divide\n" +
            " field1 : loc\n" +
@@ -29,33 +22,23 @@ public class DivideTransformTest {
            " output : bar\n" +
            "}";
   }
-  
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfigWithKeys());
-    Transform transform = TransformFactory.createTransform(config, "test_divide");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-    assertTrue(featureVector.getStringFeatures() == null);
+
+  @Override
+  public String configKey() {
+    return "test_divide";
   }
 
   @Test
   public void testTransformWithKeys() {
-    Config config = ConfigFactory.parseString(makeConfigWithKeys());
-    Transform transform = TransformFactory.createTransform(config, "test_divide");
-    FeatureVector featureVector = TransformTestingHelper.makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 1);
+    Transform<MultiFamilyVector> transform = getTransform();
+    MultiFamilyVector featureVector = TransformTestingHelper.makeFoobarVector(registry);
+    transform.apply(featureVector);
+    assertTrue(featureVector.numFamilies() == 4);
 
-    Map<String, Double> out = featureVector.floatFeatures.get("bar");
-    for (Map.Entry<String, Double> entry : out.entrySet()) {
-      log.info(entry.getKey() + "=" + entry.getValue());
-    }
-    assertTrue(out.size() == 3);
-    // the existing features under the family "bar" should not be deleted
-    assertEquals(1.0, out.get("bar_fv"), 0.1);
-    assertEquals(37.7 / 1.6, out.get("lat-d-foo"), 0.1);
-    assertEquals(40.0 / 1.6, out.get("long-d-foo"), 0.1);
+    assertSparseFamily(featureVector, "bar", 3, ImmutableMap.of(
+        "bar_fv", 1.0,
+        "lat-d-foo", 37.7 / 1.6,
+        "long-d-foo", 40.0 / 1.6
+    ));
   }
 }

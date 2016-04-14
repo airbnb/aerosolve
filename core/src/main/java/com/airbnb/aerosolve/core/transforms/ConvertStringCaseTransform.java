@@ -1,8 +1,10 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.transforms.types.StringTransform;
-
 import com.typesafe.config.Config;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
 
 /**
  * Converts strings to either all lowercase or all uppercase
@@ -11,28 +13,19 @@ import com.typesafe.config.Config;
  * "output" optionally specifies the key of the output feature, if it is not given the transform
  * overwrites / replaces the input feature
  */
-public class ConvertStringCaseTransform extends StringTransform {
-  private boolean convertToUppercase;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+public class ConvertStringCaseTransform extends StringTransform<ConvertStringCaseTransform> {
+  protected boolean convertToUppercase;
 
-  @Override
-  public void init(Config config, String key) {
-    convertToUppercase = config.getBoolean(key + ".convert_to_uppercase");
+  public ConvertStringCaseTransform configure(Config config, String key) {
+    return super.configure(config, key)
+        .convertToUppercase(booleanFromConfig(config, key, ".convert_to_uppercase"));
   }
 
   @Override
   public String processString(String rawString) {
-    if (rawString == null) {
-      return null;
-    }
-
-    String convertedString;
-
-    if (convertToUppercase) {
-      convertedString = rawString.toUpperCase();
-    } else {
-      convertedString = rawString.toLowerCase();
-    }
-
-    return convertedString;
+    return convertToUppercase ? rawString.toUpperCase() : rawString.toLowerCase();
   }
 }

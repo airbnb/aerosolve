@@ -95,9 +95,9 @@ object BoostedStumpsTrainer {
       val output = new Example()
       val fv = Util.createNewFeatureVector()
       output.addToExample(fv)
-      fv.floatFeatures.put(rankKey, example.example.get(0).floatFeatures.get(rankKey))
+      fv.getFloatFeatures.put(rankKey, example.example.get(0).floatFeatures.get(rankKey))
       val pos = new java.util.HashSet[String]()
-      fv.stringFeatures.put("+", pos)
+      fv.getStringFeatures.put("+", pos)
 
       val count = cand.size
       for (i <- 0 until count) {

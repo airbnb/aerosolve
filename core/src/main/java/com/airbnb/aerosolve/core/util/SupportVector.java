@@ -1,15 +1,13 @@
 package com.airbnb.aerosolve.core.util;
 
+import com.airbnb.aerosolve.core.FunctionForm;
+import com.airbnb.aerosolve.core.ModelRecord;
+import java.io.Serializable;
+import java.util.ArrayList;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Random;
-
-import com.airbnb.aerosolve.core.FunctionForm;
-import com.airbnb.aerosolve.core.ModelRecord;
-
+// TODO (Brad): Floats to Doubles
 public class SupportVector implements Serializable {
   // Dense support vector value.
   @Getter @Setter

@@ -1,52 +1,77 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.models.AbstractModel;
+import com.airbnb.aerosolve.core.perf.FamilyVector;
+import com.airbnb.aerosolve.core.perf.Feature;
+import com.airbnb.aerosolve.core.perf.FeatureValue;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.types.DualFamilyTransform;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.typesafe.config.Config;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Map;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
 
 /**
  * Created by hector_yee on 8/25/14.
  * Takes the cross product of stringFeatures named in field1 and field2
  * and places it in a stringFeature with family name specified in output.
  */
-public class CrossTransform implements Transform {
-  private String fieldName1;
-  private String fieldName2;
-  private String outputName;
+@LegacyNames({"float_cross_float", "string_cross_float", "self_cross"})
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(fluent = true, chain = true)
+public class CrossTransform extends DualFamilyTransform<CrossTransform>
+    implements ModelAware<CrossTransform> {
+  private Double bucket;
+  private Double cap;
+  private boolean putValue = true;
+  private boolean ignoreNonModelFeatures = false;
+  private AbstractModel model;
 
-  @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
-    fieldName2 = config.getString(key + ".field2");
-    outputName = config.getString(key + ".output");
+  public CrossTransform configure(Config config, String key) {
+    return super.configure(config, key)
+        .putValue(shouldPutValue(config, key))
+        .bucket(doubleFromConfig(config, key, ".bucket", null))
+        .cap(doubleFromConfig(config, key, ".cap", null))
+        .ignoreNonModelFeatures(booleanFromConfig(config, key, ".ignoreNonModelFeatures"));
+  }
+
+  private boolean shouldPutValue(Config config, String key) {
+    String type = getTransformType(config, key);
+    return booleanFromConfig(config, key, ".putValue")
+           || (type != null && type.endsWith("float"));
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) return;
-
-    Set<String> set1 = stringFeatures.get(fieldName1);
-    if (set1 == null || set1.isEmpty()) return;
-    Set<String> set2 = stringFeatures.get(fieldName2);
-    if (set2 == null || set2.isEmpty()) return;
-
-    Set<String> output = stringFeatures.get(outputName);
-    if (output == null) {
-      output = new HashSet<>();
-      stringFeatures.put(outputName, output);
-    }
-    cross(set1, set2, output);
-  }
-
-  public static void cross(Set<String> set1, Set<String> set2, Set<String> output) {
-    for (String s1 : set1) {
-      String prefix = s1 + '^';
-      for (String s2 : set2) {
-        output.add(prefix + s2);
+  protected void doTransform(MultiFamilyVector featureVector) {
+    FamilyVector otherFamilyVector = featureVector.get(otherFamily);
+    for (FeatureValue value : getInput(featureVector)) {
+      double doubleVal = value.getDoubleValue();
+      if (cap != null) {
+        doubleVal = Math.min(cap, doubleVal);
+      }
+      double quantizedVal = 0d;
+      if (bucket != null) {
+        quantizedVal = TransformUtil.quantize(doubleVal, bucket);
+      }
+      for (FeatureValue otherValue : otherFamilyVector) {
+        if (value.feature() == otherValue.feature()) {
+          continue;
+        }
+        String separator = "^";
+        if (bucket != null) {
+          separator = "=" + quantizedVal + "^";
+        }
+        Feature outputFeature = outputFamily.cross(value.feature(), otherValue.feature(), separator);
+        if (!ignoreNonModelFeatures || model == null || model.needsFeature(outputFeature)) {
+          if (putValue) {
+            featureVector.put(outputFeature, doubleVal);
+          } else {
+            featureVector.putString(outputFeature);
+          }
+        }
       }
     }
   }
- }
+}

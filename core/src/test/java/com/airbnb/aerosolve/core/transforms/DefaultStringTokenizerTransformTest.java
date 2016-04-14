@@ -1,27 +1,19 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * Created by christhetree on 1/27/16.
  */
-public class DefaultStringTokenizerTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(
-      DefaultStringTokenizerTransformTest.class);
+public class DefaultStringTokenizerTransformTest extends BaseTransformTest {
+
+  public String makeConfig() {
+    return makeConfig("regex", false);
+  }
 
   public String makeConfig(String regex, boolean generateBigrams) {
     return "test_tokenizer {\n" +
@@ -34,117 +26,80 @@ public class DefaultStringTokenizerTransformTest {
         "}";
   }
 
-  public FeatureVector makeFeatureVector() {
-    Map<String, Set<String>> stringFeatures = new HashMap<>();
-    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
-
-    Set list = new HashSet<String>();
-    list.add("I like blueberry pie, apple pie; and I also like blue!");
-    list.add("I'm so  excited: I   like blue!?!!");
-    stringFeatures.put("strFeature1", list);
-
-    FeatureVector featureVector = new FeatureVector();
-    featureVector.setStringFeatures(stringFeatures);
-    featureVector.setFloatFeatures(floatFeatures);
-    return featureVector;
+  public MultiFamilyVector makeFeatureVector() {
+    return TransformTestingHelper.builder(registry)
+        .string("strFeature1", "I like blueberry pie, apple pie; and I also like blue!")
+        .string("strFeature1", "I'm so  excited: I   like blue!?!!")
+        .build();
   }
 
-  @Test
-  public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfig("regex", false));
-    Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
-    FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
-
-    assertTrue(featureVector.getStringFeatures() == null);
-    assertTrue(featureVector.getFloatFeatures() == null);
+  @Override
+  public String configKey() {
+    return "test_tokenizer";
   }
 
   @Test
   public void testTransformWithoutBigrams() {
-    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", false));
-    Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+    Transform<MultiFamilyVector> transform = getTransform(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", false),
+                                       configKey());
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    assertEquals(1, stringFeatures.size());
-    assertEquals(1, floatFeatures.size());
+    assertTrue(featureVector.numFamilies() == 2);
 
-    Map<String, Double> output = floatFeatures.get("bar");
-
-    assertEquals(11, output.size());
-    assertEquals(1.0, output.get("apple"), 0.0);
-    assertEquals(1.0, output.get("blueberry"), 0.0);
-    assertEquals(2.0, output.get("blue"), 0.0);
-    assertEquals(3.0, output.get("like"), 0.0);
-    assertEquals(1.0, output.get("excited"), 0.0);
-    assertEquals(1.0, output.get("and"), 0.0);
-    assertEquals(4.0, output.get("I"), 0.0);
-    assertEquals(1.0, output.get("also"), 0.0);
-    assertEquals(1.0, output.get("so"), 0.0);
-    assertEquals(2.0, output.get("pie"), 0.0);
-    assertEquals(1.0, output.get("m"), 0.0);
+    assertSparseFamily(featureVector, "bar", 11, ImmutableMap.<String, Double>builder()
+        .put("apple", 1.0)
+        .put("blueberry", 1.0)
+        .put("blue", 2.0)
+        .put("like", 3.0)
+        .put("excited", 1.0)
+        .put("and", 1.0)
+        .put("I", 4.0)
+        .put("also", 1.0)
+        .put("so", 1.0)
+        .put("pie", 2.0)
+        .put("m", 1.0)
+        .build());
   }
 
   @Test
   public void testTransformWithBigrams() {
-    Config config = ConfigFactory.parseString(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", true));
-    Transform transform = TransformFactory.createTransform(config, "test_tokenizer");
-    FeatureVector featureVector = makeFeatureVector();
-    transform.doTransform(featureVector);
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+    Transform<MultiFamilyVector> transform = getTransform(makeConfig("\"\"\"[\\s\\p{Punct}]\"\"\"", true),
+                                       configKey());
+    MultiFamilyVector featureVector = makeFeatureVector();
+    transform.apply(featureVector);
 
-    assertEquals(1, stringFeatures.size());
-    assertEquals(2, floatFeatures.size());
+    assertTrue(featureVector.numFamilies() == 3);
 
-    Map<String, Double> output = floatFeatures.get("bar");
+    assertSparseFamily(featureVector, "bar", 11, ImmutableMap.<String, Double>builder()
+        .put("apple", 1.0)
+        .put("blueberry", 1.0)
+        .put("blue", 2.0)
+        .put("like", 3.0)
+        .put("excited", 1.0)
+        .put("and", 1.0)
+        .put("I", 4.0)
+        .put("also", 1.0)
+        .put("so", 1.0)
+        .put("pie", 2.0)
+        .put("m", 1.0)
+        .build());
 
-    assertEquals(11, output.size());
-    assertEquals(1.0, output.get("apple"), 0.0);
-    assertEquals(1.0, output.get("blueberry"), 0.0);
-    assertEquals(2.0, output.get("blue"), 0.0);
-    assertEquals(3.0, output.get("like"), 0.0);
-    assertEquals(1.0, output.get("excited"), 0.0);
-    assertEquals(1.0, output.get("and"), 0.0);
-    assertEquals(4.0, output.get("I"), 0.0);
-    assertEquals(1.0, output.get("also"), 0.0);
-    assertEquals(1.0, output.get("so"), 0.0);
-    assertEquals(2.0, output.get("pie"), 0.0);
-    assertEquals(1.0, output.get("m"), 0.0);
-
-    Map<String, Double> bigrams = floatFeatures.get("bigrams");
-
-    assertEquals(14, bigrams.size());
-    assertEquals(2.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blueberry"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "blueberry" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "apple"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "apple" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "and"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "and" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "also"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "also" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
-    assertEquals(2.0, bigrams.get(
-        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blue"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "m"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "m" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "so"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "so" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "excited"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "excited" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
+    assertSparseFamily(featureVector, "bigrams", 14, ImmutableMap.<String, Double>builder()
+        .put("I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like", 2.0)
+        .put("like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blueberry", 1.0)
+        .put("blueberry" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie", 1.0)
+        .put("pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "apple", 1.0)
+        .put("apple" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie", 1.0)
+        .put("pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "and", 1.0)
+        .put("and" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I", 1.0)
+        .put("I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "also", 1.0)
+        .put("also" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like", 1.0)
+        .put("like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blue", 2.0)
+        .put("I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "m", 1.0)
+        .put("m" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "so", 1.0)
+        .put("so" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "excited", 1.0)
+        .put("excited" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I", 1.0)
+        .build());
   }
 }

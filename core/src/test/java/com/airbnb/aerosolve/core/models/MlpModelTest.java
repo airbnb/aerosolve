@@ -4,11 +4,16 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.perf.Family;
+import com.airbnb.aerosolve.core.perf.Feature;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
+import com.airbnb.aerosolve.core.perf.MultiFamilyVector;
+import com.airbnb.aerosolve.core.transforms.TransformTestingHelper;
 import com.airbnb.aerosolve.core.util.FloatVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
-import org.junit.Test;
-
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.CharArrayWriter;
@@ -17,43 +22,40 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
+import org.junit.Test;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /*
 Test the MLP model
 */
 public class MlpModelTest {
-  public FeatureVector makeFeatureVector() {
-    FeatureVector featureVector = new FeatureVector();
-    HashMap stringFeatures = new HashMap<String, HashSet<String>>();
-    featureVector.setStringFeatures(stringFeatures);
-    HashMap floatFeatures = new HashMap<String, HashMap<String, Double>>();
-    featureVector.setFloatFeatures(floatFeatures);
-    HashMap feature = new HashMap<String, Float>();
-    feature.put("a", 1.0);
-    feature.put("b", 2.0);
-    floatFeatures.put("in", feature);
+  private final FeatureRegistry registry = new FeatureRegistry();
+
+  public MultiFamilyVector makeFeatureVector() {
+    MultiFamilyVector featureVector = TransformTestingHelper.makeEmptyVector(registry);
+    Family family = registry.family("in");
+    featureVector.put(family.feature("a"), 1.0);
+    featureVector.put(family.feature("b"), 2.0);
+
     return featureVector;
   }
   public MlpModel makeMlpModel(FunctionForm func) {
     // construct a network with 1 hidden layer
     // and there are 3 nodes in the hidden layer
-    ArrayList nodeNum = new ArrayList(2);
+    ArrayList<Integer> nodeNum = new ArrayList<>(2);
     nodeNum.add(3);
     nodeNum.add(1);
     // assume bias at each node are zeros
-    ArrayList activations = new ArrayList();
+    ArrayList<FunctionForm> activations = new ArrayList<>();
     activations.add(func);
     activations.add(func);
-    MlpModel model = new MlpModel(activations, nodeNum);
+    MlpModel model = new MlpModel(activations, nodeNum, registry);
 
     // set input layer
-    HashMap inputLayer = new HashMap<>();
-    HashMap inner = new HashMap<>();
+    Reference2ObjectMap<Feature, FloatVector> inputLayer = new Reference2ObjectOpenHashMap<>();
     FloatVector f11 = new FloatVector(3);
     f11.set(0, 0.0f);
     f11.set(1, 1.0f);
@@ -62,19 +64,19 @@ public class MlpModelTest {
     f12.set(0, 1.0f);
     f12.set(1, 1.0f);
     f12.set(2, 0.0f);
-    inner.put("a", f11);
-    inner.put("b", f12);
-    inputLayer.put("in", inner);
+    Family inputFamily = registry.family("in");
+    inputLayer.put(inputFamily.feature("a"), f11);
+    inputLayer.put(inputFamily.feature("b"), f12);
     model.setInputLayerWeights(inputLayer);
     // set hidden layer
-    HashMap hiddenLayer = new HashMap<>();
+    Map<Integer, ArrayList<FloatVector>> hiddenLayer = new HashMap<>();
     FloatVector f21 = new FloatVector(1);
     FloatVector f22 = new FloatVector(1);
     FloatVector f23 = new FloatVector(1);
     f21.set(0, 0.5f);
     f22.set(0, 1.0f);
     f23.set(0, 2.0f);
-    ArrayList hidden = new ArrayList(3);
+    ArrayList<FloatVector> hidden = new ArrayList<>(3);
     hidden.add(f21);
     hidden.add(f22);
     hidden.add(f23);
@@ -90,17 +92,17 @@ public class MlpModelTest {
     assertEquals(model.getActivationFunction().get(0), FunctionForm.RELU);
     assertEquals(model.getHiddenLayerWeights().size(), 1);
     assertEquals(model.getHiddenLayerWeights().get(0).size(), 3);
-    assertEquals(model.getInputLayerWeights().entrySet().size(), 1);
-    assertEquals(model.getInputLayerWeights().get("in").entrySet().size(), 2);
-    assertEquals(model.getInputLayerWeights().get("in").get("a").length(), 3);
-    assertEquals(model.getInputLayerWeights().get("in").get("b").length(), 3);
+    assertEquals(model.getInputLayerWeights().entrySet().size(), 2);
+    Family inputFamily = registry.family("in");
+    assertEquals(model.getInputLayerWeights().get(inputFamily.feature("a")).length(), 3);
+    assertEquals(model.getInputLayerWeights().get(inputFamily.feature("b")).length(), 3);
   }
 
   @Test
   public void testScoring() {
     FeatureVector fv = makeFeatureVector();
     MlpModel model = makeMlpModel(FunctionForm.RELU);
-    float output = model.scoreItem(fv);
+    double output = model.scoreItem(fv);
     assertEquals(output, 6.0f, 1e-10f);
   }
 
@@ -199,9 +201,9 @@ public class MlpModelTest {
     BufferedReader reader = new BufferedReader(strReader);
     FeatureVector fv = makeFeatureVector();
     try {
-      Optional<AbstractModel> model = ModelFactory.createFromReader(reader);
+      Optional<AbstractModel> model = ModelFactory.createFromReader(reader, registry);
       assertTrue(model.isPresent());
-      float s = model.get().scoreItem(fv);
+      double s = model.get().scoreItem(fv);
       assertEquals(s, 6.0f, 1e-10f);
     } catch (IOException e) {
       assertTrue("Could not read", false);

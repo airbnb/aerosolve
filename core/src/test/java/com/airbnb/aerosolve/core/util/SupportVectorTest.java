@@ -1,28 +1,17 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.Example;
-
-import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class SupportVectorTest {
-  private static final Logger log = LoggerFactory.getLogger(SupportVectorTest.class);
-
   @Test
   public void testRbf() {
     FloatVector v1 = new FloatVector(new float[]{1.0f, 2.0f});

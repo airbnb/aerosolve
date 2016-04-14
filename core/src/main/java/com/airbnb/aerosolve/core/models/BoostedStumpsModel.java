@@ -1,17 +1,17 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-
+import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.perf.Feature;
+import com.airbnb.aerosolve.core.perf.FeatureRegistry;
 import com.airbnb.aerosolve.core.util.Util;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -23,34 +23,23 @@ public class BoostedStumpsModel extends AbstractModel {
   @Getter @Setter
   protected List<ModelRecord> stumps;
 
-  public BoostedStumpsModel() {
+  public BoostedStumpsModel(FeatureRegistry registry) {
+    super(registry);
   }
 
   // Returns true if >= stump, false otherwise.
-  public static boolean getStumpResponse(ModelRecord stump,
-                                         Map<String, Map<String, Double>> floatFeatures) {
-    Map<String, Double> feat = floatFeatures.get(stump.featureFamily);
-    // missing feature corresponding to false (left branch)
-    if (feat == null) {
-      return false;
-    }
-    Double val = feat.get(stump.featureName);
-    if (val == null) {
-      return false;
-    }
-    if (val >= stump.getThreshold()) {
-      return true;
-    } else {
-      return false;
-    }
+  public static boolean getStumpResponse(ModelRecord stump, FeatureVector vector,
+                                         FeatureRegistry registry) {
+    Feature feature = registry.feature(stump.getFeatureFamily(), stump.getFeatureName());
+    return vector.containsKey(feature) &&
+           vector.getDouble(feature) >= stump.getThreshold();
   }
 
   @Override
-  public float scoreItem(FeatureVector combinedItem) {
+  public double scoreItem(FeatureVector combinedItem) {
     float sum = 0.0f;
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
     for (ModelRecord stump : stumps) {
-      if (getStumpResponse(stump, floatFeatures)) {
+      if (getStumpResponse(stump, combinedItem, registry)) {
         sum += stump.featureWeight;
       }
     }
@@ -58,12 +47,11 @@ public class BoostedStumpsModel extends AbstractModel {
   }
 
   @Override
-  public float debugScoreItem(FeatureVector combinedItem,
+  public double debugScoreItem(FeatureVector combinedItem,
                               StringBuilder builder) {
     float sum = 0.0f;
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
     for (ModelRecord stump : stumps) {
-      boolean response = getStumpResponse(stump, floatFeatures);
+      boolean response = getStumpResponse(stump, combinedItem, registry);
       String output = stump.featureFamily + ':' + stump.getFeatureName();
       Double threshold = stump.threshold;
       Double weight = stump.featureWeight;
@@ -79,16 +67,16 @@ public class BoostedStumpsModel extends AbstractModel {
   @Override
   public List<DebugScoreRecord> debugScoreComponents(FeatureVector combinedItem) {
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
-    Map<String, Map<String, Double>> floatFeatures = Util.flattenFeature(combinedItem);
 
     for (ModelRecord stump : stumps) {
-      boolean response = getStumpResponse(stump, floatFeatures);
+      boolean response = getStumpResponse(stump, combinedItem, registry);
 
       if (response) {
+        Feature feature = registry.feature(stump.getFeatureFamily(), stump.getFeatureName());
         DebugScoreRecord record = new DebugScoreRecord();
         record.setFeatureFamily(stump.featureFamily);
         record.setFeatureName(stump.featureName);
-        record.setFeatureValue(floatFeatures.get(stump.featureFamily).get(stump.featureName));
+        record.setFeatureValue(combinedItem.get(feature));
         record.setFeatureWeight(stump.featureWeight);
         scoreRecordsList.add(record);
       }

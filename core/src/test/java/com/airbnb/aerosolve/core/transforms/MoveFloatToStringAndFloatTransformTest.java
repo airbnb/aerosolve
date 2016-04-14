@@ -62,7 +62,7 @@ public class MoveFloatToStringAndFloatTransformTest {
     Transform transform = TransformFactory.createTransform(
         config, "test_move_float_to_string_and_float");
     FeatureVector featureVector = new FeatureVector();
-    transform.doTransform(featureVector);
+    transform.apply(featureVector);
 
     assertTrue(featureVector.getStringFeatures() == null);
     assertTrue(featureVector.getFloatFeatures() == null);
@@ -75,7 +75,7 @@ public class MoveFloatToStringAndFloatTransformTest {
         config, "test_move_float_to_string_and_float");
     FeatureVector featureVector = makeFeatureVector();
 
-    transform.doTransform(featureVector);
+    transform.apply(featureVector);
 
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();

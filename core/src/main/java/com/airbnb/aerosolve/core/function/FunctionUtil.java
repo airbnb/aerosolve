@@ -7,26 +7,26 @@ import java.util.Arrays;
 import java.util.List;
 
 public class FunctionUtil {
-  public static float[] fitPolynomial(float[] data) {
+  public static double[] fitPolynomial(double[] data) {
     int numCoeff = 6;
     int iterations = numCoeff * 4;
-    float[] initial = new float[numCoeff];
+    double[] initial = new double[numCoeff];
 
-    float[] initialStep = new float[numCoeff];
-    Arrays.fill(initialStep, 1.0f);
+    double[] initialStep = new double[numCoeff];
+    Arrays.fill(initialStep, 1.0d);
     return optimize(1.0 / 512.0, iterations, initial, initialStep,
-        new ImmutablePair<Float, Float>(-10.0f, 10.0f), data);
+        new ImmutablePair<Double, Double>(-10.0d, 10.0d), data);
   }
 
-  public static float evaluatePolynomial(float[] coeff, float[] data, boolean overwrite) {
+  public static double evaluatePolynomial(double[] coeff, double[] data, boolean overwrite) {
     int len = data.length;
-    float err = 0;
+    double err = 0;
     long count = 0;
     for (int i = 0; i < len; i++) {
-      float t = (float) i / (len - 1);
-      float tinv = 1 - t;
-      float diracStart = (i == 0) ? coeff[0] : 0;
-      float diracEnd = (i == len - 1) ? coeff[1] : 0;
+      double t = (double) i / (len - 1);
+      double tinv = 1 - t;
+      double diracStart = (i == 0) ? coeff[0] : 0;
+      double diracEnd = (i == len - 1) ? coeff[1] : 0;
       double eval = coeff[2] * tinv * tinv * tinv +
           coeff[3] * 3.0 * tinv * tinv * t +
           coeff[4] * 3.0 * tinv * t * t +
@@ -38,29 +38,29 @@ public class FunctionUtil {
         count++;
       }
       if (overwrite) {
-        data[i] = (float) eval;
+        data[i] = eval;
       }
     }
     return err / count;
   }
 
   // CyclicCoordinateDescent
-  public static float[] optimize(double tolerance, int iterations,
-                                 float[] initial, float[] initialStep,
-                                 Pair<Float, Float> bounds, float[] data) {
-    float[] best = initial;
-    float bestF = evaluatePolynomial(best, data, false);
+  public static double[] optimize(double tolerance, int iterations,
+                                 double[] initial, double[] initialStep,
+                                 Pair<Double, Double> bounds, double[] data) {
+    double[] best = initial;
+    double bestF = evaluatePolynomial(best, data, false);
     int maxDim = initial.length;
     for (int i = 0; i < iterations; ++i) {
       for (int dim = 0; dim < maxDim; ++dim) {
-        float step = initialStep[dim];
+        double step = initialStep[dim];
         while (step > tolerance) {
-          float[] left = best.clone();
+          double[] left = best.clone();
           left[dim] = Math.max(bounds.getLeft(), best[dim] - step);
-          float leftF = evaluatePolynomial(left, data, false);
-          float[] right = best.clone();
+          double leftF = evaluatePolynomial(left, data, false);
+          double[] right = best.clone();
           right[dim] = Math.min(bounds.getRight(), best[dim] + step);
-          float rightF = evaluatePolynomial(right, data, false);
+          double rightF = evaluatePolynomial(right, data, false);
           if (leftF < bestF) {
             best = left;
             bestF = leftF;
@@ -76,25 +76,17 @@ public class FunctionUtil {
     return best;
   }
 
-  public static float[] toFloat(List<Double> list) {
-    float[] result = new float[list.size()];
-    for (int i = 0; i < result.length; i++) {
-      result[i] = list.get(i).floatValue();
-    }
-    return result;
-  }
-
   /*
  * @param  tolerance if fitted array's deviation from weights is less than tolerance
  *         use the fitted, otherwise keep original weights.
  * @param  weights the curve you want to smooth
  * @return true if weights is modified by fitted curve.
    */
-  public static boolean smooth(double tolerance, float[] weights) {
+  public static boolean smooth(double tolerance, double[] weights) {
     // TODO use apache math's PolynomialCurveFitter
     // compile 'org.apache.commons:commons-math3:3.6.1'
-    float[] best = FunctionUtil.fitPolynomial(weights);
-    float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
+    double[] best = FunctionUtil.fitPolynomial(weights);
+    double errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
     if (errAndCoeff < tolerance) {
       FunctionUtil.evaluatePolynomial(best, weights, true);
       return true;

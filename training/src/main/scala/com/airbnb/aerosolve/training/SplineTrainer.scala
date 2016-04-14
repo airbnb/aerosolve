@@ -286,9 +286,7 @@ object SplineTrainer {
     // Average the spline weights
     .map(x => {
       val head = x._2.head
-      val spline = new WeightSpline(head.spline.getMinVal,
-                                    head.spline.getMaxVal,
-                                    params.numBins)
+      val spline = new WeightSpline(head.spline.getMinVal, head.spline.getMaxVal, params.numBins)
       val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
         for (i <- 0 until params.numBins) {
@@ -334,9 +332,7 @@ object SplineTrainer {
     // Average the spline weights
     .map(x => {
       val head = x._2.head
-      val spline = new WeightSpline(head.spline.getMinVal,
-                                    head.spline.getMaxVal,
-                                    params.numBins)
+      val spline = new WeightSpline(head.spline.getMinVal, head.spline.getMaxVal, params.numBins)
       val scale = 1.0f / params.numBags.toFloat
       x._2.foreach(entry => {
         entry.resample(params.numBins)

@@ -1,9 +1,8 @@
 package com.airbnb.aerosolve.core.util;
 
-import org.junit.Test;
-
 import java.util.Map;
 import java.util.function.Function;
+import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
