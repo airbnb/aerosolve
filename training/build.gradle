@@ -1,5 +1,8 @@
 apply plugin: "java"
 apply plugin: "scala"
+apply plugin: "application"
+
+mainClassName = "com.airbnb.aerosolve.training.performance.PerformanceRunner"
 
 ext.publish = false
 bintray {
@@ -38,8 +41,11 @@ dependencies {
   compile 'joda-time:joda-time:2.5'
   compile 'org.apache.hadoop:hadoop-client:2.2.0'
 
-  provided 'org.apache.spark:spark-core_2.10:1.2.1'
-  provided 'org.apache.spark:spark-hive_2.10:1.2.1'
+  compile 'org.apache.spark:spark-core_2.10:1.2.1'
+  compile 'org.apache.spark:spark-hive_2.10:1.2.1'
+
+  // provided 'org.apache.spark:spark-core_2.10:1.2.1'
+  // provided 'org.apache.spark:spark-hive_2.10:1.2.1'
 
   testCompile 'org.apache.spark:spark-core_2.10:1.2.1'
   testCompile 'org.apache.spark:spark-hive_2.10:1.2.1'

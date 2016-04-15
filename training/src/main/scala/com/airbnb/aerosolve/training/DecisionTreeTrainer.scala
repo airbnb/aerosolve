@@ -15,8 +15,6 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.util.Random
 import scala.util.Try
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-
 
 // Types of split criteria
 object SplitCriteriaTypes extends Enumeration {
@@ -135,9 +133,12 @@ object DecisionTreeTrainer {
     stumps(currIdx).setLeftChild(left)
     stumps(currIdx).setRightChild(right)
 
+    val (rightExamples, leftExamples) = examples.partition(
+      x => BoostedStumpsModel.getStumpResponse(stumps(currIdx), x))
+
     buildTree(
       stumps,
-      examples.filterNot(x => BoostedStumpsModel.getStumpResponse(stumps(currIdx), x)),
+      leftExamples,
       left,
       currDepth + 1,
       maxDepth,
@@ -150,7 +151,7 @@ object DecisionTreeTrainer {
 
     buildTree(
       stumps,
-      examples.filter(x => BoostedStumpsModel.getStumpResponse(stumps(currIdx), x)),
+      rightExamples,
       right,
       currDepth + 1,
       maxDepth,
@@ -161,7 +162,7 @@ object DecisionTreeTrainer {
       splitCriteria
     )
   }
-  
+
   def makeLeaf(
       examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
       rankKey : String,
@@ -175,7 +176,7 @@ object DecisionTreeTrainer {
         var numNeg = 0.0
 
         for (example <- examples) {
-          val label = example.get(rankKey).asScala.head._2 > rankThreshold
+          val label = example.get(rankKey).values().iterator().next() > rankThreshold
           if (label) numPos += 1.0 else numNeg += 1.0
         }
 
@@ -194,7 +195,7 @@ object DecisionTreeTrainer {
         var sum : Double = 0.0
 
         for (example <- examples) {
-          val labelValue = example.get(rankKey).asScala.head._2
+          val labelValue = example.get(rankKey).values().iterator().next()
 
           count += 1.0
           sum += labelValue
@@ -207,21 +208,32 @@ object DecisionTreeTrainer {
         val labelDistribution = new java.util.HashMap[java.lang.String, java.lang.Double]()
         rec.setLabelDistribution(labelDistribution)
 
-        val dist = labelDistribution.asScala
         var sum = 0.0
 
         for (example <- examples) {
-          for (kv <- example.get(rankKey).asScala) {
-            val count = dist.getOrElse(kv._1, new java.lang.Double(0.0))
-            sum = sum + kv._2
-            dist.put(kv._1, count + kv._2)
+          for (kv <- example.get(rankKey).entrySet()) {
+            val key = kv.getKey
+            val value = kv.getValue
+
+            val count = if (labelDistribution.containsKey(key)) {
+              labelDistribution.get(key)
+            } else {
+              new java.lang.Double(0.0)
+            }
+
+            sum = sum + value
+            labelDistribution.put(key, count + value)
           }
         }
 
         if (sum > 0.0) {
           val scale = 1.0 / sum
-          for (kv <- dist) {
-            dist.put(kv._1, scale * kv._2)
+
+          for (kv <- labelDistribution.entrySet()) {
+            val key = kv.getKey
+            val value = kv.getValue
+
+            labelDistribution.put(key, scale * value)
           }
         }
     }
@@ -295,7 +307,7 @@ object DecisionTreeTrainer {
 
     for (example <- examples) {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      val label = example.get(rankKey).asScala.head._2 > rankThreshold
+      val label = example.get(rankKey).values().iterator().next() > rankThreshold
 
       if (response) {
         if (label) {
@@ -368,6 +380,7 @@ object DecisionTreeTrainer {
     val sum = dist.values.sum
     val scale = 1.0 / (sum * sum)
     var impurity : Double = 0.0
+
     for (kv1 <- dist) {
       for (kv2 <- dist) {
         if (kv1._1 != kv2._1) {
@@ -375,6 +388,7 @@ object DecisionTreeTrainer {
         }
       }
     }
+
     impurity * scale
   }
 
@@ -393,14 +407,17 @@ object DecisionTreeTrainer {
 
     for (example <- examples) {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      for (kv <- example.get(rankKey).asScala) {
+      for (kv <- example.get(rankKey).entrySet()) {
+        val key = kv.getKey
+        val value = kv.getValue
+
         if (response) {
-          val v = rightDist.getOrElse(kv._1, 0.0)
-          rightDist.put(kv._1, kv._2 + v)
+          val v = rightDist.getOrElse(key, 0.0)
+          rightDist.put(key, value + v)
           rightCount = rightCount + 1
         } else {
-          val v = rightDist.getOrElse(kv._1, 0.0)
-          leftDist.put(kv._1, kv._2 + v)
+          val v = rightDist.getOrElse(key, 0.0)
+          leftDist.put(key, value + v)
           leftCount = leftCount + 1
         }
       }
@@ -445,7 +462,7 @@ object DecisionTreeTrainer {
 
     for (example <- examples) {
       val response = BoostedStumpsModel.getStumpResponse(candidateOpt.get, example)
-      val labelValue = example.get(rankKey).asScala.head._2
+      val labelValue = example.get(rankKey).values().iterator().next()
 
       // Using Welford's Method for computing mean and sum-squared errors in numerically stable way;
       // more details can be found in
