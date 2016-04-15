@@ -1,8 +1,5 @@
 apply plugin: "java"
 apply plugin: "scala"
-apply plugin: "application"
-
-mainClassName = "com.airbnb.aerosolve.training.performance.PerformanceRunner"
 
 ext.publish = false
 bintray {

@@ -249,47 +249,52 @@ object DecisionTreeTrainer {
       numTries : Int,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value) : Option[ModelRecord] = {
-    var bestRecord : Option[ModelRecord] = None
-    var bestValue : Double = -1e10
-    val rnd = new Random()
+    if (examples.length <= minLeafCount) {
+      // If we're at or below the minLeafCount, then there's no point in splitting
+      None
+    } else {
+      var bestRecord: Option[ModelRecord] = None
+      var bestValue: Double = -1e10
+      val rnd = new Random()
 
-    for (i <- 0 until numTries) {
-      // Pick an example index randomly
-      val idx = rnd.nextInt(examples.length)
-      val ex = examples(idx)
-      val candidateOpt = getCandidateSplit(ex, rankKey, rnd)
+      for (i <- 0 until numTries) {
+        // Pick an example index randomly
+        val idx = rnd.nextInt(examples.length)
+        val ex = examples(idx)
+        val candidateOpt = getCandidateSplit(ex, rankKey, rnd)
 
-      if (candidateOpt.isDefined) {
-        val candidateValue = SplitCriteria.getCriteriaType(splitCriteria) match {
-          case SplitCriteriaTypes.Classification =>
-            evaluateClassificationSplit(
-              examples, rankKey,
-              rankThreshold,
-              minLeafCount,
-              splitCriteria, candidateOpt
-            )
-          case SplitCriteriaTypes.Regression =>
-            evaluateRegressionSplit(
-              examples, rankKey,
-              minLeafCount,
-              splitCriteria, candidateOpt
-            )
-          case SplitCriteriaTypes.Multiclass =>
-            evaluateMulticlassSplit(
-              examples, rankKey,
-              minLeafCount,
-              splitCriteria, candidateOpt
-            )
-        }
+        if (candidateOpt.isDefined) {
+          val candidateValue = SplitCriteria.getCriteriaType(splitCriteria) match {
+            case SplitCriteriaTypes.Classification =>
+              evaluateClassificationSplit(
+                examples, rankKey,
+                rankThreshold,
+                minLeafCount,
+                splitCriteria, candidateOpt
+              )
+            case SplitCriteriaTypes.Regression =>
+              evaluateRegressionSplit(
+                examples, rankKey,
+                minLeafCount,
+                splitCriteria, candidateOpt
+              )
+            case SplitCriteriaTypes.Multiclass =>
+              evaluateMulticlassSplit(
+                examples, rankKey,
+                minLeafCount,
+                splitCriteria, candidateOpt
+              )
+          }
 
-        if (candidateValue.isDefined && candidateValue.get > bestValue) {
-          bestValue = candidateValue.get
-          bestRecord = candidateOpt
+          if (candidateValue.isDefined && candidateValue.get > bestValue) {
+            bestValue = candidateValue.get
+            bestRecord = candidateOpt
+          }
         }
       }
+
+      bestRecord
     }
-    
-    bestRecord
   }
 
   // Evaluate a classification-type split
