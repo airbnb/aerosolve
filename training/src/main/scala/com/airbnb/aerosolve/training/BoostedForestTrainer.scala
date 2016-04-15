@@ -184,7 +184,7 @@ object BoostedForestTrainer {
         params.rankThreshold,
         params.numTries,
         params.minLeafCount,
-        params.splitCriteria)
+        SplitCriteria.splitCriteriaFromName(params.splitCriteria))
     
     val tree = new DecisionTreeModel()
     tree.setStumps(stumps)
