@@ -33,7 +33,8 @@ object ForestTrainer {
     val maxDepth : Int = config.getInt(key + ".max_depth")
     val minLeafCount : Int = config.getInt(key + ".min_leaf_items")
     val numTries : Int = config.getInt(key + ".num_tries")
-    val splitCriteria : String = Try(config.getString(key + ".split_criteria")).getOrElse("gini")
+    val splitCriteriaName : String = Try(config.getString(key + ".split_criteria"))
+      .getOrElse("gini")
     
     val numTrees : Int = config.getInt(key + ".num_trees")
 
@@ -59,7 +60,7 @@ object ForestTrainer {
           rankThreshold,
           numTries,
           minLeafCount,
-          splitCriteria)
+          SplitCriteria.splitCriteriaFromName(splitCriteriaName))
       
       val tree = new DecisionTreeModel()
       tree.setStumps(stumps)
