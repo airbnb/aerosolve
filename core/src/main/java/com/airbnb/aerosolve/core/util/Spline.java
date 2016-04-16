@@ -1,18 +1,15 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.FunctionForm;
+import com.airbnb.aerosolve.core.ModelRecord;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.io.Serializable;
-import java.util.Map;
-import java.util.TreeMap;
 
 // A piecewise linear spline implementation supporting updates.
-public class Spline extends AbstractFunction {
+public class Spline implements AbstractFunction {
   private static final long serialVersionUID = 5166347177557768302L;
 
   @Getter @Setter

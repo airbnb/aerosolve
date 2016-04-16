@@ -12,7 +12,7 @@ import java.lang.Math;
 /**
  * Linear function f(x) = weights[1]*x+weights[0]
  */
-public class Linear extends AbstractFunction {
+public class Linear implements AbstractFunction {
   // weights[0] is offset, weights[1] is slope
   @Getter @Setter
   private float[] weights;

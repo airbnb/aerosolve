@@ -1,40 +1,31 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.FunctionForm;
-import lombok.Getter;
-import lombok.Setter;
+import com.airbnb.aerosolve.core.ModelRecord;
 
 import java.io.Serializable;
 
 /**
  * Base class for functions
  */
-abstract public class AbstractFunction implements Serializable{
+public interface AbstractFunction extends Serializable{
+  FunctionForm getFunctionForm();
+  float[] getWeights();
+  // TODO remove setWeights
+  void setWeights(float[] weights);
+  float getMinVal();
+  float getMaxVal();
+  AbstractFunction makeCopy();
 
-  @Getter @Setter
-  protected FunctionForm functionForm; // default function is Spline
+  float evaluate(float x);
 
-  @Getter @Setter
-  private float[] weights;
+  void update(float x, float delta);
 
-  @Getter
-  private float minVal;
+  ModelRecord toModelRecord(String featureFamily, String featureName);
 
-  @Getter
-  private float maxVal;
+  void setPriors(float[] params);
 
-  abstract public AbstractFunction makeCopy();
+  void LInfinityCap(float cap);
 
-  abstract public float evaluate(float x);
-
-  abstract public void update(float x, float delta);
-
-  abstract public ModelRecord toModelRecord(String featureFamily, String featureName);
-
-  abstract public void setPriors(float[] params);
-
-  abstract public void LInfinityCap(float cap);
-
-  abstract public float LInfinityNorm();
+  float LInfinityNorm();
 }
