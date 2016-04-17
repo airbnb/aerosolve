@@ -4,7 +4,7 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.FunctionForm;
-import com.airbnb.aerosolve.core.util.AbstractFunction;
+import com.airbnb.aerosolve.core.util.Function;
 import com.airbnb.aerosolve.core.util.Linear;
 import com.airbnb.aerosolve.core.util.Spline;
 import com.airbnb.aerosolve.core.util.Util;
@@ -34,11 +34,11 @@ public class AdditiveModelTest {
   private static final Logger log = LoggerFactory.getLogger(AdditiveModelTest.class);
   AdditiveModel makeAdditiveModel() {
     AdditiveModel model = new AdditiveModel();
-    Map<String, Map<String, AbstractFunction>> weights = new HashMap<>();
-    Map<String, AbstractFunction> innerSplineFloat = new HashMap<String, AbstractFunction>();
-    Map<String, AbstractFunction> innerLinearFloat = new HashMap<String, AbstractFunction>();
-    Map<String, AbstractFunction> innerSplineString = new HashMap<String, AbstractFunction>();
-    Map<String, AbstractFunction> innerLinearString = new HashMap<String, AbstractFunction>();
+    Map<String, Map<String, Function>> weights = new HashMap<>();
+    Map<String, Function> innerSplineFloat = new HashMap<String, Function>();
+    Map<String, Function> innerLinearFloat = new HashMap<String, Function>();
+    Map<String, Function> innerSplineString = new HashMap<String, Function>();
+    Map<String, Function> innerLinearString = new HashMap<String, Function>();
     weights.put("spline_float", innerSplineFloat);
     weights.put("linear_float", innerLinearFloat);
     weights.put("spline_string", innerSplineString);
@@ -209,13 +209,13 @@ public class AdditiveModelTest {
     // add a new feature
     model.addFunction("spline_float", "new", FunctionForm.SPLINE, newSplineParams, false);
 
-    Map<String, Map<String, AbstractFunction>> weights = model.getWeights();
-    for (Map.Entry<String, Map<String, AbstractFunction>>  featureFamily: weights.entrySet()) {
+    Map<String, Map<String, Function>> weights = model.getWeights();
+    for (Map.Entry<String, Map<String, Function>>  featureFamily: weights.entrySet()) {
       String familyName = featureFamily.getKey();
-      Map<String, AbstractFunction> features = featureFamily.getValue();
-      for (Map.Entry<String, AbstractFunction> feature: features.entrySet()) {
+      Map<String, Function> features = featureFamily.getValue();
+      for (Map.Entry<String, Function> feature: features.entrySet()) {
         String featureName = feature.getKey();
-        AbstractFunction func = feature.getValue();
+        Function func = feature.getValue();
         if (familyName.equals("spline_float")) {
           Spline spline = (Spline) func;
           if (featureName.equals("aaa")) {

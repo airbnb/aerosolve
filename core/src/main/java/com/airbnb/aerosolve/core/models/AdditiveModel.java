@@ -1,36 +1,23 @@
 package com.airbnb.aerosolve.core.models;
 
-import com.airbnb.aerosolve.core.DebugScoreRecord;
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.ModelHeader;
-import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.FunctionForm;
-import com.airbnb.aerosolve.core.util.AbstractFunction;
+import com.airbnb.aerosolve.core.*;
+import com.airbnb.aerosolve.core.util.Function;
 import com.airbnb.aerosolve.core.util.Linear;
-import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.util.Spline;
+import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.AbstractMap;
-import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 
 // A generalized additive model with a parametric function per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
 public class AdditiveModel extends AbstractModel {
   @Getter @Setter
-  private Map<String, Map<String, AbstractFunction>> weights;
-
-  public AdditiveModel() {
-    weights = new HashMap<String, Map<String, AbstractFunction>>();
-  }
+  private Map<String, Map<String, Function>> weights = new HashMap<>();
 
   @Override
   public float scoreItem(FeatureVector combinedItem) {
@@ -49,11 +36,11 @@ public class AdditiveModel extends AbstractModel {
         new PriorityQueue<>(100, new LinearModel.EntryComparator());
 
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, AbstractFunction> familyWeightMap = weights.get(featureFamily.getKey());
+      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
       if (familyWeightMap == null)
         continue;
       for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        AbstractFunction func = familyWeightMap.get(feature.getKey());
+        Function func = familyWeightMap.get(feature.getKey());
         if (func == null)
           continue;
         float val = feature.getValue().floatValue();
@@ -92,10 +79,10 @@ public class AdditiveModel extends AbstractModel {
     List<DebugScoreRecord> scoreRecordsList = new ArrayList<>();
 
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, AbstractFunction> familyWeightMap = weights.get(featureFamily.getKey());
+      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
       if (familyWeightMap == null) continue;
       for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        AbstractFunction func = familyWeightMap.get(feature.getKey());
+        Function func = familyWeightMap.get(feature.getKey());
         if (func == null) continue;
         float val = feature.getValue().floatValue();
         float weight = func.evaluate(val);
@@ -122,7 +109,7 @@ public class AdditiveModel extends AbstractModel {
       String family = record.getFeatureFamily();
       String name = record.getFeatureName();
       FunctionForm funcForm = record.getFunctionForm();
-      Map<String, AbstractFunction> inner = weights.get(family);
+      Map<String, Function> inner = weights.get(family);
       if (inner == null) {
         inner = new HashMap<>();
         weights.put(family, inner);
@@ -142,8 +129,8 @@ public class AdditiveModel extends AbstractModel {
     header.setSlope(slope);
     header.setOffset(offset);
     long count = 0;
-    for (Map.Entry<String, Map<String, AbstractFunction>> familyMap : weights.entrySet()) {
-      for (Map.Entry<String, AbstractFunction> feature : familyMap.getValue().entrySet()) {
+    for (Map.Entry<String, Map<String, Function>> familyMap : weights.entrySet()) {
+      for (Map.Entry<String, Function> feature : familyMap.getValue().entrySet()) {
         count++;
       }
     }
@@ -152,10 +139,10 @@ public class AdditiveModel extends AbstractModel {
     headerRec.setModelHeader(header);
     writer.write(Util.encode(headerRec));
     writer.newLine();
-    for (Map.Entry<String, Map<String, AbstractFunction>> familyMap : weights.entrySet()) {
+    for (Map.Entry<String, Map<String, Function>> familyMap : weights.entrySet()) {
       String featureFamily = familyMap.getKey();
-      for (Map.Entry<String, AbstractFunction> feature : familyMap.getValue().entrySet()) {
-        AbstractFunction func = feature.getValue();
+      for (Map.Entry<String, Function> feature : familyMap.getValue().entrySet()) {
+        Function func = feature.getValue();
         String featureName = feature.getKey();
         writer.write(Util.encode(func.toModelRecord(featureFamily, featureName)));
         writer.newLine();
@@ -168,11 +155,11 @@ public class AdditiveModel extends AbstractModel {
     float sum = 0.0f;
 
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, AbstractFunction> familyWeightMap = weights.get(featureFamily.getKey());
+      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
       if (familyWeightMap == null)
         continue;
       for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        AbstractFunction func = familyWeightMap.get(feature.getKey());
+        Function func = familyWeightMap.get(feature.getKey());
         if (func == null)
           continue;
         float val = feature.getValue().floatValue();
@@ -186,10 +173,10 @@ public class AdditiveModel extends AbstractModel {
                           float[] params, boolean overwrite) {
     // For SPLINE: params[0] = minValue, params[1] = maxValue, params[2] = numBin
     // For LINEAR: params[0] = minValue, params[1] = maxValue
-    // overwrite: if TRUE, overwrite existing feature function
-    Map<String, AbstractFunction> featFamily = weights.get(featureFamily);
+    // overwrite: if TRUE, overwrie existing feature function
+    Map<String, Function> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
-      featFamily = new HashMap<String, AbstractFunction>();
+      featFamily = new HashMap<String, Function>();
       weights.put(featureFamily, featFamily);
     }
     float minVal = params[0];
@@ -216,10 +203,10 @@ public class AdditiveModel extends AbstractModel {
                      Map<String, Map<String, Double>> flatFeatures) {
     // update with lInfinite cap
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, AbstractFunction> familyWeightMap = weights.get(featureFamily.getKey());
+      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
       if (familyWeightMap == null) continue;
       for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        AbstractFunction func = familyWeightMap.get(feature.getKey());
+        Function func = familyWeightMap.get(feature.getKey());
         if (func == null) continue;
         float val = feature.getValue().floatValue();
         func.update(val, -grad * learningRate);

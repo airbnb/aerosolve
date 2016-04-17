@@ -1,32 +1,18 @@
 package com.airbnb.aerosolve.core.util;
 
-import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.FunctionForm;
-import lombok.Getter;
-import lombok.Setter;
+import com.airbnb.aerosolve.core.ModelRecord;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.lang.Math;
 
 /**
  * Linear function f(x) = weights[1]*x+weights[0]
  */
-public class Linear implements AbstractFunction {
+public class Linear extends AbstractFunction {
   // weights[0] is offset, weights[1] is slope
-  @Getter @Setter
-  private float[] weights;
-
-  @Getter
-  private FunctionForm functionForm = FunctionForm.LINEAR;
-
-  @Getter
-  private float minVal;
-
-  @Getter
-  private float maxVal;
-
   public Linear(Linear other) {
+    functionForm = FunctionForm.LINEAR;
     weights = new float[2];
     weights[0] = other.getWeights()[0];
     weights[1] = other.getWeights()[1];
@@ -35,13 +21,14 @@ public class Linear implements AbstractFunction {
   }
 
   public Linear(float minVal, float maxVal, float[] weights) {
+    functionForm = FunctionForm.LINEAR;
     this.weights = weights;
     this.minVal = minVal;
     this.maxVal = maxVal;
   }
 
   @Override
-  public AbstractFunction makeCopy() {
+  public Function makeCopy() {
     return new Linear(this);
   }
 

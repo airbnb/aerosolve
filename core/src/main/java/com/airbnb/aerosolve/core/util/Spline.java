@@ -2,29 +2,18 @@ package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 // A piecewise linear spline implementation supporting updates.
-public class Spline implements AbstractFunction {
+public class Spline extends AbstractFunction {
   private static final long serialVersionUID = 5166347177557768302L;
 
-  @Getter @Setter
-  private float[] weights;
-
   private int numBins;
-  @Getter
-  private float minVal;
-  @Getter
-  private float maxVal;
   private float scale;
   private float binSize;
   private float binScale;
-  @Getter
-  private FunctionForm functionForm = FunctionForm.SPLINE;
 
   public Spline(float minVal, float maxVal, float [] weights) {
     setupSpline(minVal, maxVal, weights);
@@ -77,7 +66,7 @@ public class Spline implements AbstractFunction {
   }
 
   @Override
-  public AbstractFunction makeCopy() {
+  public Function makeCopy() {
     Spline newSpline = new Spline(this, this.numBins);
     return newSpline;
   }
