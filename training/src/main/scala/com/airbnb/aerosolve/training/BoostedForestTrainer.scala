@@ -38,7 +38,9 @@ object BoostedForestTrainer {
                                          iterations : Int,
                                          learningRate : Double,
                                          samplingStrategy : String,
-                                         multiclass : Boolean)
+                                         multiclass : Boolean,
+                                         loss : String,
+                                         margin : Double)
   // A container class that returns the tree and leaf a feature vector ends up in
   case class ForestResponse(tree : Int, leaf : Int)
   // The sum of all responses to a feature vector of an entire forest.
@@ -66,6 +68,8 @@ object BoostedForestTrainer {
     val learningRate : Double = taskConfig.getDouble("learning_rate")
     val numTrees : Int = taskConfig.getInt("num_trees")
     val samplingStrategy : String = taskConfig.getString("sampling_strategy")
+    val loss : String = Try{taskConfig.getString("loss")}.getOrElse("logistic")
+    val margin: Double = Try{taskConfig.getDouble("margin")}.getOrElse(1.0)
     
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
           rankKey = rankKey,
@@ -79,7 +83,9 @@ object BoostedForestTrainer {
           iterations = iterations,
           learningRate = learningRate,
           samplingStrategy = samplingStrategy,
-          multiclass = splitCriteria.contains("multiclass")
+          multiclass = splitCriteria.contains("multiclass"),
+          loss = loss,
+          margin = margin
         )
     
     val forest = new ForestModel()
@@ -223,6 +229,7 @@ object BoostedForestTrainer {
      for (i <- 0 until params.iterations) {
        log.info("Running boost iteration %d".format(i))
        val forestBC = sc.broadcast(forest)
+       var paramsBC = sc.broadcast(params)
        // Get forest responses
        val labelSumResponse = LinearRankerUtils
               .makePointwiseFloat(input, config, key)
@@ -232,14 +239,22 @@ object BoostedForestTrainer {
        val countAndGradient = labelSumResponse.mapPartitions(part => {
          val gradientMap = scala.collection.mutable.HashMap[(Int, Int), (Double, Double)]()
          part.foreach(x => {
-           val corr = scala.math.min(10.0, x.label * x.sum)
-           val expCorr = scala.math.exp(corr)
-           val grad = -x.label / (1.0 + expCorr)
+           val grad = paramsBC.value.loss match {
+             case "hinge" => {
+               val loss = scala.math.max(0.0, paramsBC.value.margin - x.label * x.sum)
+               if (loss > 0.0) -x.label else 0.0
+             }
+             case _ => {
+               val corr = scala.math.min(10.0, x.label * x.sum)
+               val expCorr = scala.math.exp(corr)
+               -x.label / (1.0 + expCorr)
+             }
+           }
            x.response.foreach(resp => {
              val key = (resp.tree, resp.leaf)
              val current = gradientMap.getOrElse(key, (0.0, 0.0))
              gradientMap.put(key, (current._1 + 1, current._2 + grad))
-           })         
+           })
          })
          gradientMap.iterator
        })
