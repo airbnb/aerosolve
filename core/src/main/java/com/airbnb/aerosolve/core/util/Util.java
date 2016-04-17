@@ -110,6 +110,19 @@ public class Util implements Serializable {
     }
   }
 
+  public static void setStringFeature(
+      FeatureVector featureVector,
+      String family,
+      String value) {
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    if (stringFeatures == null) {
+      stringFeatures = new HashMap<>();
+      featureVector.setStringFeatures(stringFeatures);
+    }
+    Set<String> stringFamily = getOrCreateStringFeature(family, stringFeatures);
+    stringFamily.add(value);
+  }
+
   public static Set<String> getOrCreateStringFeature(
       String name,
       Map<String, Set<String>> stringFeatures) {
@@ -131,6 +144,27 @@ public class Util implements Serializable {
     }
     return output;
   }
+
+  public static Map<String, List<Double>> getOrCreateDenseFeatures(FeatureVector featureVector) {
+    if (featureVector.getDenseFeatures() == null) {
+      Map<String, List<Double>> dense = new HashMap<>();
+      featureVector.setDenseFeatures(dense);
+    }
+    return featureVector.getDenseFeatures();
+  }
+
+  public static void setDenseFeature(
+      FeatureVector featureVector,
+      String name,
+      List<Double> value) {
+    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
+    if (denseFeatures == null) {
+      denseFeatures = new HashMap<>();
+      featureVector.setDenseFeatures(denseFeatures);
+    }
+    denseFeatures.put(name, value);
+  }
+
 
   public static HashCode getHashCode(String family, String value) {
     Hasher hasher = Hashing.murmur3_128().newHasher();

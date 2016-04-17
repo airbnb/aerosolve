@@ -176,6 +176,9 @@ public class TransformFactory {
         result = new FloatCrossFloatTransform();
         break;
       }
+      case "float_to_dense" : {
+        result = new FloatToDenseTransform();
+      }
     }
     if (result != null) {
       result.configure(config, key);
