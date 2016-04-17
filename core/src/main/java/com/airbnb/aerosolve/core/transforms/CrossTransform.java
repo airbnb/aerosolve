@@ -11,7 +11,7 @@ import java.util.Map;
  * Takes the cross product of stringFeatures named in field1 and field2
  * and places it in a stringFeature with family name specified in output.
  */
-public class CrossTransform extends Transform {
+public class CrossTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private String outputName;

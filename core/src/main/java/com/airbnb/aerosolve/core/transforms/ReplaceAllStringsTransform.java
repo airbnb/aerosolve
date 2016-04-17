@@ -17,7 +17,7 @@ import com.typesafe.config.ConfigObject;
  * Replacements are performed in the same order as specified in the list of pairs
  * "replacement" specifies the replacement string
  */
-public class ReplaceAllStringsTransform extends Transform {
+public class ReplaceAllStringsTransform implements Transform {
   private String fieldName1;
   private List<? extends ConfigObject> replacements;
   private String outputName;

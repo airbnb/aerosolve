@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 // L2 normalizes a float feature
-public class NormalizeFloatFeatureTransform extends Transform {
+public class NormalizeFloatFeatureTransform implements Transform {
   private String fieldName1;
 
   @Override

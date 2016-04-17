@@ -25,7 +25,7 @@ import java.util.zip.GZIPInputStream;
  * the distance from each splitting plane to the point being queried.
  * One can think of this as a tree kernel transform of a point.
  */
-public class KDTreeContinuousTransform extends Transform {
+public class KDTreeContinuousTransform implements Transform {
   private String fieldName1;
   private String value1;
   private String value2;

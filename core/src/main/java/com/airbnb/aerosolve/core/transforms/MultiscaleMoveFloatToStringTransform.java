@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * Moves named fields from one family to another.
  */
-public class MultiscaleMoveFloatToStringTransform extends Transform {
+public class MultiscaleMoveFloatToStringTransform implements Transform {
   private String fieldName1;
   private List<Double> buckets;
   private String outputName;

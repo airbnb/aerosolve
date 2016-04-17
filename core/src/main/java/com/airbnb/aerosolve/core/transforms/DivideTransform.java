@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * output = field1.keys / (field2.key2 + constant)
  */
-public class DivideTransform extends Transform {
+public class DivideTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private List<String> keys;

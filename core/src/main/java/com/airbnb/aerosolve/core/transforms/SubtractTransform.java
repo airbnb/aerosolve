@@ -15,7 +15,7 @@ import java.util.Map.Entry;
 /**
  * output = field1 - field2.key
  */
-public class SubtractTransform extends Transform {
+public class SubtractTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private List<String> keys;

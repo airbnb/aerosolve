@@ -23,7 +23,7 @@ import java.util.Map.Entry;
  * On the other hand searches_at_leaf @ 123 can tell you how the model changes
  * for searches at a particular place changing from day to day.
  */
-public class StuffIdIntoFeatureTransform extends Transform {
+public class StuffIdIntoFeatureTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private String key1;

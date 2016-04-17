@@ -17,7 +17,7 @@ import java.util.Map.Entry;
  * If both "select_features" and "exclude_features" are specified, we transform features that are in
  * "select_features" list and not in "exclude_features" list.
  */
-public class CustomLinearLogQuantizeTransform extends Transform {
+public class CustomLinearLogQuantizeTransform implements Transform {
 
   private String fieldName1;
   private String outputName;

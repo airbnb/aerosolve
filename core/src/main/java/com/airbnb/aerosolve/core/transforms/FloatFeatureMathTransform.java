@@ -19,7 +19,7 @@ import java.util.function.DoubleFunction;
  * outputName: output feature family name (feature names or keys remain the same)
  * function: a string that specified the function that is going to apply to the given feature
  */
-public class FloatFeatureMathTransform extends Transform {
+public class FloatFeatureMathTransform implements Transform {
   private String fieldName1; // feature family name
   private List<String> keys; // feature names
   private String outputName; // output feature family name

@@ -22,7 +22,7 @@ import java.util.ArrayDeque;
  * to generate 2-bit tokens
  * and pack each word with num_tokens_per_word of these.
  */
-public class WTAHashTransform extends Transform {
+public class WTAHashTransform implements Transform {
   private List<String> fieldNames;
   private String outputName;
   private int seed;

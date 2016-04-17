@@ -14,7 +14,7 @@ import java.util.HashMap;
  * i.e. prod_i 1 + x_i
  * and places the result in outputName
  */
-public class ProductTransform extends Transform {
+public class ProductTransform implements Transform {
   private String fieldName1;
   private List<String> keys;
   private String outputName;

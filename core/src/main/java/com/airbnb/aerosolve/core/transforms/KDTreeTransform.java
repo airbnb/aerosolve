@@ -21,7 +21,7 @@ import java.util.zip.GZIPInputStream;
  * Inputs = fieldName1 (value1, value2)
  * Outputs = list of kdtree nodes
  */
-public class KDTreeTransform extends Transform {
+public class KDTreeTransform implements Transform {
   private String fieldName1;
   private String value1;
   private String value2;

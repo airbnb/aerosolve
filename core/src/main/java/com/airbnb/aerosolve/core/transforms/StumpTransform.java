@@ -15,7 +15,7 @@ import java.util.Map.Entry;
  * val model = sc.textFile(name).map(Util.decodeModel).take(10).map(x =&gt;
  *  "%s,%s,%f".format(x.featureFamily,x.featureName,x.threshold)).foreach(println)
  */
-public class StumpTransform extends Transform {
+public class StumpTransform implements Transform {
   private String outputName;
 
   private class StumpDescription implements Serializable {

@@ -14,7 +14,7 @@ import java.util.Map.Entry;
 /**
  * Buckets float features and places them in a new float column.
  */
-public class BucketFloatTransform extends Transform {
+public class BucketFloatTransform implements Transform {
   private String fieldName1;
   private double bucket;
   private String outputName;

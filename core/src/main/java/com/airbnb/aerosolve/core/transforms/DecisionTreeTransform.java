@@ -16,7 +16,7 @@ import java.util.Map.Entry;
  * Emits the score to the float family output_score
  * Use tree.toHumanReadableTransform to generate the nodes list.
  */
-public class DecisionTreeTransform extends Transform {
+public class DecisionTreeTransform implements Transform {
   private String outputLeaves;
   private String outputScoreFamily;
   private String outputScoreName;
