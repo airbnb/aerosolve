@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +27,11 @@ public class ReplaceAllStringsTransform implements Transform {
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
     replacements = config.getObjectList(key + ".replacements");
-    outputName = config.getString(key + ".output");
+    if (config.hasPath(key + ".output")) {
+      outputName = config.getString(key + ".output");
+    } else {
+      outputName = fieldName1;
+    }
   }
 
   @Override
@@ -43,17 +48,26 @@ public class ReplaceAllStringsTransform implements Transform {
 
     Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
-    for (String rawString : feature1) {
-      if (rawString == null) continue;
-      for (ConfigObject replacementCO : replacements) {
-        Map<String, Object> replacementMap = replacementCO.unwrapped();
-        for (Map.Entry<String, Object> replacementEntry : replacementMap.entrySet()) {
-          String regex = replacementEntry.getKey();
-          String replacement = (String) replacementEntry.getValue();
-          rawString = rawString.replaceAll(regex, replacement);
+    for (Iterator<String> iterator = feature1.iterator(); iterator.hasNext();) {
+      String rawString = iterator.next();
+
+      if (rawString != null) {
+        for (ConfigObject replacementCO : replacements) {
+          Map<String, Object> replacementMap = replacementCO.unwrapped();
+
+          for (Map.Entry<String, Object> replacementEntry : replacementMap.entrySet()) {
+            String regex = replacementEntry.getKey();
+            String replacement = (String) replacementEntry.getValue();
+            rawString = rawString.replaceAll(regex, replacement);
+          }
         }
+        output.add(rawString);
       }
-      output.add(rawString);
+
+      // Check reference equality to determine whether the output should overwrite the input
+      if (output == feature1) {
+        iterator.remove();
+      }
     }
   }
 }
