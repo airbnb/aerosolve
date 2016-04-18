@@ -9,11 +9,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class WTAHashTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(WTAHashTransformTest.class);
+public class WtaTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(WtaTransformTest.class);
 
   public FeatureVector makeFeatureVector() {
     Map<String, List<Double>> denseFeatures = new HashMap<>();

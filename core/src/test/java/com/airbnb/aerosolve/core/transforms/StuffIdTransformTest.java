@@ -15,8 +15,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Hector Yee
  */
-public class StuffIdIntoFeatureTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(StuffIdIntoFeatureTransformTest.class);
+public class StuffIdTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(StuffIdTransformTest.class);
 
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();

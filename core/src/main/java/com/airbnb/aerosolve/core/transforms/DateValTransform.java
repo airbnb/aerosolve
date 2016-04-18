@@ -14,7 +14,7 @@ import java.text.ParseException;
  * "field1" specifies the key of feature
  * "field2" specifies the type of date value
  */
-public class DateTransform implements Transform {
+public class DateValTransform implements Transform {
   protected String fieldName1;
   protected String dateType;
   protected String outputName;

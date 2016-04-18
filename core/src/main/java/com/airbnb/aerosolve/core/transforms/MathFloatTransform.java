@@ -2,14 +2,11 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
-
+import com.google.common.base.Optional;
 import com.typesafe.config.Config;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import com.google.common.base.Optional;
 import java.util.function.DoubleFunction;
 
 /**
@@ -19,7 +16,7 @@ import java.util.function.DoubleFunction;
  * outputName: output feature family name (feature names or keys remain the same)
  * function: a string that specified the function that is going to apply to the given feature
  */
-public class FloatFeatureMathTransform implements Transform {
+public class MathFloatTransform implements Transform {
   private String fieldName1; // feature family name
   private List<String> keys; // feature names
   private String outputName; // output feature family name

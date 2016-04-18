@@ -1,7 +1,6 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.KDTreeNodeType;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.models.KDTreeModel;
 import com.airbnb.aerosolve.core.KDTreeNode;
@@ -10,13 +9,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
-import java.util.Map.Entry;
-import java.lang.ClassLoader;
-import java.util.zip.GZIPInputStream;
 
 /**
  * Inputs = fieldName1 (value1, value2)
@@ -25,14 +18,14 @@ import java.util.zip.GZIPInputStream;
  * the distance from each splitting plane to the point being queried.
  * One can think of this as a tree kernel transform of a point.
  */
-public class KDTreeContinuousTransform implements Transform {
+public class KdtreeContinuousTransform implements Transform {
   private String fieldName1;
   private String value1;
   private String value2;
   private String outputName;
   private Integer maxCount;
   private Optional<KDTreeModel> modelOptional;
-  private static final Logger log = LoggerFactory.getLogger(KDTreeContinuousTransform.class);
+  private static final Logger log = LoggerFactory.getLogger(KdtreeContinuousTransform.class);
 
   @Override
   public void configure(Config config, String key) {

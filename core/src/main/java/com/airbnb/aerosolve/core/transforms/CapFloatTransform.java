@@ -6,7 +6,7 @@ import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map;
 
-public class CapFloatFeatureTransform extends FloatTransform {
+public class CapFloatTransform extends FloatTransform {
   private List<String> keys;
   private double lowerBound;
   private double upperBound;

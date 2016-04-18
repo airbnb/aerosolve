@@ -1,14 +1,12 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.KDTreeNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 
 import static org.junit.Assert.assertEquals;
@@ -17,8 +15,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Hector Yee
  */
-public class KDTreeContinuousTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(KDTreeContinuousTransformTest.class);
+public class KdtreeContinuousTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(KdtreeContinuousTransformTest.class);
 
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();

@@ -2,14 +2,9 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
-
 import com.typesafe.config.Config;
 
-import java.util.HashMap;
-import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * id = fieldName1.key1
@@ -23,7 +18,7 @@ import java.util.Map.Entry;
  * On the other hand searches_at_leaf @ 123 can tell you how the model changes
  * for searches at a particular place changing from day to day.
  */
-public class StuffIdIntoFeatureTransform implements Transform {
+public class StuffIdTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private String key1;
