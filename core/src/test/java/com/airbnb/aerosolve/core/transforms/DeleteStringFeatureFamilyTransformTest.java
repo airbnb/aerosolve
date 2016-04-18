@@ -20,13 +20,13 @@ import static org.junit.Assert.assertTrue;
 /**
  * Created by christhetree on 1/29/16.
  */
-public class DeleteStringFeatureColumnTransformTest {
+public class DeleteStringFeatureFamilyTransformTest {
   private static final Logger log = LoggerFactory.getLogger(
-      DeleteStringFeatureColumnTransformTest.class);
+      DeleteStringFeatureFamilyTransformTest.class);
 
   public String makeConfig() {
-    return "test_delete_string_feature_column {\n" +
-        " transform: delete_string_feature_column\n" +
+    return "test_delete_string_feature_family {\n" +
+        " transform: delete_string_feature_family\n" +
         " field1: strFeature1\n" +
         "}";
   }
@@ -47,7 +47,7 @@ public class DeleteStringFeatureColumnTransformTest {
   public void testEmptyFeatureVector() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(
-        config, "test_delete_string_feature_column");
+        config, "test_delete_string_feature_family");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
 
@@ -58,7 +58,7 @@ public class DeleteStringFeatureColumnTransformTest {
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(
-        config, "test_delete_string_feature_column");
+        config, "test_delete_string_feature_family");
     FeatureVector featureVector = makeFeatureVector();
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
 
