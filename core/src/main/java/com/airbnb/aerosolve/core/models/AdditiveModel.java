@@ -173,7 +173,7 @@ public class AdditiveModel extends AbstractModel {
                           float[] params, boolean overwrite) {
     // For SPLINE: params[0] = minValue, params[1] = maxValue, params[2] = numBin
     // For LINEAR: params[0] = minValue, params[1] = maxValue
-    // overwrite: if TRUE, overwrie existing feature function
+    // overwrite: if TRUE, overwrite existing feature function
     Map<String, Function> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
       featFamily = new HashMap<String, Function>();
