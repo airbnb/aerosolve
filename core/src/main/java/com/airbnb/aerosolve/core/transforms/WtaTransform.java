@@ -3,15 +3,8 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Random;
-import java.util.Deque;
-import java.util.ArrayDeque;
+
+import java.util.*;
 
 /**
  * A transform that applies the winner takes all hash to
@@ -22,7 +15,7 @@ import java.util.ArrayDeque;
  * to generate 2-bit tokens
  * and pack each word with num_tokens_per_word of these.
  */
-public class WTAHashTransform extends Transform {
+public class WtaTransform implements Transform {
   private List<String> fieldNames;
   private String outputName;
   private int seed;

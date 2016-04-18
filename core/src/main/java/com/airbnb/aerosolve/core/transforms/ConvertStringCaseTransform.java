@@ -2,18 +2,17 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
+import com.typesafe.config.Config;
 
 import java.util.Map;
 import java.util.Set;
-
-import com.typesafe.config.Config;
 
 /**
  * Converts strings to either all lowercase or all uppercase
  * "field1" specifies the key of the feature
  * "convert_to_uppercase" converts strings to uppercase if true, otherwise converts to lowercase
  */
-public class ConvertStringCaseTransform extends Transform {
+public class ConvertStringCaseTransform implements Transform {
   private String fieldName1;
   private boolean convertToUppercase;
   private String outputName;

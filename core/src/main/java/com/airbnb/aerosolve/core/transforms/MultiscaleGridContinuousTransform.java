@@ -11,7 +11,7 @@ import java.util.Map.Entry;
  * Quantizes the floatFeature named in "field1" with buckets in "bucket" before placing
  * it in the floatFeature named "output" subtracting the origin of the box.
  */
-public class MultiscaleGridContinuousTransform extends Transform {
+public class MultiscaleGridContinuousTransform implements Transform {
   private String fieldName1;
   private List<Double> buckets;
   private String outputName;

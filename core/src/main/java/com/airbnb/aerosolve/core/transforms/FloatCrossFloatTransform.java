@@ -12,7 +12,7 @@ import com.typesafe.config.Config;
  * crosses them with the floats in fieldName2 and then stores the result in a new float feature
  * output specified by outputName.
  */
-public class FloatCrossFloatTransform extends Transform {
+public class FloatCrossFloatTransform implements Transform {
   private String fieldName1;
   private double bucket;
   private double cap;

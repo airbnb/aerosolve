@@ -3,32 +3,25 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.airbnb.aerosolve.core.models.KDTreeModel;
-import com.airbnb.aerosolve.core.KDTreeNode;
 import com.google.common.base.Optional;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
-import java.util.Map.Entry;
-import java.lang.ClassLoader;
-import java.util.zip.GZIPInputStream;
 
 /**
  * Inputs = fieldName1 (value1, value2)
  * Outputs = list of kdtree nodes
  */
-public class KDTreeTransform extends Transform {
+public class KdtreeTransform implements Transform {
   private String fieldName1;
   private String value1;
   private String value2;
   private String outputName;
   private Integer maxCount;
   private Optional<KDTreeModel> modelOptional;
-  private static final Logger log = LoggerFactory.getLogger(KDTreeTransform.class);
+  private static final Logger log = LoggerFactory.getLogger(KdtreeTransform.class);
 
   @Override
   public void configure(Config config, String key) {

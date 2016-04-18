@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class DeleteStringFeatureTransform extends Transform {
+public class DeleteStringFeatureTransform implements Transform {
   private String fieldName1;
   private List<String> keys;
 

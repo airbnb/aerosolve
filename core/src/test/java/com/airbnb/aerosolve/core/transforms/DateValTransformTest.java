@@ -18,7 +18,7 @@ import java.util.Set;
 /**
  * Created by seckcoder on 12/20/15.
  */
-public class DateTransformTest {
+public class DateValTransformTest {
   public String makeConfig(String dateType) {
     return "test_date {\n" +
             " transform: date_val\n" +

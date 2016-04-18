@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.transforms;
 
+import com.google.common.base.CaseFormat;
 import com.typesafe.config.Config;
 
 /**
@@ -14,171 +15,17 @@ public class TransformFactory {
     if (transformName == null) {
       return null;
     }
+    String name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, transformName);
     Transform result = null;
-    switch (transformName) {
-      case "cross": {
-        result = new CrossTransform();
-        break;
-      }
-      case "self_cross": {
-        result = new SelfCrossTransform();
-        break;
-      }
-      case "string_cross_float": {
-        result = new StringCrossFloatTransform();
-        break;
-      }
-      case "quantize": {
-        result = new QuantizeTransform();
-        break;
-      }
-      case "multiscale_quantize": {
-        result = new MultiscaleQuantizeTransform();
-        break;
-      }
-      case "multiscale_grid_quantize": {
-        result = new MultiscaleGridQuantizeTransform();
-        break;
-      }
-      case "custom_multiscale_quantize": {
-        result = new CustomMultiscaleQuantizeTransform();
-        break;
-      }
-      case "multiscale_grid_continuous" : {
-        result = new MultiscaleGridContinuousTransform();
-        break;
-      }
-      case "move_float_to_string": {
-        result = new MoveFloatToStringTransform();
-        break;
-      }
-      case "multiscale_move_float_to_string": {
-        result = new MultiscaleMoveFloatToStringTransform();
-        break;
-      }
-      case "custom_linear_log_quantize": {
-        result = new CustomLinearLogQuantizeTransform();
-        break;
-      }
-      case "linear_log_quantize": {
-        result = new LinearLogQuantizeTransform();
-        break;
-      }
-      case "list": {
-        result = new ListTransform();
-        break;
-      }
-      case "wta": {
-        result = new WTAHashTransform();
-        break;
-      }
-      case "delete_float_feature": {
-        result = new DeleteFloatFeatureTransform();
-        break;
-      }
-      case "delete_float_feature_family" : {
-        result = new DeleteFloatFeatureFamilyTransform();
-        break;
-      }
-      case "delete_string_feature": {
-        result = new DeleteStringFeatureTransform();
-        break;
-      }
-      case "product" : {
-        result = new ProductTransform();
-        break;
-      }
-      case "subtract" : {
-        result = new SubtractTransform();
-        break;
-      }
-      case "divide" : {
-        result = new DivideTransform();
-        break;
-      }
-      case "nearest" : {
-        result = new NearestTransform();
-        break;
-      }
-      case "bucket_float" : {
-        result = new BucketFloatTransform();
-        break;
-      }
-      case "cap_float" : {
-        result = new CapFloatFeatureTransform();
-        break;
-      }
-      case "cut_float" : {
-        result = new CutFloatFeatureTransform();
-        break;
-      }
-      case "stuff_id" : {
-        result = new StuffIdIntoFeatureTransform();
-        break;
-      }
-      case "approximate_percentile" : {
-        result = new ApproximatePercentileTransform();
-        break;
-      }
-      case "kdtree" : {
-        result = new KDTreeTransform();
-        break;
-      }
-      case "kdtree_continuous" : {
-        result = new KDTreeContinuousTransform();
-        break;
-      }
-      case "stump" : {
-        result = new StumpTransform();
-        break;
-      }
-      case "decision_tree" : {
-        result = new DecisionTreeTransform();
-        break;
-      }
-      case "date_diff" : {
-        result = new DateDiffTransform();
-        break;
-      }
-      case "date_val" : {
-        result = new DateTransform();
-        break;
-      }
-      case "math_float" : {
-        result = new FloatFeatureMathTransform();
-        break;
-      }
-      case "default_string_tokenizer" : {
-        result = new DefaultStringTokenizerTransform();
-        break;
-      }
-      case "delete_string_feature_column" : {
-        result = new DeleteStringFeatureColumnTransform();
-        break;
-      }
-      case "normalize_float" : {
-        result = new NormalizeFloatFeatureTransform();
-        break;
-      }
-      case "convert_string_case" : {
-        result = new ConvertStringCaseTransform();
-        break;
-      }
-      case "normalize_utf_8" : {
-        result = new NormalizeUtf8Transform();
-        break;
-      }
-      case "replace_all_strings" : {
-        result = new ReplaceAllStringsTransform();
-        break;
-      }
-      case "float_cross_float" : {
-        result = new FloatCrossFloatTransform();
-        break;
-      }
-    }
-    if (result != null) {
+    try {
+      result = (Transform) Class.forName("com.airbnb.aerosolve.core.transforms." + name + "Transform").newInstance();
       result.configure(config, key);
+    } catch (InstantiationException e) {
+      e.printStackTrace();
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
     }
     return result;
   }

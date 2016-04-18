@@ -15,8 +15,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Hector Yee
  */
-public class CapFloatFeatureTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(CapFloatFeatureTransformTest.class);
+public class CapFloatTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(CapFloatTransformTest.class);
   
   public String makeConfig() {
     return "test_cap {\n" +

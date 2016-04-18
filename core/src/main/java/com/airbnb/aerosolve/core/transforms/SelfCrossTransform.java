@@ -12,7 +12,7 @@ import java.util.Map;
  * Takes the self cross product of stringFeatures named in field1
  * and places it in a stringFeature with family name specified in output.
  */
-public class SelfCrossTransform extends Transform {
+public class SelfCrossTransform implements Transform {
   private String fieldName1;
   private String outputName;
 

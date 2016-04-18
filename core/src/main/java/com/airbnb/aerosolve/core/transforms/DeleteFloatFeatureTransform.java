@@ -5,7 +5,7 @@ import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map;
 
-public class DeleteFloatFeatureTransform extends Transform {
+public class DeleteFloatFeatureTransform implements Transform {
   private String fieldName1;
   private List<String> keys;
 

@@ -1,23 +1,22 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.KDTreeNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * @author Hector Yee
  */
-public class KDTreeTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(KDTreeTransformTest.class);
+public class KdtreeContinuousTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(KdtreeContinuousTransformTest.class);
 
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
@@ -41,12 +40,12 @@ public class KDTreeTransformTest {
 
   public String makeConfig() {
     return "test_kdtree {\n" +
-           " transform : kdtree\n" +
+           " transform : kdtree_continuous\n" +
            " include \"test_kdt.model.conf\"\n" +
            " field1 : loc\n" +
            " value1 : lat\n" +
            " value2 : long\n" +
-           " max_count : 2\n" +
+           " max_count : 3\n" +
            " output : loc_kdt\n" +
            "}";
   }
@@ -68,14 +67,19 @@ public class KDTreeTransformTest {
     FeatureVector featureVector = makeFeatureVector();
     transform.doTransform(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    assertTrue(stringFeatures.size() == 2);
-    Set<String> out = stringFeatures.get("loc_kdt");
+    assertTrue(stringFeatures.size() == 1);
+    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+    Map<String, Double> out = floatFeatures.get("loc_kdt");
     log.info("loc_kdt");
-    for (String string : out) {
-      log.info(string);
+    for (Map.Entry<String, Double> entry : out.entrySet()) {
+      log.info(entry.getKey() + " = " + entry.getValue());
     }
     assertTrue(out.size() == 2);
-    assertTrue(out.contains("2"));
-    assertTrue(out.contains("4"));
+    //                    4
+    //         |--------------- y = 2
+    //  1      | 2       3
+    //     x = 1
+    assertEquals(out.get("0"), 37.7 - 1.0, 0.1);
+    assertEquals(out.get("2"), 40.0 - 2.0, 0.1);
   }
 }

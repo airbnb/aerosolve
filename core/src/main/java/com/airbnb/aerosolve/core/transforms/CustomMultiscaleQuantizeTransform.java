@@ -17,7 +17,7 @@ import java.util.Map.Entry;
  * "select_features" list and not in "exclude_features" list.
  */
 
-public class CustomMultiscaleQuantizeTransform extends Transform {
+public class CustomMultiscaleQuantizeTransform implements Transform {
   private String fieldName1;
   private List<Double> buckets;
   private String outputName;

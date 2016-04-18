@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.Map;
 
-public class StringCrossFloatTransform extends Transform {
+public class StringCrossFloatTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private String outputName;

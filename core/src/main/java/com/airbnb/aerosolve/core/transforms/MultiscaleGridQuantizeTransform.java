@@ -12,7 +12,7 @@ import java.util.Map.Entry;
  * Quantizes the floatFeature named in "field1" with buckets in "bucket" before placing
  * it in the stringFeature named "output"
  */
-public class MultiscaleGridQuantizeTransform extends Transform {
+public class MultiscaleGridQuantizeTransform implements Transform {
   private String fieldName1;
   private List<Double> buckets;
   private String outputName;

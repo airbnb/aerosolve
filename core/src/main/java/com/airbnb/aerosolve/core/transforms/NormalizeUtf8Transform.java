@@ -14,7 +14,7 @@ import com.typesafe.config.Config;
  * "field1" specifies the key of the feature
  * "normalization_form" optionally specifies whether to use NFC, NFD, NFKC or NFKD form
  */
-public class NormalizeUtf8Transform extends Transform {
+public class NormalizeUtf8Transform implements Transform {
   public static final Normalizer.Form DEFAULT_NORMALIZATION_FORM = Normalizer.Form.NFD;
 
   private String fieldName1;

@@ -9,9 +9,10 @@ import java.io.Serializable;
  * Created by hector_yee on 8/25/14.
  * Base class for feature transforms.
  */
-public abstract class Transform implements Serializable {
+public interface Transform extends Serializable {
   // Configure the transform from the supplied config and key.
-  abstract public void configure(Config config, String key);
+  void configure(Config config, String key);
+
   // Applies a transform to the featureVector.
-  abstract public void doTransform(FeatureVector featureVector);
+  void doTransform(FeatureVector featureVector);
 }

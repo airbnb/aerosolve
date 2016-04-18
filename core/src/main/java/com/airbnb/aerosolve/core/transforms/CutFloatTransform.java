@@ -10,7 +10,7 @@ import java.util.Map;
 /*
   remove features larger than upperBound or smaller than lowerBound
  */
-public class CutFloatFeatureTransform extends Transform {
+public class CutFloatTransform implements Transform {
     private String fieldName1;
     private List<String> keys;
     private double lowerBound;

@@ -13,7 +13,7 @@ import java.util.Vector;
  * A transform that accepts a list of other transforms and applies them as a group
  * in the order specified by the list.
  */
-public class ListTransform extends Transform {
+public class ListTransform implements Transform {
   private List<Transform> transforms;
 
   @Override

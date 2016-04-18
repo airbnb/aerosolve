@@ -1,21 +1,19 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.{FeatureVector, Example, FunctionForm}
 import com.airbnb.aerosolve.core.models.AdditiveModel
-import com.airbnb.aerosolve.core.util.{Util, AbstractFunction, Spline}
+import com.airbnb.aerosolve.core.util.{Function, Spline, Util}
+import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
+import org.slf4j.{Logger, LoggerFactory}
 
-import org.slf4j.{LoggerFactory, Logger}
-
-import scala.collection.mutable.HashMap
-import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.collection.mutable.HashMap
+import scala.util.Try
 
 /**
  * Additive Model Trainer
@@ -143,7 +141,7 @@ object AdditiveModelTrainer {
 
   def sgdPartition(partition : Iterator[Example],
                    modelBC : Broadcast[AdditiveModel],
-                   paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), AbstractFunction)] = {
+                   paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value
     val params = paramsBC.value
     val output = sgdPartitionInternal(partition, workingModel, params)
@@ -153,7 +151,7 @@ object AdditiveModelTrainer {
   def sgdPartitionMultiscale(index : Int,
                               partition : Iterator[Example],
                               modelBC : Broadcast[AdditiveModel],
-                              paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), AbstractFunction)] = {
+                              paramsBC : Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value
     val params = paramsBC.value
     val multiscale = params.multiscale
@@ -177,16 +175,16 @@ object AdditiveModelTrainer {
     output.iterator
   }
 
-  private def aggregateFuncWeights(input: Iterable[AbstractFunction],
+  private def aggregateFuncWeights(input: Iterable[Function],
                                    scale: Float,
                                    numBins: Int,
-                                   smoothingTolerance: Float) : AbstractFunction = {
-    val head : AbstractFunction = input.head
+                                   smoothingTolerance: Float) : Function = {
+    val head : Function = input.head
     val output = head.makeCopy()
     val weightLength = output.getWeights.length
     val weights = Array.fill[Float](weightLength)(0.0f)
     input.foreach(entry => {
-      val func: AbstractFunction = if (entry.getFunctionForm == FunctionForm.SPLINE
+      val func: Function = if (entry.getFunctionForm == FunctionForm.SPLINE
                                        && entry.getWeights.length != numBins) {
         new Spline(entry.asInstanceOf[Spline], numBins)
       } else {
@@ -207,7 +205,7 @@ object AdditiveModelTrainer {
   private def sgdPartitionInternal(partition : Iterator[Example],
                                    workingModel : AdditiveModel,
                                    params : AdditiveTrainerParams) :
-  HashMap[(String, String), AbstractFunction] = {
+  HashMap[(String, String), Function] = {
     @volatile var lossSum : Double = 0.0
     @volatile var lossCount : Int = 0
     partition.foreach(example => {
@@ -218,7 +216,7 @@ object AdditiveModelTrainer {
           lossSum = 0.0
         }
     })
-    val output = HashMap[(String, String), AbstractFunction]()
+    val output = HashMap[(String, String), Function]()
     workingModel
       .getWeights
       .foreach(family => {
@@ -386,7 +384,7 @@ object AdditiveModelTrainer {
 
     model.getWeights.asScala.foreach(family => {
       family._2.asScala.foreach(entry => {
-        val func : AbstractFunction= entry._2
+        val func : Function = entry._2
         if (func.LInfinityNorm() < linfinityThreshold) {
           toDelete.append((family._1, entry._1))
         }
@@ -413,7 +411,7 @@ object AdditiveModelTrainer {
           val params = Array(tokens(2).toFloat, tokens(3).toFloat)
           val familyMap = model.getWeights.get(family)
           if (!familyMap.isEmpty) {
-            val func : AbstractFunction = familyMap.get(name)
+            val func : Function = familyMap.get(name)
             if (func != null) {
               log.info("Setting prior %s:%s <- %f to %f".format(family, name, params(0), params(1)))
                 func.setPriors(params)

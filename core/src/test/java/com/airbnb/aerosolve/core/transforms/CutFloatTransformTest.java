@@ -12,8 +12,8 @@ import java.util.Set;
 
 import static org.junit.Assert.*;
 
-public class CutFloatFeatureTransformTest {
-    private static final Logger log = LoggerFactory.getLogger(CapFloatFeatureTransformTest.class);
+public class CutFloatTransformTest {
+    private static final Logger log = LoggerFactory.getLogger(CapFloatTransformTest.class);
 
     public String makeConfig() {
         return "test_cut {\n" +

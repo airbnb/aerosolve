@@ -13,7 +13,7 @@ import java.util.Map.Entry;
 /**
  * output = nearest of (field1, field2.key)
  */
-public class NearestTransform extends Transform {
+public class NearestTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
   private String key2;

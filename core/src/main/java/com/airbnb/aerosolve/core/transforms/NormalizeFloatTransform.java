@@ -1,16 +1,12 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
-
 import com.typesafe.config.Config;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 // L2 normalizes a float feature
-public class NormalizeFloatFeatureTransform extends Transform {
+public class NormalizeFloatTransform implements Transform {
   private String fieldName1;
 
   @Override

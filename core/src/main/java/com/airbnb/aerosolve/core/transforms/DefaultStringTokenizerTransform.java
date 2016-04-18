@@ -14,7 +14,7 @@ import com.typesafe.config.Config;
  * "regex" specifies the regex used to tokenize
  * "generateBigrams" specifies whether bigrams should also be generated
  */
-public class DefaultStringTokenizerTransform extends Transform {
+public class DefaultStringTokenizerTransform implements Transform {
   public static final String BIGRAM_SEPARATOR = " ";
 
   private String fieldName1;

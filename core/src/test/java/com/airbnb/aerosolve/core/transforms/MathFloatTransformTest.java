@@ -2,8 +2,6 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,8 +14,8 @@ import org.slf4j.LoggerFactory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class FloatFeatureMathTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(FloatFeatureMathTransformTest.class);
+public class MathFloatTransformTest {
+  private static final Logger log = LoggerFactory.getLogger(MathFloatTransformTest.class);
 
   public String makeConfig(String functionName) {
     return "test_math {\n" +

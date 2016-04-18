@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
  * "field1" specifies the float feature family to be deleted
  */
 
-public class DeleteFloatFeatureFamilyTransform extends Transform {
+public class DeleteFloatFeatureFamilyTransform implements Transform {
   private String fieldName1;
 
   @Override
