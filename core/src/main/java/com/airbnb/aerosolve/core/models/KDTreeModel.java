@@ -8,10 +8,12 @@ import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Stack;
-import java.util.zip.GZIPInputStream;
 
 import static com.airbnb.aerosolve.core.KDTreeNodeType.LEAF;
 
@@ -24,8 +26,13 @@ public class KDTreeModel implements Serializable {
   @Getter
   private KDTreeNode[] nodes;
 
-  public KDTreeModel(KDTreeNode[] node) {
-    nodes = node;
+  public KDTreeModel(KDTreeNode[] nodes) {
+    this.nodes = nodes;
+  }
+
+  public KDTreeModel(List<KDTreeNode> nodeList) {
+    nodes = new KDTreeNode[nodeList.size()];
+    nodeList.toArray(nodes);
   }
 
   // Returns the indice of leaf containing the point.
@@ -131,28 +138,12 @@ public class KDTreeModel implements Serializable {
   }
 
   public static Optional<KDTreeModel> readFromGzippedStream(InputStream inputStream) {
-    try {
-      if (inputStream != null) {
-        GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(gzipInputStream));
-        ArrayList<KDTreeNode> nodes = new ArrayList<>();
-        String line = reader.readLine();
-        while(line != null) {
-          KDTreeNode node = Util.decodeKDTreeNode(line);
-          nodes.add(node);
-          line = reader.readLine();
-        }
-        if (!nodes.isEmpty()) {
-          KDTreeNode[] array = new KDTreeNode[nodes.size()];
-          array = nodes.toArray(array);
-          KDTreeModel model  = new KDTreeModel(array);
-          return Optional.of(model);
-        }
-      }
-    } catch (IOException e) {
-      log.error(e.getMessage());
+    List<KDTreeNode> nodes = Util.readFromGzippedStream(KDTreeNode.class, inputStream);
+    if (!nodes.isEmpty()) {
+      return Optional.of(new KDTreeModel(nodes));
+    } else {
+      return Optional.absent();
     }
-    return Optional.absent();
   }
 
   public static Optional<KDTreeModel> readFromGzippedResource(String name) {
