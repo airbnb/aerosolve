@@ -20,7 +20,7 @@ import java.util.Stack;
  */
 public class NDTreeModel implements Serializable {
   private static final long serialVersionUID = -2884260218927875615L;
-  private static final Logger log = LoggerFactory.getLogger(KDTreeModel.class);
+  private static final Logger log = LoggerFactory.getLogger(NDTreeModel.class);
   public static final int LEAF = -1;
   @Getter
   private NDTreeNode[] nodes;
