@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.util;
 
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.function.Spline;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

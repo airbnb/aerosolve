@@ -1,9 +1,9 @@
 package com.airbnb.aerosolve.core.models;
 
 import com.airbnb.aerosolve.core.*;
-import com.airbnb.aerosolve.core.util.Function;
-import com.airbnb.aerosolve.core.util.Linear;
-import com.airbnb.aerosolve.core.util.Spline;
+import com.airbnb.aerosolve.core.function.Function;
+import com.airbnb.aerosolve.core.function.Linear;
+import com.airbnb.aerosolve.core.function.Spline;
 import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;

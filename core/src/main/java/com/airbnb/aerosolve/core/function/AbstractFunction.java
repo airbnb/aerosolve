@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.core.util;
+package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.FunctionForm;
 import lombok.Getter;

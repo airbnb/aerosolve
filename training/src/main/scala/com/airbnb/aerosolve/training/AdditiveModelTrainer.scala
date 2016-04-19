@@ -1,8 +1,9 @@
 package com.airbnb.aerosolve.training
 
+import com.airbnb.aerosolve.core._
+import com.airbnb.aerosolve.core.function.{Function, Spline}
 import com.airbnb.aerosolve.core.models.AdditiveModel
-import com.airbnb.aerosolve.core.util.{Function, Spline, Util}
-import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
+import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._

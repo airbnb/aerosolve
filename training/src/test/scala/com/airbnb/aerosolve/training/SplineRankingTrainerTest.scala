@@ -1,22 +1,23 @@
 package com.airbnb.aerosolve.training
 
-import java.io.{StringReader, BufferedWriter, BufferedReader, StringWriter}
+import java.io.{BufferedReader, BufferedWriter, StringReader, StringWriter}
 import java.util
 
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
 import com.airbnb.aerosolve.core.models.{ModelFactory, SplineModel}
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.airbnb.aerosolve.core.transforms.Transformer
-import com.airbnb.aerosolve.core.util.Spline
-import java.util.{Scanner, HashMap}
+import java.util.{HashMap, Scanner}
+
+import com.airbnb.aerosolve.core.function.Spline
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 import org.junit.Test
 import org.slf4j.LoggerFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 class SplineRankingTrainerTest {

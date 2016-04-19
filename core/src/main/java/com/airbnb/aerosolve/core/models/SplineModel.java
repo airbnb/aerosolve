@@ -16,7 +16,7 @@ import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.util.Util;
-import com.airbnb.aerosolve.core.util.Spline;
+import com.airbnb.aerosolve.core.function.Spline;
 
 import lombok.Getter;
 import lombok.Setter;

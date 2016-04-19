@@ -2,12 +2,12 @@ package com.airbnb.aerosolve.training
 
 import java.util
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
-import com.airbnb.aerosolve.core.models.{SplineModel, AdditiveModel}
-import com.airbnb.aerosolve.core.util.{Spline, Linear}
+import com.airbnb.aerosolve.core.models.{AdditiveModel, SplineModel}
+import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import org.slf4j.LoggerFactory
-import scala.collection.mutable.ArrayBuffer
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 
 object TrainingTestHelper {
   val log = LoggerFactory.getLogger("TrainingTestHelper")
