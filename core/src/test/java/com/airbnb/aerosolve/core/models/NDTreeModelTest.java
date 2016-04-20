@@ -5,7 +5,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.airbnb.aerosolve.core.models.NDTreeModel.LEAF;
 import static org.junit.Assert.assertEquals;
@@ -17,7 +20,8 @@ public class NDTreeModelTest {
   //         |--------------- y = 2
   //  1      | 2       3
   //     x = 1
-  public static NDTreeNode[] getTestNodes() {
+  // total space is from (0,0) to (4,4)
+  public static NDTreeModel getNDTreeModel() {
     NDTreeNode parent = new NDTreeNode();
     parent.setCoordinateIndex(0);
     parent.setSplitValue(1.0);
@@ -26,6 +30,8 @@ public class NDTreeModelTest {
 
     NDTreeNode one = new NDTreeNode();
     one.setCoordinateIndex(LEAF);
+    one.setMin(Arrays.asList(0.0,0.0));
+    one.setMax(Arrays.asList(1.0,4.0));
 
     NDTreeNode two = new NDTreeNode();
     two.setCoordinateIndex(1);
@@ -35,16 +41,21 @@ public class NDTreeModelTest {
 
     NDTreeNode three = new NDTreeNode();
     three.setCoordinateIndex(LEAF);
+    three.setMin(Arrays.asList(1.0,0.0));
+    three.setMax(Arrays.asList(4.0,2.0));
 
     NDTreeNode four = new NDTreeNode();
     four.setCoordinateIndex(LEAF);
+    four.setMin(Arrays.asList(1.0,2.0));
+    four.setMax(Arrays.asList(4.0,4.0));
+
     NDTreeNode[] arr = {parent, one, two, three, four};
-    return arr;
+    return new NDTreeModel(arr);
 
   }
   @Test
   public void testLeaf() {
-    NDTreeModel tree = new NDTreeModel(getTestNodes());
+    NDTreeModel tree = getNDTreeModel();
 
     int leaf = tree.leaf(-1.0, -1.0);
     assertEquals(1, leaf);
@@ -69,7 +80,7 @@ public class NDTreeModelTest {
 
   @Test
   public void testQuery() {
-    NDTreeModel tree = new NDTreeModel(getTestNodes());
+    NDTreeModel tree = getNDTreeModel();
 
     ArrayList<Integer> res1 = tree.query(-1.0, -1.0);
     assertEquals(2, res1.size());
@@ -122,7 +133,7 @@ public class NDTreeModelTest {
 
   @Test
   public void testQueryBox() {
-    NDTreeModel tree = new NDTreeModel(getTestNodes());
+    NDTreeModel tree = getNDTreeModel();
 
     // This box covers all nodes
     Set<Integer> q1 = toSet(tree.queryBox(Arrays.asList(-10.0, -10.0), Arrays.asList(10.0, 10.0)));

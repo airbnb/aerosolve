@@ -19,6 +19,9 @@ public class MultiDimensionPoint {
     this.coordinates = coordinates;
   }
 
+  public void updateWeight(double delta) {
+    weight += delta;
+  }
   /*
     Generate combination coordinates from min and max list,
     Create new points if the coordinate is not in points map
