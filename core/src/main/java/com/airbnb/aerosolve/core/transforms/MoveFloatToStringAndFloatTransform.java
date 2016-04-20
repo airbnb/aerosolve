@@ -48,6 +48,7 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
       return;
     }
 
+    Util.optionallyCreateStringFeatures(featureVector);
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     Set<String> stringOutput = Util.getOrCreateStringFeature(stringOutputName, stringFeatures);
 
