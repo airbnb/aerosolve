@@ -52,7 +52,7 @@ class KernelTrainerTest {
 
   @Test
    def testAcosHinge() = {
-     testKernelClassificationTrainer("hinge", "acos", 0.7)
+     testKernelClassificationTrainer("hinge", "acos", 0.4)
    }
 
    @Test

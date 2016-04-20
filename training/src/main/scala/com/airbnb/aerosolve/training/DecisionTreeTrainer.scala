@@ -421,7 +421,7 @@ object DecisionTreeTrainer {
           rightDist.put(key, value + v)
           rightCount = rightCount + 1
         } else {
-          val v = rightDist.getOrElse(key, 0.0)
+          val v = leftDist.getOrElse(key, 0.0)
           leftDist.put(key, value + v)
           leftCount = leftCount + 1
         }

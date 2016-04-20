@@ -30,6 +30,7 @@ public class BoostedStumpsModel extends AbstractModel {
   public static boolean getStumpResponse(ModelRecord stump,
                                          Map<String, Map<String, Double>> floatFeatures) {
     Map<String, Double> feat = floatFeatures.get(stump.featureFamily);
+    // missing feature corresponding to false (left branch)
     if (feat == null) {
       return false;
     }
