@@ -16,8 +16,8 @@ import org.apache.spark.rdd.RDD
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.sql.hive.HiveContext
+import org.apache.spark.sql.types._
 
 import scala.math.{ceil, max, pow}
 import scala.collection.JavaConverters._

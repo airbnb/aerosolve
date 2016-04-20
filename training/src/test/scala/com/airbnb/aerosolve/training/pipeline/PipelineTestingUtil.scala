@@ -1,7 +1,8 @@
 package com.airbnb.aerosolve.training.pipeline
 
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.{Row, SQLContext, StructType}
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -46,17 +47,12 @@ object PipelineTestingUtil {
    * Works for any case class.
    */
   def createFakeHiveContext[A <: Product: TypeTag : ClassTag](
-      sc: SparkContext, results: List[A]): HiveContext = {
+      sc: SparkContext, results: Seq[A]): HiveContext = {
     val mockHiveContext = mock(classOf[HiveContext])
 
-    val schemaRdd = sc.parallelize(results)
-
     val sqlContext = new SQLContext(sc)
-    import sqlContext._
 
-    schemaRdd.registerAsTable("rows")
-
-    when(mockHiveContext.sql(anyString())).thenReturn(sql("select * from rows"))
+    when(mockHiveContext.sql(anyString())).thenReturn(sqlContext.createDataFrame(results))
 
     mockHiveContext
   }
@@ -65,17 +61,11 @@ object PipelineTestingUtil {
    * Create a fake row and schema for a given case class.
    */
   def createFakeRowAndSchema[A <: Product: TypeTag : ClassTag](
-      sc: SparkContext, result: A): Tuple2[Row, StructType] = {
-    // TODO: Investigate whether there is an easier way to do this
-    val schemaRdd = sc.parallelize(Seq(result))
-
+      sc: SparkContext, result: A): (Row, StructType) = {
     val sqlContext = new SQLContext(sc)
-    import sqlContext._
 
-    schemaRdd.registerAsTable("rows")
+    val sqlResult = sqlContext.createDataFrame(Seq(result))
 
-    val sqlResult = sql("select * from rows")
-
-    (sqlResult.collect().toSeq.head, sqlResult.schema)
+    (sqlResult.head(), sqlResult.schema)
   }
 }
