@@ -21,20 +21,6 @@ public abstract class AbstractFunction implements Function {
   protected float maxVal;
 
   @Override
-  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
-    int length = weights.length;
-    float[] aggWeights = new float[length];
-
-    for (Function fun: functions) {
-      AbstractFunction abstractFunction = (AbstractFunction) fun;
-      for (int i = 0; i < length; i++) {
-        aggWeights[i] += scale * abstractFunction.weights[i];
-      }
-    }
-    return new Linear(minVal, maxVal, aggWeights);
-  }
-
-  @Override
   public String toString() {
     return String.format("minVal=%f, maxVal=%f, weights=%s",
         minVal, maxVal, Arrays.toString(weights));
