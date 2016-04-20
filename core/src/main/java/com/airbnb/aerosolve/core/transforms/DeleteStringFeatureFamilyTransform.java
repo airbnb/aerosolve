@@ -10,7 +10,8 @@ import java.util.Set;
 import com.typesafe.config.Config;
 
 /**
- * "field1" specifies the string column to be deleted
+ * "field1" optionally specifies the string feature family to be deleted
+ * "fields" optionally specifies a list of string feature families to be deleted
  */
 public class DeleteStringFeatureFamilyTransform implements Transform {
   private String fieldName1;
@@ -43,8 +44,8 @@ public class DeleteStringFeatureFamilyTransform implements Transform {
     }
 
     for (String fieldName: fieldNamesSet) {
-      Set<String> feature1 = stringFeatures.get(fieldName1);
-      if (feature1 != null) {
+      Set<String> feature = stringFeatures.get(fieldName);
+      if (feature != null) {
         stringFeatures.remove(fieldName);
       }
     }
