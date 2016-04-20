@@ -1,19 +1,20 @@
-package com.airbnb.aerosolve.core.util;
+package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.function.Spline;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import static org.junit.Assert.assertEquals;
 
 /**
  * @author Hector Yee
  */
+@Slf4j
 public class SplineTest {
-  private static final Logger log = LoggerFactory.getLogger(SplineTest.class);
-
   @Test
   public void testSplineEvaluate() {
     float[] weights = {5.0f, 10.0f, -20.0f};

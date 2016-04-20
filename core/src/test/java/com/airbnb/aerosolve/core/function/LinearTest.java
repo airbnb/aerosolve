@@ -1,10 +1,12 @@
-package com.airbnb.aerosolve.core.util;
+package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.function.Linear;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import static org.junit.Assert.assertEquals;
 
 /**
