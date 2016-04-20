@@ -90,4 +90,18 @@ public class MultiDimensionPoint {
     sb.append(weight);
     return sb.toString();
   }
+
+  public double getDistance(List<Double> coordinates) {
+    return euclideanDistance(coordinates, this.coordinates);
+  }
+
+  public static double euclideanDistance(List<Double> x, List<Double> y) {
+    assert (x.size() == y.size());
+    double sum = 0;
+    for (int i = 0; i < x.size(); i++) {
+      final double dp = x.get(i) - y.get(i);
+      sum += dp * dp;
+    }
+    return Math.sqrt(sum);
+  }
 }
