@@ -13,9 +13,7 @@ public class Linear extends AbstractFunction {
   // weights[0] is offset, weights[1] is slope
   public Linear(Linear other) {
     functionForm = FunctionForm.LINEAR;
-    weights = new float[2];
-    weights[0] = other.getWeights()[0];
-    weights[1] = other.getWeights()[1];
+    weights = other.weights.clone();
     minVal = other.getMinVal();
     maxVal = other.getMaxVal();
   }

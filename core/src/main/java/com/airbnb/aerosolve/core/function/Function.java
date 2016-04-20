@@ -9,7 +9,7 @@ public interface Function extends Serializable {
 
   FunctionForm getFunctionForm();
 
-  float[] getWeights();
+  Function aggregate(Iterable<Function> functions, float scale, int numBins);
 
   // TODO remove setWeights
   void setWeights(float[] weights);

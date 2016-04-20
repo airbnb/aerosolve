@@ -270,11 +270,7 @@ object TrainingTestHelper {
         val func = featureMap._2
         val funcForm = func.getFunctionForm
         log.info("functionForm=%s".format(funcForm))
-        log.info("minVal=%f, maxVal=%f, weights=%s"
-                   .format(func.getMinVal,
-                           func.getMaxVal,
-                           func.getWeights.mkString(","))
-        )
+        log.info(func.toString)
       }
     }
   }
