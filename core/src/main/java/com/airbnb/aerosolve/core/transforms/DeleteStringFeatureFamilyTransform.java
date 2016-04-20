@@ -10,7 +10,7 @@ import com.typesafe.config.Config;
 /**
  * "field1" specifies the string column to be deleted
  */
-public class DeleteStringFeatureFamilyTransform extends Transform {
+public class DeleteStringFeatureFamilyTransform implements Transform {
   private String fieldName1;
 
   @Override
