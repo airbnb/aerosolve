@@ -2,6 +2,8 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -12,10 +14,16 @@ import com.typesafe.config.Config;
  */
 public class DeleteStringFeatureFamilyTransform implements Transform {
   private String fieldName1;
+  private List<String> fieldNames;
 
   @Override
   public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
+    if (config.hasPath(key + ".field1")) {
+      fieldName1 = config.getString(key + ".field1");
+    }
+    if (config.hasPath(key + ".fields")) {
+      fieldNames = config.getStringList(key + ".fields");
+    }
   }
 
   @Override
@@ -25,11 +33,20 @@ public class DeleteStringFeatureFamilyTransform implements Transform {
       return ;
     }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
+    HashSet<String> fieldNamesSet = new HashSet<>();
+
+    if (fieldName1 != null) {
+      fieldNamesSet.add(fieldName1);
+    }
+    if (fieldNames != null) {
+      fieldNamesSet.addAll(fieldNames);
     }
 
-    stringFeatures.remove(fieldName1);
+    for (String fieldName: fieldNamesSet) {
+      Set<String> feature1 = stringFeatures.get(fieldName1);
+      if (feature1 != null) {
+        stringFeatures.remove(fieldName);
+      }
+    }
   }
 }
