@@ -37,10 +37,7 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
 
   @Override
   public double evaluate(List<Double> coordinates) {
-    int index = ndTreeModel.leaf(coordinates);
-    assert (index != -1 && weights.containsKey(index));
-
-    List<MultiDimensionPoint> list = weights.get(index);
+    List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
     double[] distance = new double[list.size()];
     double sum = 0;
     for (int i = 0; i < list.size(); i++) {
@@ -58,6 +55,23 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
 
   @Override
   public void update(List<Double> coordinates, double delta) {
+    List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
+    double[] distance = new double[list.size()];
+    double sum = 0;
+    for (int i = 0; i < list.size(); i++) {
+      MultiDimensionPoint point = list.get(i);
+      distance[i] = point.getDistance(coordinates);
+      sum += distance[i];
+    }
+    for (int i = 0; i < list.size(); i++) {
+      MultiDimensionPoint point = list.get(i);
+      point.updateWeight(delta * (distance[i]/sum));
+    }
+  }
 
+  private List<MultiDimensionPoint> getNearbyPoints(List<Double> coordinates) {
+    int index = ndTreeModel.leaf(coordinates);
+    assert (index != -1 && weights.containsKey(index));
+    return weights.get(index);
   }
 }
