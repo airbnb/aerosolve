@@ -3,8 +3,9 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
+
+import java.util.Iterator;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.List;
@@ -54,10 +55,16 @@ public class MoveFloatToStringTransform implements Transform {
     if (keys != null) {
       for (String key : keys) {
         moveFloat(feature1, output, key, cap, bucket);
+        feature1.remove(key);
       }
     } else {
-      for (String key : feature1.keySet()) {
+      for (Iterator<Entry<String, Double>> iterator = feature1.entrySet().iterator();
+          iterator.hasNext();) {
+        Entry<String, Double> entry = iterator.next();
+        String key = entry.getKey();
+
         moveFloat(feature1, output, key, cap, bucket);
+        iterator.remove();
       }
     }
   }
@@ -76,7 +83,6 @@ public class MoveFloatToStringTransform implements Transform {
 
       Double quantized = LinearLogQuantizeTransform.quantize(dbl, bucket);
       output.add(key + '=' + quantized);
-      feature1.remove(key);
     }
   }
 }
