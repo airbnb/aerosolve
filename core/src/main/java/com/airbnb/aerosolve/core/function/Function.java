@@ -10,8 +10,7 @@ public interface Function extends Serializable {
 
   float evaluate(float ... x);
 
-  // delta is last element.
-  void update(float ... values);
+  void update(float delta, float ... values);
 
   ModelRecord toModelRecord(String featureFamily, String featureName);
 

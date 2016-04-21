@@ -1,25 +1,19 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.function.Spline;
+import com.airbnb.aerosolve.core.util.Util;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.PriorityQueue;
-import java.util.AbstractMap;
-
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.ModelHeader;
-import com.airbnb.aerosolve.core.ModelRecord;
-import com.airbnb.aerosolve.core.DebugScoreRecord;
-import com.airbnb.aerosolve.core.util.Util;
-import com.airbnb.aerosolve.core.function.Spline;
-
-import lombok.Getter;
-import lombok.Setter;
+import java.util.*;
 
 // A linear piecewise spline based model with a spline per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
@@ -207,7 +201,7 @@ public class SplineModel extends AbstractModel {
                                   float grad,
                                   float learningRate,
                                   WeightSpline ws) {
-    ws.spline.update(val, -grad * learningRate);
+    ws.spline.update(-grad * learningRate, val);
     ws.LInfinityCap(splineNormCap);
   }
 

@@ -102,9 +102,8 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void update(float ... values) {
+  public void update(float delta, float ... values) {
     float x = values[0];
-    float delta = values[1];
     int bin = getBin(x);
     if (bin == numBins - 1) {
       weights[numBins - 1] += delta;

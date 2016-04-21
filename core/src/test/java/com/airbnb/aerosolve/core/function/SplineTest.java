@@ -129,7 +129,7 @@ public class SplineTest {
       float y = func(x);
       float tmp = spline.evaluate(x);
       float delta =0.1f * (y - tmp);
-      spline.update(x, delta);
+      spline.update(delta, x);
     }
     // Check we get roots where we expect them to be.
     assertEquals(0.0f, spline.evaluate(-0.5f), 0.1f);

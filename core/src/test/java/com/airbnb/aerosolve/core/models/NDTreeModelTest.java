@@ -57,24 +57,25 @@ public class NDTreeModelTest {
   public void testLeaf() {
     NDTreeModel tree = getNDTreeModel();
 
-    int leaf = tree.leaf(-1.0, -1.0);
-    assertEquals(1, leaf);
-    leaf = tree.leaf(Arrays.asList(-1.0, -1.0));
+    int leaf = tree.leaf(-1, -1);
     assertEquals(1, leaf);
 
-    leaf = tree.leaf(1.1, 0.0);
+    leaf = tree.leaf(Arrays.asList((float) -1, (float) -1));
+    assertEquals(1, leaf);
+
+    leaf = tree.leaf((float)1.1, (float)0.0);
     assertEquals(3, leaf);
-    leaf = tree.leaf(Arrays.asList(1.1, 0.0));
+    leaf = tree.leaf(Arrays.asList((float)1.1, (float)0.0));
     assertEquals(3, leaf);
 
-    leaf = tree.leaf(1.0, 2.0);
+    leaf = tree.leaf((float)1.0, (float)2.0);
     assertEquals(4, leaf);
-    leaf = tree.leaf(Arrays.asList(1.0, 2.0));
+    leaf = tree.leaf(Arrays.asList((float)1.0, (float)2.0));
     assertEquals(4, leaf);
 
-    leaf = tree.leaf(0.99, 2.1);
+    leaf = tree.leaf((float)0.99, (float)2.1);
     assertEquals(1, leaf);
-    leaf = tree.leaf(Arrays.asList(0.99, 2.1));
+    leaf = tree.leaf(Arrays.asList((float)0.99, (float)2.1));
     assertEquals(1, leaf);
   }
 
@@ -82,42 +83,42 @@ public class NDTreeModelTest {
   public void testQuery() {
     NDTreeModel tree = getNDTreeModel();
 
-    ArrayList<Integer> res1 = tree.query(-1.0, -1.0);
+    ArrayList<Integer> res1 = tree.query((float)-1.0, (float)-1.0);
     assertEquals(2, res1.size());
     assertEquals(0, res1.get(0).intValue());
     assertEquals(1, res1.get(1).intValue());
-    tree.query(Arrays.asList(-1.0, -1.0));
+    tree.query(Arrays.asList((float)-1.0, (float)-1.0));
     assertEquals(2, res1.size());
     assertEquals(0, res1.get(0).intValue());
     assertEquals(1, res1.get(1).intValue());
 
-    ArrayList<Integer> res2 = tree.query(1.1, 0.0);
+    ArrayList<Integer> res2 = tree.query((float)1.1, (float)0.0);
     assertEquals(3, res2.size());
     assertEquals(0, res2.get(0).intValue());
     assertEquals(2, res2.get(1).intValue());
     assertEquals(3, res2.get(2).intValue());
-    res2 = tree.query(Arrays.asList(1.1, 0.0));
+    res2 = tree.query(Arrays.asList((float)1.1, (float)0.0));
     assertEquals(3, res2.size());
     assertEquals(0, res2.get(0).intValue());
     assertEquals(2, res2.get(1).intValue());
     assertEquals(3, res2.get(2).intValue());
 
-    ArrayList<Integer> res3 = tree.query(1.0, 2.0);
+    ArrayList<Integer> res3 = tree.query((float)1.0, (float)2.0);
     assertEquals(3, res3.size());
     assertEquals(0, res3.get(0).intValue());
     assertEquals(2, res3.get(1).intValue());
     assertEquals(4, res3.get(2).intValue());
-    res3 = tree.query(Arrays.asList(1.0, 2.0));
+    res3 = tree.query(Arrays.asList((float)1.0, (float)2.0));
     assertEquals(3, res3.size());
     assertEquals(0, res3.get(0).intValue());
     assertEquals(2, res3.get(1).intValue());
     assertEquals(4, res3.get(2).intValue());
 
-    ArrayList<Integer> res4 = tree.query(0.99, 2.1);
+    ArrayList<Integer> res4 = tree.query((float)0.99, (float)2.1);
     assertEquals(2, res4.size());
     assertEquals(0, res4.get(0).intValue());
     assertEquals(1, res4.get(1).intValue());
-    res4 = tree.query(Arrays.asList(0.99, 2.1));
+    res4 = tree.query(Arrays.asList((float)0.99, (float)2.1));
     assertEquals(2, res4.size());
     assertEquals(0, res4.get(0).intValue());
     assertEquals(1, res4.get(1).intValue());

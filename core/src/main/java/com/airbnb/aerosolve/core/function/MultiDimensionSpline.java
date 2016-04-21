@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class MultiDimensionSpline implements MultiDimensionFunction {
+public class MultiDimensionSpline implements Function {
   private static final long serialVersionUID = 5166347177557769302L;
   private NDTreeModel ndTreeModel;
   // NDTree leaf maps to spline point
@@ -17,7 +18,7 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
 
   public MultiDimensionSpline(NDTreeModel ndTreeModel) {
     this.ndTreeModel = ndTreeModel;
-    Map<List<Double>, MultiDimensionPoint> points = new HashMap<>();
+    Map<List<Float>, MultiDimensionPoint> points = new HashMap<>();
     weights = new HashMap<>();
 
     NDTreeNode[] nodes = ndTreeModel.getNodes();
@@ -36,7 +37,12 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
   }
 
   @Override
-  public double evaluate(List<Double> coordinates) {
+  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
+    return null;
+  }
+
+  @Override
+  public float evaluate(float ... coordinates) {
     List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
     double[] distance = new double[list.size()];
     double sum = 0;
@@ -45,7 +51,7 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
       distance[i] = point.getDistance(coordinates);
       sum += distance[i];
     }
-    double score = 0;
+    float score = 0;
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
       score += point.getWeight() * (distance[i]/sum);
@@ -54,13 +60,13 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
   }
 
   @Override
-  public void update(List<Double> coordinates, double delta) {
-    List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
+  public void update(float delta, float ... values) {
+    List<MultiDimensionPoint> list = getNearbyPoints(values);
     double[] distance = new double[list.size()];
     double sum = 0;
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
-      distance[i] = point.getDistance(coordinates);
+      distance[i] = point.getDistance(values);
       sum += distance[i];
     }
     for (int i = 0; i < list.size(); i++) {
@@ -69,7 +75,27 @@ public class MultiDimensionSpline implements MultiDimensionFunction {
     }
   }
 
-  private List<MultiDimensionPoint> getNearbyPoints(List<Double> coordinates) {
+  @Override
+  public ModelRecord toModelRecord(String featureFamily, String featureName) {
+    return null;
+  }
+
+  @Override
+  public void setPriors(float[] params) {
+
+  }
+
+  @Override
+  public void LInfinityCap(float cap) {
+
+  }
+
+  @Override
+  public float LInfinityNorm() {
+    return 0;
+  }
+
+  private List<MultiDimensionPoint> getNearbyPoints(float ... coordinates) {
     int index = ndTreeModel.leaf(coordinates);
     assert (index != -1 && weights.containsKey(index));
     return weights.get(index);
