@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -75,6 +76,7 @@ public class DeleteStringFeatureFamilyTransformTest {
     FeatureVector featureVector = makeFeatureVector();
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
 
+    assertNotNull(stringFeatures);
     assertTrue(stringFeatures.containsKey("strFeature1"));
     assertTrue(stringFeatures.containsKey("strFeature2"));
     assertTrue(stringFeatures.containsKey("strFeature3"));
@@ -83,6 +85,7 @@ public class DeleteStringFeatureFamilyTransformTest {
 
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertFalse(stringFeatures.containsKey("strFeature1"));
     assertFalse(stringFeatures.containsKey("strFeature2"));
     assertFalse(stringFeatures.containsKey("strFeature3"));

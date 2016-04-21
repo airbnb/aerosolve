@@ -11,7 +11,9 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class DeleteFloatFeatureFamilyTransformTest {
@@ -22,6 +24,7 @@ public class DeleteFloatFeatureFamilyTransformTest {
     return "test_delete_float_feature_family {\n" +
         " transform: delete_float_feature_family\n" +
         " field1: F1\n" +
+        " fields: [F2, F3]" +
         "}";
   }
 
@@ -36,8 +39,18 @@ public class DeleteFloatFeatureFamilyTransformTest {
     family2.put("C", 3.0);
     family2.put("D", 4.0);
 
+    Map<String, Double> family3 = new HashMap<>();
+    family3.put("E", 5.0);
+    family3.put("F", 6.0);
+
+    Map<String, Double> family4 = new HashMap<>();
+    family4.put("G", 7.0);
+    family4.put("H", 8.0);
+
     floatFeatures.put("F1", family1);
     floatFeatures.put("F2", family2);
+    floatFeatures.put("F3", family3);
+    floatFeatures.put("F4", family4);
 
     FeatureVector featureVector = new FeatureVector();
     featureVector.setFloatFeatures(floatFeatures);
@@ -61,10 +74,21 @@ public class DeleteFloatFeatureFamilyTransformTest {
     Transform transform = TransformFactory.createTransform(
         config, "test_delete_float_feature_family");
     FeatureVector fv = makeFeatureVector();
+
+    assertNotNull(fv.getFloatFeatures());
+    assertTrue(fv.getFloatFeatures().containsKey("F1"));
+    assertTrue(fv.getFloatFeatures().containsKey("F2"));
+    assertTrue(fv.getFloatFeatures().containsKey("F3"));
+    assertTrue(fv.getFloatFeatures().containsKey("F4"));
+    assertEquals(4, fv.getFloatFeatures().size());
+
     transform.doTransform(fv);
 
-    assertTrue(fv.getFloatFeatures() != null);
+    assertNotNull(fv.getFloatFeatures());
     assertFalse(fv.getFloatFeatures().containsKey("F1"));
-    assertTrue(fv.getFloatFeatures().containsKey("F2"));
+    assertFalse(fv.getFloatFeatures().containsKey("F2"));
+    assertFalse(fv.getFloatFeatures().containsKey("F3"));
+    assertTrue(fv.getFloatFeatures().containsKey("F4"));
+    assertEquals(1, fv.getFloatFeatures().size());
   }
 }
