@@ -57,9 +57,9 @@ public class Linear extends AbstractFunction {
   }
 
   @Override
-  public void setPriors(float[] params) {
-    weights[0] = params[0];
-    weights[1] = params[1];
+  public void setPriors(String[] params) {
+    weights[0] = Float.valueOf(params[2]);
+    weights[1] = Float.valueOf(params[3]);
   }
 
   @Override

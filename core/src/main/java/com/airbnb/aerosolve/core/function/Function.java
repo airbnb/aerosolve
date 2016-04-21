@@ -18,7 +18,7 @@ public interface Function extends Serializable {
 
   ModelRecord toModelRecord(String featureFamily, String featureName);
 
-  void setPriors(float[] params);
+  void setPriors(String[] params);
 
   void LInfinityCap(float cap);
 
