@@ -12,9 +12,10 @@ import static org.junit.Assert.*;
 public class MultiDimensionPointTest {
   @Test
   public void testEquals() throws Exception {
-    List<Double> a = Arrays.asList(3.0, -5.0, -9.0);
-    List<Double> a1 = Arrays.asList(3.0, -5.0, -9.0);
-    List<Double> b = Arrays.asList(3.0, -5.0, 10.0);
+    List<Float> a = Arrays.asList(3.0f, -5.0f, -9.0f);
+    List<Float> a1 = Arrays.asList(3.0f, -5.0f, -9.0f);
+    List<Float> b = Arrays.asList(3.0f, -5.0f, 10.0f);
+
     MultiDimensionPoint p1 = new MultiDimensionPoint(a);
     MultiDimensionPoint p2 = new MultiDimensionPoint(a1);
     assertEquals(p1.hashCode(), p2.hashCode());
@@ -28,24 +29,24 @@ public class MultiDimensionPointTest {
   public void getPointFromNDTree() throws Exception {
     List<Double> min = Arrays.asList(3.0, -5.0, -9.0);
     List<Double> max = Arrays.asList(13.0, 15.0, 10.0);
-    List<List<Double>> r = Arrays.asList(
-        Arrays.asList(3.0, -5.0, -9.0),
-        Arrays.asList(13.0, -5.0, -9.0),
-        Arrays.asList(3.0, 15.0, -9.0),
-        Arrays.asList(13.0, 15.0, -9.0),
-        Arrays.asList(3.0, -5.0, 10.0),
-        Arrays.asList(13.0, -5.0, 10.0),
-        Arrays.asList(3.0, 15.0, 10.0),
-        Arrays.asList(13.0, 15.0, 10.0)
+    List<List<Float>> r = Arrays.asList(
+        Arrays.asList(3.0f, -5.0f, -9.0f),
+        Arrays.asList(13.0f, -5.0f, -9.0f),
+        Arrays.asList(3.0f, 15.0f, -9.0f),
+        Arrays.asList(13.0f, 15.0f, -9.0f),
+        Arrays.asList(3.0f, -5.0f, 10.0f),
+        Arrays.asList(13.0f, -5.0f, 10.0f),
+        Arrays.asList(3.0f, 15.0f, 10.0f),
+        Arrays.asList(13.0f, 15.0f, 10.0f)
     );
 
-    Map<List<Double>, MultiDimensionPoint> points = new HashMap<>();
+    Map<List<Float>, MultiDimensionPoint> points = new HashMap<>();
     MultiDimensionPoint a = new MultiDimensionPoint(r.get(0));
     points.put(r.get(0), a);
     MultiDimensionPoint x = new MultiDimensionPoint(r.get(1));
     points.put(r.get(1), x);
     x.setWeight(0.5);
-    List<Double> extra = Arrays.asList(5.0, 15.0, 11.0);
+    List<Float> extra = Arrays.asList((float)5.0, (float)15.0, (float)11.0);
     points.put(extra, new MultiDimensionPoint(extra));
 
     List<MultiDimensionPoint> result = MultiDimensionPoint.getCombinationWithoutDuplication(min, max, points);
@@ -64,13 +65,13 @@ public class MultiDimensionPointTest {
   public void getCombination() throws Exception {
     List<Double> min = Arrays.asList(3.0, 5.0);
     List<Double> max = Arrays.asList(13.0, 15.0);
-    List<List<Double>> keys = MultiDimensionPoint.getCombination(min, max);
+    List<List<Float>> keys = MultiDimensionPoint.getCombination(min, max);
     assertEquals(4, keys.size());
-    List<List<Double>> r = Arrays.asList(
-        Arrays.asList(3.0, 5.0),
-        Arrays.asList(13.0, 5.0),
-        Arrays.asList(3.0, 15.0),
-        Arrays.asList(13.0, 15.0));
+    List<List<Float>> r = Arrays.asList(
+        Arrays.asList(3.0f, 5.0f),
+        Arrays.asList(13.0f, 5.0f),
+        Arrays.asList(3.0f, 15.0f),
+        Arrays.asList(13.0f, 15.0f));
     assertEquals(keys, r);
 
     min = Arrays.asList(3.0, -5.0, -9.0);
@@ -78,32 +79,37 @@ public class MultiDimensionPointTest {
     keys = MultiDimensionPoint.getCombination(min, max);
     assertEquals(8, keys.size());
     r = Arrays.asList(
-        Arrays.asList(3.0, -5.0, -9.0),
-        Arrays.asList(13.0, -5.0, -9.0),
-        Arrays.asList(3.0, 15.0, -9.0),
-        Arrays.asList(13.0, 15.0, -9.0),
-        Arrays.asList(3.0, -5.0, 10.0),
-        Arrays.asList(13.0, -5.0, 10.0),
-        Arrays.asList(3.0, 15.0, 10.0),
-        Arrays.asList(13.0, 15.0, 10.0)
+        Arrays.asList(3.0f, -5.0f, -9.0f),
+        Arrays.asList(13.0f, -5.0f, -9.0f),
+        Arrays.asList(3.0f, 15.0f, -9.0f),
+        Arrays.asList(13.0f, 15.0f, -9.0f),
+        Arrays.asList(3.0f, -5.0f, 10.0f),
+        Arrays.asList(13.0f, -5.0f, 10.0f),
+        Arrays.asList(3.0f, 15.0f, 10.0f),
+        Arrays.asList(13.0f, 15.0f, 10.0f)
     );
     assertEquals(keys, r);
   }
 
   @Test
   public void testZero() {
-    List<Double> a = Arrays.asList(0.0, 1.0, -2.0, 3.4, 5.0, -6.7, 8.9);
-    List<Double> b = Arrays.asList(0.0, 1.0, -2.0, 3.4, 5.0, -6.7, 8.9);
-    assertEquals(0, MultiDimensionPoint.euclideanDistance(a, a), 0d);
-    assertEquals(0, MultiDimensionPoint.euclideanDistance(a, b), 0d);
+    float[] af = new float[]{0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f};
+    List<Float> al = Arrays.asList(0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f);
+    List<Float> b = Arrays.asList(0f, 1.0f,  -2.0f, 3.4f, 5.0f, -6.7f, 8.9f);
+
+    assertEquals(0, MultiDimensionPoint.euclideanDistance(af, al), 0);
+    assertEquals(0, MultiDimensionPoint.euclideanDistance(af, b), 0);
   }
 
   @Test
   public void test() {
-    List<Double> a = Arrays.asList(1.0, -2.0, 3.0, 4.0);
-    List<Double> b = Arrays.asList(-5.0, -6.0, 7.0, 8.0);
+    float[] af = new float[]{1.0f, -2.0f, 3.0f, 4.0f};
+    float[] bf = new float[]{-5.0f, -6.0f, 7.0f, 8.0f};
+    List<Float> a = Arrays.asList(1.0f, -2.0f, 3.0f, 4.0f);
+    List<Float> b = Arrays.asList(-5.0f, -6.0f, 7.0f, 8.0f);
+
     final double expected = Math.sqrt(84);
-    assertEquals(expected, MultiDimensionPoint.euclideanDistance(a, b), 0d);
-    assertEquals(expected, MultiDimensionPoint.euclideanDistance(b, a), 0d);
+    assertEquals(expected, MultiDimensionPoint.euclideanDistance(af, b), 0.001);
+    assertEquals(expected, MultiDimensionPoint.euclideanDistance(bf, a), 0.001);
   }
 }

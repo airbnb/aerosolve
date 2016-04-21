@@ -67,7 +67,7 @@ public class LinearTest {
       float y = func(x);
       float tmp = linearFunc.evaluate(x);
       float delta = 0.5f * (y - tmp);
-      linearFunc.update(x, delta);
+      linearFunc.update(delta, x);
     }
     testLinear(linearFunc);
   }

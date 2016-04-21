@@ -209,7 +209,7 @@ public class AdditiveModel extends AbstractModel {
         Function func = familyWeightMap.get(feature.getKey());
         if (func == null) continue;
         float val = feature.getValue().floatValue();
-        func.update(val, -grad * learningRate);
+        func.update(-grad * learningRate, val);
         func.LInfinityCap(cap);
       }
     }

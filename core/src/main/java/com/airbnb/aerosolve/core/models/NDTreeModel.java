@@ -34,7 +34,7 @@ public class NDTreeModel implements Serializable {
     nodeList.toArray(nodes);
   }
 
-  public int leaf(double ... coordinates) {
+  public int leaf(float ... coordinates) {
     if (nodes == null || nodes.length == 0) return -1;
     int currIdx = 0;
 
@@ -48,7 +48,7 @@ public class NDTreeModel implements Serializable {
     }
   }
     // Returns the indice of leaf containing the point.
-  public int leaf(List<Double> coordinates) {
+  public int leaf(List<Float> coordinates) {
     if (nodes == null || nodes.length == 0) return -1;
     int currIdx = 0;
 
@@ -62,7 +62,7 @@ public class NDTreeModel implements Serializable {
     }
   }
 
-  private int next(int currIdx, double[] coordinates) {
+  private int next(int currIdx, float[] coordinates) {
     NDTreeNode node = nodes[currIdx];
     int index = node.coordinateIndex;
     if (index == LEAF) {
@@ -77,7 +77,7 @@ public class NDTreeModel implements Serializable {
     }
   }
 
-  private int next(int currIdx, List<Double> coordinates) {
+  private int next(int currIdx, List<Float> coordinates) {
     NDTreeNode node = nodes[currIdx];
     int index = node.coordinateIndex;
     if (index == LEAF) {
@@ -97,7 +97,7 @@ public class NDTreeModel implements Serializable {
   }
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
-  public ArrayList<Integer> query(List<Double> coordinates) {
+  public ArrayList<Integer> query(List<Float> coordinates) {
     ArrayList<Integer> idx = new ArrayList<>();
 
     if (nodes == null) return idx;
@@ -114,7 +114,7 @@ public class NDTreeModel implements Serializable {
     }
   }
 
-  public ArrayList<Integer> query(double ... coordinates) {
+  public ArrayList<Integer> query(float ... coordinates) {
     ArrayList<Integer> idx = new ArrayList<>();
 
     if (nodes == null) return idx;

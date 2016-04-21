@@ -90,19 +90,20 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public float evaluate(float x) {
-    int bin = getBin(x);
+  public float evaluate(float ... x) {
+    int bin = getBin(x[0]);
     if (bin == numBins - 1) {
       return weights[numBins - 1];
     }
-    float t = getBinT(x, bin);
+    float t = getBinT(x[0], bin);
     t = Math.max(0.0f, Math.min(1.0f, t));
     float result = (1.0f - t) * weights[bin] + t * weights[bin + 1];
     return result;
   }
 
   @Override
-  public void update(float x, float delta) {
+  public void update(float delta, float ... values) {
+    float x = values[0];
     int bin = getBin(x);
     if (bin == numBins - 1) {
       weights[numBins - 1] += delta;

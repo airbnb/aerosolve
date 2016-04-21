@@ -11,11 +11,11 @@ import java.util.Map;
   represent a point in multi dimension space for Function
  */
 public class MultiDimensionPoint {
-  private List<Double> coordinates;
+  private List<Float> coordinates;
   @Getter @Setter
   private double weight;
 
-  public MultiDimensionPoint(List<Double> coordinates) {
+  public MultiDimensionPoint(List<Float> coordinates) {
     this.coordinates = coordinates;
   }
 
@@ -27,13 +27,16 @@ public class MultiDimensionPoint {
     Create new points if the coordinate is not in points map
     if it is in point map, reuse it.
     return all MultiDimensionPoint from the combination
+    TODO FIX IT points is Float and min/max is Double, should be same, but due to
+    all other Function and models use float. so points is Float.
+    and thrift is use Double so it is List<Double>
    */
   public static List<MultiDimensionPoint> getCombinationWithoutDuplication(
-      List<Double> min, List<Double> max, Map<List<Double>, MultiDimensionPoint> points) {
-    List<List<Double>> keys = getCombination(min, max);
+      List<Double> min, List<Double> max, Map<List<Float>, MultiDimensionPoint> points) {
+    List<List<Float>> keys = getCombination(min, max);
 
     List<MultiDimensionPoint> result = new ArrayList<>();
-    for (List<Double> key: keys) {
+    for (List<Float> key: keys) {
       MultiDimensionPoint p = points.get(key);
       if (p == null) {
         p = new MultiDimensionPoint(key);
@@ -44,20 +47,20 @@ public class MultiDimensionPoint {
     return result;
   }
 
-  public static List<List<Double>> getCombination(List<Double> min, List<Double> max) {
-    List<List<Double>> keys = new ArrayList<>();
+  public static List<List<Float>> getCombination(List<Double> min, List<Double> max) {
+    List<List<Float>> keys = new ArrayList<>();
     assert (min.size() == max.size());
     int coordinateSize = min.size();
     int keySize = 1 << coordinateSize;
 
     for (int i = 0; i < keySize; ++i) {
       int k = i;
-      List<Double> r = new ArrayList<>();
+      List<Float> r = new ArrayList<>();
       for (int j = 0; j < coordinateSize; ++j) {
         if ((k & 1) == 1) {
-          r.add(max.get(j));
+          r.add(max.get(j).floatValue());
         } else {
-          r.add(min.get(j));
+          r.add(min.get(j).floatValue());
         }
         k >>= 1;
       }
@@ -85,7 +88,7 @@ public class MultiDimensionPoint {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    for (Double d: coordinates) {
+    for (Float d: coordinates) {
       sb.append(d);
       sb.append(" ");
     }
@@ -94,17 +97,17 @@ public class MultiDimensionPoint {
     return sb.toString();
   }
 
-  public double getDistance(List<Double> coordinates) {
+  public float getDistance(float[] coordinates) {
     return euclideanDistance(coordinates, this.coordinates);
   }
 
-  public static double euclideanDistance(List<Double> x, List<Double> y) {
-    assert (x.size() == y.size());
+  public static float euclideanDistance(float[] x, List<Float> y) {
+    assert (x.length == y.size());
     double sum = 0;
-    for (int i = 0; i < x.size(); i++) {
-      final double dp = x.get(i) - y.get(i);
+    for (int i = 0; i < x.length; i++) {
+      final double dp = x[i] - y.get(i);
       sum += dp * dp;
     }
-    return Math.sqrt(sum);
+    return (float) Math.sqrt(sum);
   }
 }

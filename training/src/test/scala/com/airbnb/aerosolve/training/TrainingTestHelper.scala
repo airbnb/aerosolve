@@ -268,8 +268,6 @@ object TrainingTestHelper {
       for (featureMap <- familyMap._2.asScala) {
         log.info("family=%s,feature=%s".format(familyMap._1, featureMap._1))
         val func = featureMap._2
-        val funcForm = func.getFunctionForm
-        log.info("functionForm=%s".format(funcForm))
         log.info(func.toString)
       }
     }
