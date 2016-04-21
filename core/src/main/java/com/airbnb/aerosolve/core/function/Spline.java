@@ -189,9 +189,9 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void setPriors(float[] params) {
-    float start = params[0];
-    float end = params[1];
+  public void setPriors(String[] params) {
+    float start = Float.valueOf(params[2]);
+    float end = Float.valueOf(params[3]);
     // fit a line based on the input starting weight and ending weight
     for (int i = 0; i < numBins; i++) {
       float t = i / (numBins - 1.0f);

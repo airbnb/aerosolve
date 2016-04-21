@@ -400,7 +400,7 @@ object AdditiveModelTrainer {
             val func : Function = familyMap.get(name)
             if (func != null) {
               log.info("Setting prior %s:%s <- %f to %f".format(family, name, params(0), params(1)))
-                func.setPriors(params)
+                func.setPriors(tokens)
               }
             }
           } else {
