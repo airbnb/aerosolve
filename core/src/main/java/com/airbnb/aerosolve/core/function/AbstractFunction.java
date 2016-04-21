@@ -1,6 +1,5 @@
 package com.airbnb.aerosolve.core.function;
 
-import com.airbnb.aerosolve.core.FunctionForm;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,8 +12,6 @@ public abstract class AbstractFunction implements Function {
   @Getter
   @Setter
   protected float[] weights;
-  @Getter
-  protected FunctionForm functionForm = FunctionForm.SPLINE;
   @Getter
   protected float minVal;
   @Getter

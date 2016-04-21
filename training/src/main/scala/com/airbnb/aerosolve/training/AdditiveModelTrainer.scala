@@ -164,7 +164,7 @@ object AdditiveModelTrainer {
       .foreach(family => {
       family._2.foreach(feature => {
         val func = feature._2
-        if (func.getFunctionForm == FunctionForm.SPLINE) {
+        if (func.isInstanceOf[Spline]) {
           new Spline(func.asInstanceOf[Spline], newBins)
         } else {
           func
@@ -182,7 +182,7 @@ object AdditiveModelTrainer {
                                    smoothingTolerance: Float) : Function = {
     val head : Function = input.head
     val output = head.aggregate(input.asJava, scale, numBins)
-    if (output.getFunctionForm == FunctionForm.SPLINE) {
+    if (output.isInstanceOf[Spline]) {
       smoothSpline(smoothingTolerance, output.asInstanceOf[Spline])
     }
     output

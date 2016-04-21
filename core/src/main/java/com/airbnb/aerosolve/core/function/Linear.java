@@ -12,14 +12,12 @@ import java.util.List;
 public class Linear extends AbstractFunction {
   // weights[0] is offset, weights[1] is slope
   public Linear(Linear other) {
-    functionForm = FunctionForm.LINEAR;
     weights = other.weights.clone();
     minVal = other.getMinVal();
     maxVal = other.getMaxVal();
   }
 
   public Linear(float minVal, float maxVal, float[] weights) {
-    functionForm = FunctionForm.LINEAR;
     this.weights = weights;
     this.minVal = minVal;
     this.maxVal = maxVal;
