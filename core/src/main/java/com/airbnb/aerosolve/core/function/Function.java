@@ -12,15 +12,6 @@ public interface Function extends Serializable {
   // TODO rename numBins to something else, since it's a Spline specific thing
   Function aggregate(Iterable<Function> functions, float scale, int numBins);
 
-  // TODO remove setWeights
-  void setWeights(float[] weights);
-
-  float getMinVal();
-
-  float getMaxVal();
-
-  Function makeCopy();
-
   float evaluate(float x);
 
   void update(float x, float delta);

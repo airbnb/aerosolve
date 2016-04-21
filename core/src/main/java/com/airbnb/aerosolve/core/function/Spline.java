@@ -90,12 +90,6 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public Function makeCopy() {
-    Spline newSpline = new Spline(this, this.numBins);
-    return newSpline;
-  }
-
-  @Override
   public float evaluate(float x) {
     int bin = getBin(x);
     if (bin == numBins - 1) {

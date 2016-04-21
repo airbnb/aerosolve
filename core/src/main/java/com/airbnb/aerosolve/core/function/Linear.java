@@ -39,11 +39,6 @@ public class Linear extends AbstractFunction {
     return new Linear(minVal, maxVal, aggWeights);
   }
 
-  @Override
-  public Function makeCopy() {
-    return new Linear(this);
-  }
-
   public Linear(ModelRecord record) {
     List<Double> weightVec = record.getWeightVector();
     int n = weightVec.size();
