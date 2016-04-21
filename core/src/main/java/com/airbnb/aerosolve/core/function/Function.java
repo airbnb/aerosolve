@@ -9,7 +9,8 @@ public interface Function extends Serializable {
 
   FunctionForm getFunctionForm();
 
-  float[] getWeights();
+  // TODO rename numBins to something else, since it's a Spline specific thing
+  Function aggregate(Iterable<Function> functions, float scale, int numBins);
 
   // TODO remove setWeights
   void setWeights(float[] weights);

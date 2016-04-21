@@ -181,22 +181,7 @@ object AdditiveModelTrainer {
                                    numBins: Int,
                                    smoothingTolerance: Float) : Function = {
     val head : Function = input.head
-    val output = head.makeCopy()
-    val weightLength = output.getWeights.length
-    val weights = Array.fill[Float](weightLength)(0.0f)
-    input.foreach(entry => {
-      val func: Function = if (entry.getFunctionForm == FunctionForm.SPLINE
-                                       && entry.getWeights.length != numBins) {
-        new Spline(entry.asInstanceOf[Spline], numBins)
-      } else {
-        entry
-      }
-      for (i <- 0 until weightLength) {
-        weights(i) = weights(i) + scale * func.getWeights()(i)
-      }
-    })
-
-    output.setWeights(weights)
+    val output = head.aggregate(input.asJava, scale, numBins)
     if (output.getFunctionForm == FunctionForm.SPLINE) {
       smoothSpline(smoothingTolerance, output.asInstanceOf[Spline])
     }

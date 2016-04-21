@@ -4,6 +4,8 @@ import com.airbnb.aerosolve.core.FunctionForm;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Arrays;
+
 /**
  * Base class for functions
  */
@@ -17,4 +19,10 @@ public abstract class AbstractFunction implements Function {
   protected float minVal;
   @Getter
   protected float maxVal;
+
+  @Override
+  public String toString() {
+    return String.format("minVal=%f, maxVal=%f, weights=%s",
+        minVal, maxVal, Arrays.toString(weights));
+  }
 }

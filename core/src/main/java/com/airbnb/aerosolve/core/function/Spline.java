@@ -21,21 +21,30 @@ public class Spline extends AbstractFunction {
   
   // A resampling constructor
   public Spline(Spline other, int newBins) {
-    float[] newWeights = new float[newBins];
-    if (newBins == other.numBins) {
-      for (int i = 0; i < newBins; i++) {
-        newWeights[i] = other.weights[i];
+    setupSpline(other.minVal, other.maxVal, other.weightsByNumBins(newBins, true));
+  }
+
+  /*
+    Generates new weights[] from numBins
+   */
+  public float[] weightsByNumBins(int numBins, boolean clone) {
+    if (numBins == this.numBins) {
+      if (clone) {
+        return weights.clone();
+      } else {
+        return weights;
       }
     } else {
-      float scale = 1.0f / (newBins - 1.0f);
-      float diff = other.maxVal - other.minVal;
-      for (int i = 0; i < newBins; i++) {
+      float[] newWeights = new float[numBins];
+      float scale = 1.0f / (numBins - 1.0f);
+      float diff = maxVal - minVal;
+      for (int i = 0; i < numBins; i++) {
         float t = i * scale;
-        float x = diff * t + other.minVal;
-        newWeights[i] = other.evaluate(x);
+        float x = diff * t + minVal;
+        newWeights[i] = evaluate(x);
       }
+      return newWeights;
     }
-    setupSpline(other.minVal, other.maxVal, newWeights);
   }
 
   // A constructor from model record
@@ -63,6 +72,21 @@ public class Spline extends AbstractFunction {
     this.scale = 1.0f / diff;
     this.binSize = diff / (numBins - 1.0f);
     this.binScale = 1.0f / binSize;
+  }
+
+  @Override
+  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
+    int length = weights.length;
+    float[] aggWeights = new float[length];
+
+    for (Function fun: functions) {
+      Spline spline = (Spline) fun;
+      float[] w = spline.weightsByNumBins(numBins, false);
+      for (int i = 0; i < length; i++) {
+        aggWeights[i] += scale * w[i];
+      }
+    }
+    return new Spline(minVal, maxVal, aggWeights);
   }
 
   @Override

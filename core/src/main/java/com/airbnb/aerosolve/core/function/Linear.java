@@ -13,9 +13,7 @@ public class Linear extends AbstractFunction {
   // weights[0] is offset, weights[1] is slope
   public Linear(Linear other) {
     functionForm = FunctionForm.LINEAR;
-    weights = new float[2];
-    weights[0] = other.getWeights()[0];
-    weights[1] = other.getWeights()[1];
+    weights = other.weights.clone();
     minVal = other.getMinVal();
     maxVal = other.getMaxVal();
   }
@@ -25,6 +23,20 @@ public class Linear extends AbstractFunction {
     this.weights = weights;
     this.minVal = minVal;
     this.maxVal = maxVal;
+  }
+
+  @Override
+  public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
+    int length = weights.length;
+    float[] aggWeights = new float[length];
+
+    for (Function fun: functions) {
+      Linear linear = (Linear) fun;
+      for (int i = 0; i < length; i++) {
+        aggWeights[i] += scale * linear.weights[i];
+      }
+    }
+    return new Linear(minVal, maxVal, aggWeights);
   }
 
   @Override
