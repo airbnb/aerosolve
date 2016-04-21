@@ -17,16 +17,15 @@ import com.typesafe.config.Config;
  * "output" optionally specifies the key of the output feature, if it is not given the transform
  * overwrites / replaces the input feature
  */
-public class NormalizeUtf8Transform implements Transform {
+public class NormalizeUtf8Transform extends StringTransform {
   public static final Normalizer.Form DEFAULT_NORMALIZATION_FORM = Normalizer.Form.NFD;
 
-  private String fieldName1;
   private Normalizer.Form normalizationForm;
-  private String outputName;
 
   @Override
   public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
+    super.configure(config, key);
+
     String normalizationFormString = DEFAULT_NORMALIZATION_FORM.name();
     if (config.hasPath(key + ".normalization_form")) {
       normalizationFormString = config.getString(key + ".normalization_form");
@@ -42,39 +41,14 @@ public class NormalizeUtf8Transform implements Transform {
     } else {
       normalizationForm = DEFAULT_NORMALIZATION_FORM;
     }
-    if (config.hasPath(key + ".output")) {
-      outputName = config.getString(key + ".output");
-    } else {
-      outputName = fieldName1;
-    }
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) {
-      return;
+  public String processString(String rawString) {
+    if (rawString == null) {
+      return null;
     }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
-
-    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
-
-    for (Iterator<String> iterator = feature1.iterator(); iterator.hasNext();) {
-      String rawString = iterator.next();
-
-      if (rawString != null) {
-        String normalizedString = Normalizer.normalize(rawString, normalizationForm);
-        output.add(normalizedString);
-      }
-
-      // Check reference equality to determine whether the output should overwrite the input
-      if (output == feature1) {
-        iterator.remove();
-      }
-    }
+    return Normalizer.normalize(rawString, normalizationForm);
   }
 }

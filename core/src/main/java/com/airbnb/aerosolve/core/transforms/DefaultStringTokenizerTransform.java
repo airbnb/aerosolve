@@ -38,7 +38,7 @@ public class DefaultStringTokenizerTransform implements Transform {
   public void doTransform(FeatureVector featureVector) {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     if (stringFeatures == null) {
-      return ;
+      return;
     }
 
     Set<String> feature1 = stringFeatures.get(fieldName1);

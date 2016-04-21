@@ -1,12 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
-
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -18,56 +13,32 @@ import com.typesafe.config.ConfigObject;
  * Replacements are performed in the same order as specified in the list of pairs
  * "replacement" specifies the replacement string
  */
-public class ReplaceAllStringsTransform implements Transform {
-  private String fieldName1;
+public class ReplaceAllStringsTransform extends StringTransform {
   private List<? extends ConfigObject> replacements;
-  private String outputName;
 
   @Override
   public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
+    super.configure(config, key);
+
     replacements = config.getObjectList(key + ".replacements");
-    if (config.hasPath(key + ".output")) {
-      outputName = config.getString(key + ".output");
-    } else {
-      outputName = fieldName1;
-    }
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) {
-      return;
+  public String processString(String rawString) {
+    if (rawString == null) {
+      return null;
     }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
+    for (ConfigObject replacementCO : replacements) {
+      Map<String, Object> replacementMap = replacementCO.unwrapped();
 
-    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
-
-    for (Iterator<String> iterator = feature1.iterator(); iterator.hasNext();) {
-      String rawString = iterator.next();
-
-      if (rawString != null) {
-        for (ConfigObject replacementCO : replacements) {
-          Map<String, Object> replacementMap = replacementCO.unwrapped();
-
-          for (Map.Entry<String, Object> replacementEntry : replacementMap.entrySet()) {
-            String regex = replacementEntry.getKey();
-            String replacement = (String) replacementEntry.getValue();
-            rawString = rawString.replaceAll(regex, replacement);
-          }
-        }
-        output.add(rawString);
-      }
-
-      // Check reference equality to determine whether the output should overwrite the input
-      if (output == feature1) {
-        iterator.remove();
+      for (Map.Entry<String, Object> replacementEntry : replacementMap.entrySet()) {
+        String regex = replacementEntry.getKey();
+        String replacement = (String) replacementEntry.getValue();
+        rawString = rawString.replaceAll(regex, replacement);
       }
     }
+
+    return rawString;
   }
 }
