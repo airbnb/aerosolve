@@ -28,15 +28,28 @@ public class DeleteStringFeatureFamilyTransformTest {
     return "test_delete_string_feature_family {\n" +
         " transform: delete_string_feature_family\n" +
         " field1: strFeature1\n" +
+        " fields: [strFeature2, strFeature3]\n" +
         "}";
   }
 
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
 
-    Set list = new HashSet<String>();
-    list.add("I am a string in a string feature");
-    stringFeatures.put("strFeature1", list);
+    Set<String> list1 = new HashSet<>();
+    list1.add("I am a string in string feature 1");
+    stringFeatures.put("strFeature1", list1);
+
+    Set<String> list2 = new HashSet<>();
+    list2.add("I am a string in string feature 2");
+    stringFeatures.put("strFeature2", list2);
+
+    Set<String> list3 = new HashSet<>();
+    list3.add("I am a string in string feature 3");
+    stringFeatures.put("strFeature3", list3);
+
+    Set<String> list4 = new HashSet<>();
+    list4.add("I am a string in string feature 4");
+    stringFeatures.put("strFeature4", list4);
 
     FeatureVector featureVector = new FeatureVector();
     featureVector.setStringFeatures(stringFeatures);
@@ -63,11 +76,17 @@ public class DeleteStringFeatureFamilyTransformTest {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
 
     assertTrue(stringFeatures.containsKey("strFeature1"));
-    assertEquals(1, stringFeatures.size());
+    assertTrue(stringFeatures.containsKey("strFeature2"));
+    assertTrue(stringFeatures.containsKey("strFeature3"));
+    assertTrue(stringFeatures.containsKey("strFeature4"));
+    assertEquals(4, stringFeatures.size());
 
     transform.doTransform(featureVector);
 
     assertFalse(stringFeatures.containsKey("strFeature1"));
-    assertEquals(0, stringFeatures.size());
+    assertFalse(stringFeatures.containsKey("strFeature2"));
+    assertFalse(stringFeatures.containsKey("strFeature3"));
+    assertTrue(stringFeatures.containsKey("strFeature4"));
+    assertEquals(1, stringFeatures.size());
   }
 }
