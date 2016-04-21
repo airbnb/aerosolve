@@ -53,7 +53,7 @@ public class ReplaceAllStringsTransformTest {
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
 
-    Set list = new HashSet<String>();
+    Set<String> list = new HashSet<>();
     list.add("I like blueberry pie, apple pie; and I also like blue!");
     list.add("I'm so  excited: I   like blue!?!!");
     stringFeatures.put("strFeature1", list);
