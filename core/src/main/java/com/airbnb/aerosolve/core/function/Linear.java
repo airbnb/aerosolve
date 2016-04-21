@@ -49,9 +49,10 @@ public class Linear extends AbstractFunction {
   }
 
   @Override
-  public void update(float x, float delta) {
+  public void update(float ... values) {
+    float delta = values[1];
     weights[0] += delta;
-    weights[1] += delta * normalization(x);
+    weights[1] += delta * normalization(values[0]);
   }
 
   @Override
@@ -61,8 +62,8 @@ public class Linear extends AbstractFunction {
   }
 
   @Override
-  public float evaluate(float x) {
-    return weights[0] + weights[1] * normalization(x);
+  public float evaluate(float ... x) {
+    return weights[0] + weights[1] * normalization(x[0]);
   }
 
   @Override
