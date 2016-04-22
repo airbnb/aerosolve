@@ -10,7 +10,7 @@ import java.util.Map;
 /*
   represent a point in multi dimension space for Function
  */
-public class MultiDimensionPoint {
+public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
   @Getter
   private List<Float> coordinates;
   @Getter @Setter
@@ -23,6 +23,10 @@ public class MultiDimensionPoint {
   public void updateWeight(double delta) {
     weight += delta;
   }
+  public void scaleWeight(float scale) {
+    weight *= scale;
+  }
+
   /*
     Generate combination coordinates from min and max list,
     Create new points if the coordinate is not in points map
@@ -110,5 +114,18 @@ public class MultiDimensionPoint {
       sum += dp * dp;
     }
     return (float) Math.sqrt(sum);
+  }
+
+  @Override
+  public int compareTo(MultiDimensionPoint o) {
+    final int BEFORE = -1;
+    final int EQUAL = 0;
+    final int AFTER = 1;
+    if (this == o) return EQUAL;
+
+    //primitive numbers follow this form
+    if (this.weight < o.weight) return BEFORE;
+    if (this.weight > o.weight) return AFTER;
+    return EQUAL;
   }
 }

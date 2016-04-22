@@ -69,4 +69,23 @@ public class MultiDimensionSplineTest {
 
     assertEquals(0.40389338302461303, b.evaluate(3.0f, 3.0f), 0.0001);
   }
+
+  @Test
+  public void testLInfinityNorm() {
+    MultiDimensionSpline a = getMultiDimensionSpline();
+    set(a);
+    assertEquals(0.5676819, a.LInfinityNorm(), 0.001);
+    a.update(-8.8f, 3.0f, 3.0f);
+    assertEquals(2.2953262329101562, a.LInfinityNorm(), 0.001);
+  }
+
+  @Test
+  public void testLInfinityCap() {
+    MultiDimensionSpline a = getMultiDimensionSpline();
+    set(a);
+    a.LInfinityCap(0.8f);
+    assertEquals(0.5676819, a.LInfinityNorm(), 0.001);
+    a.LInfinityCap(0.5f);
+    assertEquals(0.5, a.LInfinityNorm(), 0.001);
+  }
 }

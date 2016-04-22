@@ -151,12 +151,20 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public void LInfinityCap(float cap) {
-
+    if (cap <= 0.0f) return;
+    float currentNorm = LInfinityNorm();
+    if (currentNorm > cap) {
+      float scale = cap / currentNorm;
+      for (int i = 0; i < points.size(); i++) {
+        points.get(i).scaleWeight(scale);
+      }
+    }
   }
 
   @Override
   public float LInfinityNorm() {
-    return 0;
+    return (float) Math.max(Collections.max(points).getWeight(),
+        Math.abs(Collections.min(points).getWeight()));
   }
 
   private List<MultiDimensionPoint> getNearbyPoints(float ... coordinates) {
