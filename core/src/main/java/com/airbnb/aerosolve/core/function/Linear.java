@@ -72,7 +72,7 @@ public class Linear extends AbstractFunction {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm(FunctionForm.LINEAR);
+    record.setFunctionForm(FunctionForm.Linear);
     record.setFeatureFamily(featureFamily);
     record.setFeatureName(featureName);
     record.setMinVal(minVal);

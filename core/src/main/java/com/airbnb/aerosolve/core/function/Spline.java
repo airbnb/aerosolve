@@ -126,7 +126,7 @@ public class Spline extends AbstractFunction {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm(FunctionForm.SPLINE);
+    record.setFunctionForm(FunctionForm.Spline);
     record.setFeatureFamily(featureFamily);
     record.setFeatureName(featureName);
     ArrayList<Double> arrayList = new ArrayList<Double>();
