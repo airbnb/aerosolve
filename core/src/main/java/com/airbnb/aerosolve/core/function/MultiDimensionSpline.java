@@ -5,20 +5,19 @@ import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 public class MultiDimensionSpline implements Function {
   private static final long serialVersionUID = 5166347177557769302L;
-  private NDTreeModel ndTreeModel;
+  private final NDTreeModel ndTreeModel;
   // NDTree leaf maps to spline point
-  private Map<Integer, List<MultiDimensionPoint>> weights;
+  private final Map<Integer, List<MultiDimensionPoint>> weights;
+  private final List<MultiDimensionPoint> points;
 
   public MultiDimensionSpline(NDTreeModel ndTreeModel) {
     this.ndTreeModel = ndTreeModel;
-    Map<List<Float>, MultiDimensionPoint> points = new HashMap<>();
+    Map<List<Float>, MultiDimensionPoint> pointsMap = new HashMap<>();
     weights = new HashMap<>();
 
     NDTreeNode[] nodes = ndTreeModel.getNodes();
@@ -26,7 +25,7 @@ public class MultiDimensionSpline implements Function {
       NDTreeNode node = nodes[i];
       if (node.getCoordinateIndex() == NDTreeModel.LEAF) {
         List<MultiDimensionPoint> list = MultiDimensionPoint.getCombinationWithoutDuplication(
-            node.getMin(), node.getMax(), points);
+            node.getMin(), node.getMax(), pointsMap);
         if (list != null && !list.isEmpty()) {
           weights.put(i, list);
         } else {
@@ -34,11 +33,25 @@ public class MultiDimensionSpline implements Function {
         }
       }
     }
+    points = new ArrayList<>(pointsMap.values());
   }
 
-  @Override
+  @Override // it doesn't need numBins just like linear
   public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
-    return null;
+    // functions size == 1/scale
+    int length = points.size();
+    float[] aggWeights = new float[length];
+    for (Function fun: functions) {
+      MultiDimensionSpline spline = (MultiDimensionSpline) fun;
+
+      for (int i = 0; i < length; i++) {
+        aggWeights[i] += scale * spline.points.get(i).getWeight();
+      }
+    }
+    for (int i = 0; i < length; i++) {
+      points.get(i).setWeight(aggWeights[i]);
+    }
+    return this;
   }
 
   @Override
