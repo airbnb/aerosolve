@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
@@ -34,6 +35,15 @@ public class MultiDimensionSpline implements Function {
       }
     }
     points = new ArrayList<>(pointsMap.values());
+  }
+
+  public MultiDimensionSpline(ModelRecord record) {
+    this(new NDTreeModel(record.getNdtreeModel()), record.getWeightVector());
+  }
+
+  public MultiDimensionSpline(NDTreeModel ndTreeModel, List<Double> weights) {
+    this(ndTreeModel);
+    updateWeights(weights);
   }
 
   @Override // it doesn't need numBins just like linear
@@ -90,22 +100,71 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
-    return null;
+    ModelRecord record = new ModelRecord();
+    record.setFunctionForm(FunctionForm.MULTI_SPLINE);
+    record.setFeatureFamily(featureFamily);
+    record.setWeightVector(getWeightsFromList());
+    record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
+    return record;
   }
 
-  @Override
-  public void setPriors(float[] params) {
+  private List<Double> getWeightsFromList() {
+    List<Double> weights = new ArrayList<>(points.size());
+    for (MultiDimensionPoint p: points) {
 
+      weights.add(p.getWeight());
+    }
+    return weights;
+  }
+
+  private void updateWeights(List<Double> weights) {
+    assert (weights.size() == points.size());
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      p.setWeight(weights.get(i));
+    }
+  }
+
+  public static List<Double> toDouble(List<Float> list) {
+    List<Double> r = new ArrayList<>(list.size());
+    for (Float f: list) {
+      r.add(f.doubleValue());
+    }
+    return r;
+  }
+
+  public static List<Float> toFloat(List<Double> list) {
+    List<Float> r = new ArrayList<>(list.size());
+    for (Double f: list) {
+      r.add(f.floatValue());
+    }
+    return r;
+  }
+
+  @Override public void setPriors(float[] params) {
+    assert (params.length == points.size());
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      p.setWeight(params[i]);
+    }
   }
 
   @Override
   public void LInfinityCap(float cap) {
-
+    if (cap <= 0.0f) return;
+    float currentNorm = LInfinityNorm();
+    if (currentNorm > cap) {
+      float scale = cap / currentNorm;
+      for (int i = 0; i < points.size(); i++) {
+        points.get(i).scaleWeight(scale);
+      }
+    }
   }
 
   @Override
   public float LInfinityNorm() {
-    return 0;
+    return (float) Math.max(Collections.max(points).getWeight(),
+        Math.abs(Collections.min(points).getWeight()));
   }
 
   private List<MultiDimensionPoint> getNearbyPoints(float ... coordinates) {

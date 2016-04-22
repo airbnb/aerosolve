@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.google.common.primitives.Floats;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -170,11 +171,7 @@ public class Spline extends AbstractFunction {
 
   @Override
   public float LInfinityNorm() {
-    float best = 0.0f;
-    for (int i = 0; i < weights.length; i++) {
-      best = Math.max(best, Math.abs(weights[i]));
-    }
-    return best;
+    return Math.max(Floats.max(weights), Math.abs(Floats.min(weights)));
   }
 
   @Override
