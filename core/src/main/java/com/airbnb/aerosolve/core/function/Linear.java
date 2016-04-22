@@ -17,6 +17,10 @@ public class Linear extends AbstractFunction {
     maxVal = other.getMaxVal();
   }
 
+  public Linear(float minVal, float maxVal) {
+    this(minVal, maxVal, new float[2]);
+  }
+
   public Linear(float minVal, float maxVal, float[] weights) {
     this.weights = weights;
     this.minVal = minVal;
