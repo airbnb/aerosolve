@@ -16,11 +16,6 @@ public class TransformFactory {
       return null;
     }
 
-    // TODO: remove this once all configs have migrated over to the new transform names
-    if (transformName.equals("delete_string_feature_column")) {
-      transformName = "delete_string_feature_family";
-    }
-
     String name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, transformName);
     Transform result = null;
     try {

@@ -28,8 +28,7 @@ public class DeleteStringFeatureFamilyTransformTest {
   public String makeConfig() {
     return "test_delete_string_feature_family {\n" +
         " transform: delete_string_feature_family\n" +
-        " field1: strFeature1\n" +
-        " fields: [strFeature2, strFeature3]\n" +
+        " fields: [strFeature1, strFeature2, strFeature3]\n" +
         "}";
   }
 

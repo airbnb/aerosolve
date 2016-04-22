@@ -1,12 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.transforms.types.StringTransform;
 
 import java.text.Normalizer;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
 
 import com.typesafe.config.Config;
 
@@ -23,9 +19,7 @@ public class NormalizeUtf8Transform extends StringTransform {
   private Normalizer.Form normalizationForm;
 
   @Override
-  public void configure(Config config, String key) {
-    super.configure(config, key);
-
+  public void init(Config config, String key) {
     String normalizationFormString = DEFAULT_NORMALIZATION_FORM.name();
     if (config.hasPath(key + ".normalization_form")) {
       normalizationFormString = config.getString(key + ".normalization_form");

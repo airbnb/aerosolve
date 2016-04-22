@@ -23,8 +23,7 @@ public class DeleteFloatFeatureFamilyTransformTest {
   public String makeConfig() {
     return "test_delete_float_feature_family {\n" +
         " transform: delete_float_feature_family\n" +
-        " field1: F1\n" +
-        " fields: [F2, F3]" +
+        " fields: [F1, F2, F3]" +
         "}";
   }
 

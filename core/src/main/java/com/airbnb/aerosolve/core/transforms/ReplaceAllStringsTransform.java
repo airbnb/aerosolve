@@ -1,5 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
+import com.airbnb.aerosolve.core.transforms.types.StringTransform;
+
 import java.util.List;
 import java.util.Map;
 
@@ -17,9 +19,7 @@ public class ReplaceAllStringsTransform extends StringTransform {
   private List<? extends ConfigObject> replacements;
 
   @Override
-  public void configure(Config config, String key) {
-    super.configure(config, key);
-
+  public void init(Config config, String key) {
     replacements = config.getObjectList(key + ".replacements");
   }
 

@@ -1,5 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
+import com.airbnb.aerosolve.core.transforms.types.StringTransform;
+
 import com.typesafe.config.Config;
 
 /**
@@ -13,9 +15,7 @@ public class ConvertStringCaseTransform extends StringTransform {
   private boolean convertToUppercase;
 
   @Override
-  public void configure(Config config, String key) {
-    super.configure(config, key);
-
+  public void init(Config config, String key) {
     convertToUppercase = config.getBoolean(key + ".convert_to_uppercase");
   }
 

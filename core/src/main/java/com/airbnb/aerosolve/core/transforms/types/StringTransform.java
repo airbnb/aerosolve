@@ -1,6 +1,7 @@
-package com.airbnb.aerosolve.core.transforms;
+package com.airbnb.aerosolve.core.transforms.types;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.transforms.Transform;
 import com.airbnb.aerosolve.core.util.Util;
 
 import java.util.HashSet;
@@ -28,7 +29,10 @@ public abstract class StringTransform implements Transform {
     } else {
       outputName = fieldName1;
     }
+    init(config, key);
   }
+
+  protected abstract void init(Config config, String key);
 
   @Override
   public void doTransform(FeatureVector featureVector) {
