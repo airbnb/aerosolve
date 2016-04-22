@@ -81,15 +81,10 @@ object MlpModelTrainer {
     var learningRate = options.learningRateInit
     // initialize previous updates with 0
     val updateContainer = setupUpdateContainer(model)
+    val N = Math.floor(1.0 / options.subsample).toInt
 
     for (iter <- 0 until options.iteration) {
       log.info(s"Iteration $iter")
-      val miniBatch = pointwise
-        .sample(false, options.subsample)
-      // compute gradients
-      val gradientContainer = computeGradient(sc, options ,model, miniBatch)
-
-      // update weights
       // -- update momentum
       val momentum = if (options.momentumT > 0) {
         updateMomentum(
@@ -101,9 +96,17 @@ object MlpModelTrainer {
         // if momentumT <= 0, we don't apply momentum based updating at all.
         0.0
       }
-      // -- update all layer weights and bias and update container
-      updateModel(model, gradientContainer, updateContainer,
-        momentum.toFloat, learningRate.toFloat, options.dropout)
+
+      for (k <- 0 until N) {
+        val miniBatch = pointwise
+          .sample(false, options.subsample)
+        // compute gradients
+        val gradientContainer = computeGradient(sc, options, model, miniBatch)
+        // -- update all layer weights and bias and update container
+        updateModel(model, gradientContainer, updateContainer,
+          momentum.toFloat, learningRate.toFloat, options.dropout)
+
+      }
 
       // update learning rate
       learningRate *= options.learningRateDecay
@@ -276,6 +279,14 @@ object MlpModelTrainer {
     }
   }
 
+  def trainAndSaveToFile(sc : SparkContext,
+                         input : RDD[Example],
+                         config : Config,
+                         key : String) = {
+    val model = train(sc, input, config, key)
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
+
   private def parseTrainingOptions(config : Config) : TrainerOptions = {
     TrainerOptions(
       loss = config.getString("loss"),
@@ -294,7 +305,7 @@ object MlpModelTrainer {
       weightDecay = Try(config.getDouble("weight_decay")).getOrElse(0.0),
       weightInitStd = config.getDouble("weight_init_std"),
       cache = Try(config.getString("cache")).getOrElse(""),
-      minCount = Try(config.getInt("min_count")).getOrElse(1)
+      minCount = Try(config.getInt("min_count")).getOrElse(0)
     )
   }
 
@@ -346,9 +357,9 @@ object MlpModelTrainer {
       }
     }
     // set up hidden layer weights
-    for (i <- 0 to numHiddenLayers - 1) {
+    for (i <- 0 until numHiddenLayers) {
       val arr = new java.util.ArrayList[FloatVector]()
-      for (j <- 0 to layerNodeNumber.get(i) - 1) {
+      for (j <- 0 until layerNodeNumber.get(i)) {
         val fv = FloatVector.getGaussianVector(layerNodeNumber.get(i + 1), std)
         arr.add(fv)
       }
@@ -446,10 +457,10 @@ object MlpModelTrainer {
     assert(option.margin > 0)
     val label = TrainingUtils.getLabel(fv, option.rankKey)
     if (prediction - label > option.margin) {
-        1.0
-      } else if (prediction - label < - option.margin) {
-        -1.0
-      } else {
+      1.0
+    } else if (prediction - label < - option.margin) {
+      -1.0
+    } else {
       0.0
     }
   }

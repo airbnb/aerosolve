@@ -38,8 +38,8 @@ class MlpModelTrainerTest {
       |  momentum_end : 0.9
       |  momentum_t : %d
       |  weight_decay : %f
-      |  weight_init_std : 0.1
-      |  iterations : 100
+      |  weight_init_std : 0.5
+      |  iterations : 50
       |  dropout : %f
       |  min_count : 0
       |  subsample : 0.1
@@ -56,54 +56,54 @@ class MlpModelTrainerTest {
 
   // TODO (peng): add more tests and gradient checks
   @Test
-  def testModelTrainerHingeNonLinear : Unit = {
+  def testModelTrainerHingeNonLinear() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 0, 0.0, "poly")
   }
 
   @Test
-  def testModelTrainerHingeLinear : Unit = {
+  def testModelTrainerHingeLinear() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 0, 0.0, "linear")
   }
 
   @Test
-  def testModelTrainerHingeNonLinearWithDropout : Unit = {
+  def testModelTrainerHingeNonLinearWithDropout() : Unit = {
     testMlpModelTrainer("hinge", 0.1, "", 0, 0.0, "poly")
   }
 
   @Test
-  def testModelTrainerHingeLinearWithDropout : Unit = {
+  def testModelTrainerHingeLinearWithDropout() : Unit = {
     testMlpModelTrainer("hinge", 0.1, "", 0, 0.0, "linear")
   }
 
   @Test
-  def testModelTrainerHingeNonLinearWithMomentum : Unit = {
+  def testModelTrainerHingeNonLinearWithMomentum() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 50, 0.0, "poly")
   }
 
   @Test
-  def testModelTrainerHingeLinearWithMomentum : Unit = {
+  def testModelTrainerHingeLinearWithMomentum() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 50, 0.0, "linear")
   }
 
   @Test
-  def testModelTrainerHingeNonLinearWithWeightDecay : Unit = {
+  def testModelTrainerHingeNonLinearWithWeightDecay() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 0,  weightDecay = 0.0001, "poly")
   }
 
   @Test
-  def testModelTrainerHingeLinearWithWeightDecay : Unit = {
+  def testModelTrainerHingeLinearWithWeightDecay() : Unit = {
     testMlpModelTrainer("hinge", 0.0, "", 0, 0.0001, "linear")
   }
 
   @Test
-  def testRegression: Unit = {
+  def testRegression(): Unit = {
     testRegressionModel(0.0, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
   }
 
   @Test
-  def testRegressionWithDropout: Unit = {
-    testRegressionModel(0.01, "", 0, weightDecay = 0.0, epsilon = 0.1, learningRateInit = 0.2)
-  }
+  def testRegressionWithDropout(): Unit = {
+    testRegressionModel(0.1, "", 0, weightDecay = 0.01, epsilon = 0.1, learningRateInit = 0.2)
+}
 
   def testMlpModelTrainer(loss : String,
                           dropout : Double,
@@ -152,12 +152,12 @@ class MlpModelTrainerTest {
     val writer = new BufferedWriter(swriter)
     model.save(writer)
     writer.close()
-    val str = swriter.toString()
+    val str = swriter.toString
     val sreader = new StringReader(str)
     val reader = new BufferedReader(sreader)
     log.info(str)
     val model2Opt = ModelFactory.createFromReader(reader)
-    assertTrue(model2Opt.isPresent())
+    assertTrue(model2Opt.isPresent)
     val model2 = model2Opt.get()
     for (ex <- examples) {
       val score = model.scoreItem(ex.example.get(0))
@@ -207,8 +207,8 @@ class MlpModelTrainerTest {
       log.info("Training: Average absolute error = %f".format(trainError))
       log.info("Testing: Average absolute error = %f".format(testError))
 
-      assertTrue(trainError < 5.0)
-      assertTrue(testError < 5.0)
+      assertTrue(trainError < 3.0)
+      assertTrue(testError < 3.5)
     } finally {
       sc.stop
       sc = null
