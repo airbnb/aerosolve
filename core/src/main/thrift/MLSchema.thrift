@@ -8,6 +8,7 @@ namespace java com.airbnb.aerosolve.core
 enum FunctionForm {
   SPLINE,
   LINEAR,
+  MULTI_SPINE,
   RADIAL_BASIS_FUNCTION,
   ARC_COSINE,
   SIGMOID,
@@ -86,6 +87,19 @@ struct ModelHeader {
   10: optional list<i32> numberHiddenNodes;
 }
 
+struct NDTreeNode {
+// coordinateIndex = -1 is child,
+// coordinateIndex from 0 to min.size()-1 means split in that coordinate
+// similar to KDTreeNode's X_SPLIT, Y_SPLIT
+  1: optional i32 coordinateIndex;
+  2: optional i32 leftChild;
+  3: optional i32 rightChild;
+  4: optional i32 count;
+  5: optional list<double> min;
+  6: optional list<double> max;
+  7: optional double splitValue;
+}
+
 struct ModelRecord {
   1: optional ModelHeader modelHeader;
   // e.g. "geo"
@@ -106,6 +120,8 @@ struct ModelRecord {
   // e.g. SPLINE, LINEAR
   13: optional FunctionForm functionForm;
   14: optional map<string, double> labelDistribution;
+  15: optional map<list<double>, double> weightMap;
+  16: optional list<NDTreeNode> ndtreeModel;
 }
 
 struct EvaluationRecord {

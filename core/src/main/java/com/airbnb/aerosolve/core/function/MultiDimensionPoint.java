@@ -11,6 +11,7 @@ import java.util.Map;
   represent a point in multi dimension space for Function
  */
 public class MultiDimensionPoint {
+  @Getter
   private List<Float> coordinates;
   @Getter @Setter
   private double weight;

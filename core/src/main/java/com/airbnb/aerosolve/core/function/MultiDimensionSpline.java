@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
@@ -34,6 +35,11 @@ public class MultiDimensionSpline implements Function {
       }
     }
     points = new ArrayList<>(pointsMap.values());
+  }
+
+  public MultiDimensionSpline(NDTreeModel ndTreeModel, Map<List<Double>, Double> weights) {
+    this(ndTreeModel);
+    updateWeights(weights);
   }
 
   @Override // it doesn't need numBins just like linear
@@ -90,7 +96,48 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
-    return null;
+    ModelRecord record = new ModelRecord();
+    record.setFunctionForm(FunctionForm.MULTI_SPINE);
+    record.setFeatureFamily(featureFamily);
+    record.setWeightMap(getWeightsFromList());
+    record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
+    return record;
+  }
+
+  private Map<List<Double>, Double> getWeightsFromList() {
+    Map<List<Double>, Double> weights = new HashMap<>();
+    for (MultiDimensionPoint p: points) {
+      weights.put(toDouble(p.getCoordinates()), p.getWeight());
+    }
+    return weights;
+  }
+
+  private void updateWeights(Map<List<Double>, Double> map) {
+    Map<List<Float>, Double> weights = new HashMap<>();
+    for (Map.Entry<List<Double>, Double> entry : map.entrySet()) {
+
+      weights.put(toFloat(entry.getKey()), entry.getValue());
+    }
+    for (MultiDimensionPoint p : points) {
+      p.setWeight(weights.get(p.getCoordinates()));
+    }
+  }
+
+
+  public static List<Double> toDouble(List<Float> list) {
+    List<Double> r = new ArrayList<>(list.size());
+    for (Float f: list) {
+      r.add(f.doubleValue());
+    }
+    return r;
+  }
+
+  public static List<Float> toFloat(List<Double> list) {
+    List<Float> r = new ArrayList<>(list.size());
+    for (Double f: list) {
+      r.add(f.floatValue());
+    }
+    return r;
   }
 
   @Override
