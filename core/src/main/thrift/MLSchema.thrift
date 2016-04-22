@@ -8,7 +8,7 @@ namespace java com.airbnb.aerosolve.core
 enum FunctionForm {
   SPLINE,
   LINEAR,
-  MULTI_SPINE,
+  MULTI_SPLINE,
   RADIAL_BASIS_FUNCTION,
   ARC_COSINE,
   SIGMOID,

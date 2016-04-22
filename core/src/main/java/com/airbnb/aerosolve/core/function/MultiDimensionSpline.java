@@ -101,7 +101,7 @@ public class MultiDimensionSpline implements Function {
   @Override
   public ModelRecord toModelRecord(String featureFamily, String featureName) {
     ModelRecord record = new ModelRecord();
-    record.setFunctionForm(FunctionForm.MULTI_SPINE);
+    record.setFunctionForm(FunctionForm.MULTI_SPLINE);
     record.setFeatureFamily(featureFamily);
     record.setWeightVector(getWeightsFromList());
     record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
