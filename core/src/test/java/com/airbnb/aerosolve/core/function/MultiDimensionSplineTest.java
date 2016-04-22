@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.models.NDTreeModel;
 import com.airbnb.aerosolve.core.models.NDTreeModelTest;
 import lombok.extern.slf4j.Slf4j;
@@ -43,9 +44,29 @@ public class MultiDimensionSplineTest {
     List<Function> splineList = new ArrayList<>();
     for (int i = 0; i < 10; ++i) {
       MultiDimensionSpline spline = getMultiDimensionSpline();
+      set(spline);
       splineList.add(spline);
     }
     Function r = splineList.get(0).aggregate(splineList, 0.1f, 0);
-    eval(r);
+    assertEquals(0.40389338302461303, r.evaluate(3.0f, 3.0f), 0.0001);
+  }
+
+  private static void set(Function spline) {
+    spline.update(0.5f, 0.5f, 2.0f);
+    spline.update(0.8f, 0.6f, 2.0f);
+    spline.update(0.8f, 2.0f, 1.0f);
+    spline.update(0.8f, 3.0f, 3.0f);
+  }
+
+  @Test
+  public void modelRecord() {
+    MultiDimensionSpline a = getMultiDimensionSpline();
+    set(a);
+    ModelRecord record = a.toModelRecord("","");
+
+    MultiDimensionSpline b = new MultiDimensionSpline(
+        new NDTreeModel(record.getNdtreeModel()), record.getWeightMap());
+
+    assertEquals(0.40389338302461303, b.evaluate(3.0f, 3.0f), 0.0001);
   }
 }
