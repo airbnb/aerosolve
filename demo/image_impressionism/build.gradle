@@ -9,9 +9,9 @@ repositories {
 }
 
 dependencies {
-  compile 'com.airbnb.aerosolve:training:0.1.8'
-  compile 'org.slf4j:slf4j-simple:1.7.7'
-  provided 'org.apache.spark:spark-core_2.10:1.2.1'
+    compile project(':training')
+    compile 'org.slf4j:slf4j-simple:1.7.7'
+    provided 'org.apache.spark:spark-core_2.10:1.2.1'
 }
 
 compileScala {

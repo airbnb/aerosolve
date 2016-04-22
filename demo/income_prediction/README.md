@@ -68,7 +68,6 @@ You can inspect the model using
 ```
 spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar 
 scala> import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.core.util.Util
 scala> val model = sc.textFile("output/model/spline.model").map(Util.decodeModel)
 scala> model.take(5).foreach(println)
 ModelRecord(modelHeader:ModelHeader(modelType:spline, numRecords:53, numHidden:64, slope:1.0, offset:0.0))

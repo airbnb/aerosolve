@@ -96,7 +96,7 @@ object IncomePredictionPipeline {
   def evalModel(sc : SparkContext, config : Config, key : String) = {
     val testConfig = config.getConfig(key)
     val modelOpt = TrainingUtils.loadScoreModel(testConfig.getString("model_output"))
-    if(modelOpt == None) {
+    if(modelOpt.isEmpty) {
       log.error("Could not load the model")
       System.exit(-1)
     }
@@ -119,7 +119,7 @@ object IncomePredictionPipeline {
                                 bins : Int,
                                 isTraining : Boolean) : Array[(String, Double)] = {
     val examples =
-      if (subSample != None) {
+      if (subSample.isDefined) {
         getExamples(sc, inputPattern).sample(false, subSample.get)
       } else {
         getExamples(sc, inputPattern)

@@ -184,6 +184,7 @@ object TrainingUtils {
       case "kernel" => KernelTrainer.trainAndSaveToFile(sc, input, config, key)
       case "full_rank_linear" => FullRankLinearTrainer.trainAndSaveToFile(sc, input, config, key)
       case "low_rank_linear" => LowRankLinearTrainer.trainAndSaveToFile(sc, input, config, key)
+      case "mlp" => MlpModelTrainer.trainAndSaveToFile(sc, input, config, key)
     }
   }
   
