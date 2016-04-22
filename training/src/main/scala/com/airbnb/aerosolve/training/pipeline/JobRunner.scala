@@ -1,26 +1,31 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import org.apache.spark.{SparkContext, SparkConf}
-import org.slf4j.{LoggerFactory, Logger}
-import com.typesafe.config.ConfigFactory
+import java.io.File
+
+import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigResolveOptions}
+import org.apache.spark.{Logging, SparkConf, SparkContext}
 
 import scala.collection.JavaConversions._
 
 /*
  * Entry-point for running the generic pipeline.
  */
-object JobRunner {
+object JobRunner extends Logging {
   def main(args: Array[String]): Unit = {
-    val log: Logger = LoggerFactory.getLogger("Job.Runner")
 
     if (args.length < 1) {
       log.error("Usage: Job.Runner config_name job1,job2...")
       System.exit(-1)
     }
 
-    log.info("Loading config from " + args(0))
-
-    val config = ConfigFactory.load(args(0))
+    val configFile = new File(args(0))
+    val config = if(configFile.exists()) {
+      log.info("Loading config from file: " + args(0))
+      ConfigFactory.load(ConfigFactory.parseFile(configFile))
+    } else {
+      log.info("Loading config using classpath loader: " + args(0))
+      ConfigFactory.load(args(0), ConfigParseOptions.defaults().setAllowMissing(false), ConfigResolveOptions.defaults())
+    }
 
     val jobs : Seq[String] = if (args.length == 1) {
       config.getStringList("jobs")

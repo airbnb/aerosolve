@@ -54,6 +54,10 @@ compileScala {
 
 shadowJar {
   zip64 = true
+
+  manifest {
+    attributes 'Main-Class': 'com.airbnb.aerosolve.training.pipeline.JobRunner'
+  }
 }
 
 test {
