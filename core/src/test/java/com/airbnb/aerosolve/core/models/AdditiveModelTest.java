@@ -201,13 +201,11 @@ public class AdditiveModelTest {
   public void testAddFunction() {
     AdditiveModel model = makeAdditiveModel();
     // add an existing feature without overwrite
-    float[] newSplineParams = {2.0f, 10.0f, 5.0f}; // minVal, maxVal, numBins
-    float[] newLinearParams = {3.0f, 5.0f}; // minVal, maxVal
-    model.addFunction("spline_float", "aaa", FunctionForm.SPLINE, newSplineParams, false);
+    model.addFunction("spline_float", "aaa", new Spline(2.0f, 10.0f, 5), false);
     // add an existing feature with overwrite
-    model.addFunction("linear_float", "ccc", FunctionForm.LINEAR, newLinearParams, true);
+    model.addFunction("linear_float", "ccc", new Linear(3.0f, 5.0f), true);
     // add a new feature
-    model.addFunction("spline_float", "new", FunctionForm.SPLINE, newSplineParams, false);
+    model.addFunction("spline_float", "new", new Spline(2.0f, 10.0f, 5), false);
 
     Map<String, Map<String, Function>> weights = model.getWeights();
     for (Map.Entry<String, Map<String, Function>>  featureFamily: weights.entrySet()) {

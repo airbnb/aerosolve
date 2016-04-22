@@ -19,6 +19,13 @@ public class Spline extends AbstractFunction {
   public Spline(float minVal, float maxVal, float [] weights) {
     setupSpline(minVal, maxVal, weights);
   }
+
+  public Spline(float minVal, float maxVal, int numBins) {
+    if (maxVal <= minVal) {
+      maxVal = minVal + 1.0f;
+    }
+    setupSpline(minVal, maxVal, new float[numBins]);
+  }
   
   // A resampling constructor
   public Spline(Spline other, int newBins) {

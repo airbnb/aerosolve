@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
-import com.airbnb.aerosolve.core.function.{Function, Spline}
+import com.airbnb.aerosolve.core.function.{Function, Linear, Spline}
 import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
@@ -336,18 +336,14 @@ object AdditiveModelTrainer {
     val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
     // add splines
     for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val minVal = stats.min
-      val maxVal = stats.max
-      model.addFunction(featureFamily, featureName, FunctionForm.SPLINE,
-                        Array(minVal.toFloat, maxVal.toFloat, params.numBins.toFloat), overwrite)
+      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
+       model.addFunction(featureFamily, featureName, spline, overwrite)
     }
     // add linear
     for (((featureFamily, featureName), stats) <- minMaxLinear) {
-      val minVal = stats.min
-      val maxVal = stats.max
       // set default linear function as f(x) = 0
-      model.addFunction(featureFamily, featureName, FunctionForm.LINEAR,
-                        Array(minVal.toFloat, maxVal.toFloat), overwrite)
+      model.addFunction(featureFamily, featureName,
+        new Linear(stats.min.toFloat, stats.min.toFloat), overwrite)
     }
   }
 

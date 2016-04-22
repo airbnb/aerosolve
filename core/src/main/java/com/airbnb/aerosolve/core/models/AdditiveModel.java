@@ -169,30 +169,20 @@ public class AdditiveModel extends AbstractModel {
     return sum;
   }
 
-  public void addFunction(String featureFamily, String featureName, FunctionForm functionForm,
-                          float[] params, boolean overwrite) {
-    // For SPLINE: params[0] = minValue, params[1] = maxValue, params[2] = numBin
-    // For LINEAR: params[0] = minValue, params[1] = maxValue
-    // overwrite: if TRUE, overwrite existing feature function
+  public Map<String, Function> getOrCreateFeatureFamily(String featureFamily) {
     Map<String, Function> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
       featFamily = new HashMap<String, Function>();
       weights.put(featureFamily, featFamily);
     }
-    float minVal = params[0];
-    float maxVal = params[1];
+    return featFamily;
+  }
+
+  public void addFunction(String featureFamily, String featureName,
+                          Function function, boolean overwrite) {
+    Map<String, Function> featFamily = getOrCreateFeatureFamily(featureFamily);
     if (overwrite || !featFamily.containsKey(featureName)) {
-      if (functionForm == FunctionForm.SPLINE) {
-        int numBins = (int) params[2];
-        if (maxVal <= minVal) {
-          maxVal = minVal + 1.0f;
-        }
-        Spline spline = new Spline(minVal, maxVal, new float[numBins]);
-        featFamily.put(featureName, spline);
-    } else if (functionForm == FunctionForm.LINEAR) {
-        Linear linear = new Linear(minVal, maxVal, new float[2]);
-        featFamily.put(featureName, linear);
-      }
+      featFamily.put(featureName, function);
     }
   }
 
