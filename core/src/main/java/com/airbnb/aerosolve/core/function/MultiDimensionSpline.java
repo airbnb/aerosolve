@@ -37,7 +37,11 @@ public class MultiDimensionSpline implements Function {
     points = new ArrayList<>(pointsMap.values());
   }
 
-  public MultiDimensionSpline(NDTreeModel ndTreeModel, Map<List<Double>, Double> weights) {
+  public MultiDimensionSpline(ModelRecord record) {
+    this(new NDTreeModel(record.getNdtreeModel()), record.getWeightVector());
+  }
+
+  public MultiDimensionSpline(NDTreeModel ndTreeModel, List<Double> weights) {
     this(ndTreeModel);
     updateWeights(weights);
   }
@@ -99,30 +103,27 @@ public class MultiDimensionSpline implements Function {
     ModelRecord record = new ModelRecord();
     record.setFunctionForm(FunctionForm.MULTI_SPINE);
     record.setFeatureFamily(featureFamily);
-    record.setWeightMap(getWeightsFromList());
+    record.setWeightVector(getWeightsFromList());
     record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
     return record;
   }
 
-  private Map<List<Double>, Double> getWeightsFromList() {
-    Map<List<Double>, Double> weights = new HashMap<>();
+  private List<Double> getWeightsFromList() {
+    List<Double> weights = new ArrayList<>(points.size());
     for (MultiDimensionPoint p: points) {
-      weights.put(toDouble(p.getCoordinates()), p.getWeight());
+
+      weights.add(p.getWeight());
     }
     return weights;
   }
 
-  private void updateWeights(Map<List<Double>, Double> map) {
-    Map<List<Float>, Double> weights = new HashMap<>();
-    for (Map.Entry<List<Double>, Double> entry : map.entrySet()) {
-
-      weights.put(toFloat(entry.getKey()), entry.getValue());
-    }
-    for (MultiDimensionPoint p : points) {
-      p.setWeight(weights.get(p.getCoordinates()));
+  private void updateWeights(List<Double> weights) {
+    assert (weights.size() == points.size());
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      p.setWeight(weights.get(i));
     }
   }
-
 
   public static List<Double> toDouble(List<Float> list) {
     List<Double> r = new ArrayList<>(list.size());
@@ -140,9 +141,12 @@ public class MultiDimensionSpline implements Function {
     return r;
   }
 
-  @Override
-  public void setPriors(float[] params) {
-
+  @Override public void setPriors(float[] params) {
+    assert (params.length == points.size());
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      p.setWeight(params[i]);
+    }
   }
 
   @Override

@@ -120,7 +120,6 @@ struct ModelRecord {
   // e.g. SPLINE, LINEAR
   13: optional FunctionForm functionForm;
   14: optional map<string, double> labelDistribution;
-  15: optional map<list<double>, double> weightMap;
   16: optional list<NDTreeNode> ndtreeModel;
 }
 

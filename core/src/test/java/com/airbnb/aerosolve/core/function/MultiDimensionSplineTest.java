@@ -64,8 +64,8 @@ public class MultiDimensionSplineTest {
     set(a);
     ModelRecord record = a.toModelRecord("","");
 
-    MultiDimensionSpline b = new MultiDimensionSpline(
-        new NDTreeModel(record.getNdtreeModel()), record.getWeightMap());
+    MultiDimensionSpline b = new MultiDimensionSpline(record);
+    assertEquals(0.40389338302461303, a.evaluate(3.0f, 3.0f), 0.0001);
 
     assertEquals(0.40389338302461303, b.evaluate(3.0f, 3.0f), 0.0001);
   }
