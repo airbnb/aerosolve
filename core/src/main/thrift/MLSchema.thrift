@@ -5,16 +5,20 @@
  */
 
 namespace java com.airbnb.aerosolve.core
+// Function name correspondent to Function class,
+// so it can be created by java reflection
+// we can save string ModelRecord, but that breaks released model file
+// so to add new function, please add to FunctionForm in order
 enum FunctionForm {
-  SPLINE,
-  LINEAR,
-  MULTI_SPLINE,
+  Spline,
+  Linear,
   RADIAL_BASIS_FUNCTION,
   ARC_COSINE,
   SIGMOID,
   RELU,
   TANH,
-  IDENTITY
+  IDENTITY,
+  MultiDimensionSpline
 }
 
 struct FeatureVector {
