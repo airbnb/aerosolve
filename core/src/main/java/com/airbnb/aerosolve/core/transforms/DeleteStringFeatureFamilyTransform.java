@@ -5,13 +5,14 @@ import com.airbnb.aerosolve.core.FeatureVector;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.typesafe.config.Config;
 
 /**
- * "fields" specifies a list of float feature families to be deleted
+ * "fields" specifies a list of string feature families to be deleted
  */
-public class DeleteFloatFeatureFamilyTransform implements Transform {
+public class DeleteStringFeatureFamilyTransform implements Transform {
   private List<String> fieldNames;
 
   @Override
@@ -21,8 +22,8 @@ public class DeleteFloatFeatureFamilyTransform implements Transform {
 
   @Override
   public void doTransform(FeatureVector featureVector) {
-    Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
-    if (floatFeatures == null) {
+    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    if (stringFeatures == null) {
       return;
     }
 
@@ -31,9 +32,9 @@ public class DeleteFloatFeatureFamilyTransform implements Transform {
     }
 
     for (String fieldName: fieldNames) {
-      Map<String, Double> feature = floatFeatures.get(fieldName);
+      Set<String> feature = stringFeatures.get(fieldName);
       if (feature != null) {
-        floatFeatures.remove(fieldName);
+        stringFeatures.remove(fieldName);
       }
     }
   }

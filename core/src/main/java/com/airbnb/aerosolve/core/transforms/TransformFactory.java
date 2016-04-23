@@ -15,6 +15,7 @@ public class TransformFactory {
     if (transformName == null) {
       return null;
     }
+
     String name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, transformName);
     Transform result = null;
     try {

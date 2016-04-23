@@ -2,7 +2,6 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 
-import java.io.UnsupportedEncodingException;
 import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -24,11 +24,10 @@ import static org.junit.Assert.assertTrue;
 public class NormalizeUtf8TransformTest {
   private static final Logger log = LoggerFactory.getLogger(NormalizeUtf8TransformTest.class);
 
-  public String makeConfigWithoutNormalizationForm() {
+  public String makeConfigWithoutNormalizationFormAndOutput() {
     return "test_normalize_utf_8 {\n" +
         " transform: normalize_utf_8\n" +
         " field1: strFeature1\n" +
-        " output: bar\n" +
         "}";
   }
 
@@ -44,7 +43,7 @@ public class NormalizeUtf8TransformTest {
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
 
-    Set list = new HashSet<String>();
+    Set<String> list = new HashSet<>();
     list.add("Funky string: \u03D3\u03D4\u1E9B");
     stringFeatures.put("strFeature1", list);
 
@@ -55,7 +54,7 @@ public class NormalizeUtf8TransformTest {
 
   @Test
   public void testEmptyFeatureVector() {
-    Config config = ConfigFactory.parseString(makeConfigWithoutNormalizationForm());
+    Config config = ConfigFactory.parseString(makeConfigWithoutNormalizationFormAndOutput());
     Transform transform = TransformFactory.createTransform(config, "test_normalize_utf_8");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
@@ -64,17 +63,20 @@ public class NormalizeUtf8TransformTest {
   }
 
   @Test
-  public void testTransformDefaultNormalizationForm() {
-    Config config = ConfigFactory.parseString(makeConfigWithoutNormalizationForm());
+  public void testTransformDefaultNormalizationFormAndOverwriteInput() {
+    Config config = ConfigFactory.parseString(makeConfigWithoutNormalizationFormAndOutput());
     Transform transform = TransformFactory.createTransform(config, "test_normalize_utf_8");
     FeatureVector featureVector = makeFeatureVector();
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     transform.doTransform(featureVector);
 
-    assertEquals(2, stringFeatures.size());
+    assertNotNull(stringFeatures);
+    assertEquals(1, stringFeatures.size());
 
-    Set<String> output = stringFeatures.get("bar");
+    Set<String> output = stringFeatures.get("strFeature1");
 
+    assertNotNull(output);
+    assertEquals(1, output.size());
     assertTrue(output.contains(Normalizer.normalize(
         "Funky string: \u03D3\u03D4\u1E9B", NormalizeUtf8Transform.DEFAULT_NORMALIZATION_FORM)));
   }
@@ -87,10 +89,13 @@ public class NormalizeUtf8TransformTest {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertEquals(2, stringFeatures.size());
 
     Set<String> output = stringFeatures.get("bar");
 
+    assertNotNull(output);
+    assertEquals(1, output.size());
     assertTrue(output.contains("Funky string: \u03D3\u03D4\u1E9B"));
     assertTrue(Normalizer.isNormalized("Funky string: \u03D3\u03D4\u1E9B", Normalizer.Form.NFC));
   }
@@ -103,10 +108,13 @@ public class NormalizeUtf8TransformTest {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertEquals(2, stringFeatures.size());
 
     Set<String> output = stringFeatures.get("bar");
 
+    assertNotNull(output);
+    assertEquals(1, output.size());
     assertTrue(output.contains("Funky string: \u03D2\u0301\u03D2\u0308\u017F\u0307"));
     assertTrue(Normalizer.isNormalized(
         "Funky string: \u03D2\u0301\u03D2\u0308\u017F\u0307", Normalizer.Form.NFD));
@@ -120,10 +128,13 @@ public class NormalizeUtf8TransformTest {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertEquals(2, stringFeatures.size());
 
     Set<String> output = stringFeatures.get("bar");
 
+    assertNotNull(output);
+    assertEquals(1, output.size());
     assertTrue(output.contains("Funky string: \u038e\u03ab\u1e61"));
     assertTrue(Normalizer.isNormalized("Funky string: \u038e\u03ab\u1e61", Normalizer.Form.NFKC));
   }
@@ -136,10 +147,13 @@ public class NormalizeUtf8TransformTest {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertEquals(2, stringFeatures.size());
 
     Set<String> output = stringFeatures.get("bar");
 
+    assertNotNull(output);
+    assertEquals(1, output.size());
     assertTrue(output.contains("Funky string: \u03a5\u0301\u03a5\u0308\u0073\u0307"));
     assertTrue(Normalizer.isNormalized(
         "Funky string: \u03a5\u0301\u03a5\u0308\u0073\u0307", Normalizer.Form.NFKD));

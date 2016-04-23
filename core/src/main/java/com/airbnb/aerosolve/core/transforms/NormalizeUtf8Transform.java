@@ -1,11 +1,8 @@
 package com.airbnb.aerosolve.core.transforms;
 
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.util.Util;
+import com.airbnb.aerosolve.core.transforms.types.StringTransform;
 
 import java.text.Normalizer;
-import java.util.Map;
-import java.util.Set;
 
 import com.typesafe.config.Config;
 
@@ -13,17 +10,16 @@ import com.typesafe.config.Config;
  * Normalizes strings to UTF-8 NFC, NFD, NFKC or NFKD form (NFD by default)
  * "field1" specifies the key of the feature
  * "normalization_form" optionally specifies whether to use NFC, NFD, NFKC or NFKD form
+ * "output" optionally specifies the key of the output feature, if it is not given the transform
+ * overwrites / replaces the input feature
  */
-public class NormalizeUtf8Transform implements Transform {
+public class NormalizeUtf8Transform extends StringTransform {
   public static final Normalizer.Form DEFAULT_NORMALIZATION_FORM = Normalizer.Form.NFD;
 
-  private String fieldName1;
   private Normalizer.Form normalizationForm;
-  private String outputName;
 
   @Override
-  public void configure(Config config, String key) {
-    fieldName1 = config.getString(key + ".field1");
+  public void init(Config config, String key) {
     String normalizationFormString = DEFAULT_NORMALIZATION_FORM.name();
     if (config.hasPath(key + ".normalization_form")) {
       normalizationFormString = config.getString(key + ".normalization_form");
@@ -39,27 +35,14 @@ public class NormalizeUtf8Transform implements Transform {
     } else {
       normalizationForm = DEFAULT_NORMALIZATION_FORM;
     }
-    outputName = config.getString(key + ".output");
   }
 
   @Override
-  public void doTransform(FeatureVector featureVector) {
-    Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
-    if (stringFeatures == null) {
-      return;
+  public String processString(String rawString) {
+    if (rawString == null) {
+      return null;
     }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
-      return;
-    }
-
-    Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
-
-    for (String rawString : feature1) {
-      if (rawString == null) continue;
-      String normalizedString = Normalizer.normalize(rawString, normalizationForm);
-      output.add(normalizedString);
-    }
+    return Normalizer.normalize(rawString, normalizationForm);
   }
 }

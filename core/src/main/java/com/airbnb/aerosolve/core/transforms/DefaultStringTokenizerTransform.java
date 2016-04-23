@@ -28,7 +28,11 @@ public class DefaultStringTokenizerTransform implements Transform {
     fieldName1 = config.getString(key + ".field1");
     regex = config.getString(key + ".regex");
     outputName = config.getString(key + ".output");
-    generateBigrams = config.getBoolean(key + ".generate_bigrams");
+    if (config.hasPath(key + ".generate_bigrams")) {
+      generateBigrams = config.getBoolean(key + ".generate_bigrams");
+    } else {
+      generateBigrams = false;
+    }
     if (generateBigrams) {
       bigramsOutputName = config.getString(key + ".bigrams_output");
     }
@@ -38,7 +42,7 @@ public class DefaultStringTokenizerTransform implements Transform {
   public void doTransform(FeatureVector featureVector) {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     if (stringFeatures == null) {
-      return ;
+      return;
     }
 
     Set<String> feature1 = stringFeatures.get(fieldName1);

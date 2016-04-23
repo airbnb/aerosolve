@@ -15,28 +15,41 @@ import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
  * Created by christhetree on 1/29/16.
  */
-public class DeleteStringFeatureColumnTransformTest {
+public class DeleteStringFeatureFamilyTransformTest {
   private static final Logger log = LoggerFactory.getLogger(
-      DeleteStringFeatureColumnTransformTest.class);
+      DeleteStringFeatureFamilyTransformTest.class);
 
   public String makeConfig() {
-    return "test_delete_string_feature_column {\n" +
-        " transform: delete_string_feature_column\n" +
-        " field1: strFeature1\n" +
+    return "test_delete_string_feature_family {\n" +
+        " transform: delete_string_feature_family\n" +
+        " fields: [strFeature1, strFeature2, strFeature3]\n" +
         "}";
   }
 
   public FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
 
-    Set list = new HashSet<String>();
-    list.add("I am a string in a string feature");
-    stringFeatures.put("strFeature1", list);
+    Set<String> list1 = new HashSet<>();
+    list1.add("I am a string in string feature 1");
+    stringFeatures.put("strFeature1", list1);
+
+    Set<String> list2 = new HashSet<>();
+    list2.add("I am a string in string feature 2");
+    stringFeatures.put("strFeature2", list2);
+
+    Set<String> list3 = new HashSet<>();
+    list3.add("I am a string in string feature 3");
+    stringFeatures.put("strFeature3", list3);
+
+    Set<String> list4 = new HashSet<>();
+    list4.add("I am a string in string feature 4");
+    stringFeatures.put("strFeature4", list4);
 
     FeatureVector featureVector = new FeatureVector();
     featureVector.setStringFeatures(stringFeatures);
@@ -47,7 +60,7 @@ public class DeleteStringFeatureColumnTransformTest {
   public void testEmptyFeatureVector() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(
-        config, "test_delete_string_feature_column");
+        config, "test_delete_string_feature_family");
     FeatureVector featureVector = new FeatureVector();
     transform.doTransform(featureVector);
 
@@ -58,16 +71,24 @@ public class DeleteStringFeatureColumnTransformTest {
   public void testTransform() {
     Config config = ConfigFactory.parseString(makeConfig());
     Transform transform = TransformFactory.createTransform(
-        config, "test_delete_string_feature_column");
+        config, "test_delete_string_feature_family");
     FeatureVector featureVector = makeFeatureVector();
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
 
+    assertNotNull(stringFeatures);
     assertTrue(stringFeatures.containsKey("strFeature1"));
-    assertEquals(1, stringFeatures.size());
+    assertTrue(stringFeatures.containsKey("strFeature2"));
+    assertTrue(stringFeatures.containsKey("strFeature3"));
+    assertTrue(stringFeatures.containsKey("strFeature4"));
+    assertEquals(4, stringFeatures.size());
 
     transform.doTransform(featureVector);
 
+    assertNotNull(stringFeatures);
     assertFalse(stringFeatures.containsKey("strFeature1"));
-    assertEquals(0, stringFeatures.size());
+    assertFalse(stringFeatures.containsKey("strFeature2"));
+    assertFalse(stringFeatures.containsKey("strFeature3"));
+    assertTrue(stringFeatures.containsKey("strFeature4"));
+    assertEquals(1, stringFeatures.size());
   }
 }

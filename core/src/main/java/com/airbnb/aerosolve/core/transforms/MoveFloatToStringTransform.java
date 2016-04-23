@@ -3,14 +3,16 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
+
+import java.util.Iterator;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.List;
 
 /**
- * Moves named fields from one family to another.
+ * Moves named fields from one family to another. If keys are not specified, all keys are moved
+ * from the float family.
  */
 public class MoveFloatToStringTransform implements Transform {
   private String fieldName1;
@@ -24,10 +26,12 @@ public class MoveFloatToStringTransform implements Transform {
     fieldName1 = config.getString(key + ".field1");
     bucket = config.getDouble(key + ".bucket");
     outputName = config.getString(key + ".output");
-    keys = config.getStringList(key + ".keys");
-    try {
+    if (config.hasPath(key + ".keys")) {
+      keys = config.getStringList(key + ".keys");
+    }
+    if (config.hasPath(key + ".cap")) {
       cap = config.getDouble(key + ".cap");
-    } catch (Exception e) {
+    } else {
       cap = 1e10;
     }
   }
@@ -48,17 +52,37 @@ public class MoveFloatToStringTransform implements Transform {
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     Set<String> output = Util.getOrCreateStringFeature(outputName, stringFeatures);
 
-    for (String key : keys) {
-      if (feature1.containsKey(key)) {
-        Double dbl = feature1.get(key);
-        if (dbl > cap) {
-          dbl = cap;
-        }
-
-        Double quantized = LinearLogQuantizeTransform.quantize(dbl, bucket);
-        output.add(key + '=' + quantized);
+    if (keys != null) {
+      for (String key : keys) {
+        moveFloat(feature1, output, key, cap, bucket);
         feature1.remove(key);
       }
+    } else {
+      for (Iterator<Entry<String, Double>> iterator = feature1.entrySet().iterator();
+          iterator.hasNext();) {
+        Entry<String, Double> entry = iterator.next();
+        String key = entry.getKey();
+
+        moveFloat(feature1, output, key, cap, bucket);
+        iterator.remove();
+      }
+    }
+  }
+
+  public static void moveFloat(
+      Map<String, Double> feature1,
+      Set<String> output,
+      String key,
+      double cap,
+      double bucket) {
+    if (feature1.containsKey(key)) {
+      Double dbl = feature1.get(key);
+      if (dbl > cap) {
+        dbl = cap;
+      }
+
+      Double quantized = LinearLogQuantizeTransform.quantize(dbl, bucket);
+      output.add(key + '=' + quantized);
     }
   }
 }
