@@ -16,6 +16,10 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
 import scala.util.{Random, Try}
 
+/*
+ @deprecated Use AdditiveModelTrainer
+ */
+@Deprecated
 object SplineTrainer {
   private final val log: Logger = LoggerFactory.getLogger("SplineTrainer")
     

@@ -17,6 +17,10 @@ import java.util.*;
 
 // A linear piecewise spline based model with a spline per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
+/*
+ @deprecated Use AdditiveModel
+ */
+@Deprecated
 public class SplineModel extends AbstractModel {
 
   private static final long serialVersionUID = 3651061358422885397L;
