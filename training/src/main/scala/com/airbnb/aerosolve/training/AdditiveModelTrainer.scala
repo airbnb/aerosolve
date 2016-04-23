@@ -6,7 +6,6 @@ import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
@@ -177,9 +176,7 @@ object AdditiveModelTrainer {
                                    smoothingTolerance: Float) : Function = {
     val head : Function = input.head
     val output = head.aggregate(input.asJava, scale, numBins)
-    if (output.isInstanceOf[Spline]) {
-      smoothSpline(smoothingTolerance, output.asInstanceOf[Spline])
-    }
+    output.smooth(smoothingTolerance)
     output
   }
 
@@ -339,19 +336,6 @@ object AdditiveModelTrainer {
       // set default linear function as f(x) = 0
       model.addFunction(featureFamily, featureName,
         new Linear(stats.min.toFloat, stats.min.toFloat), overwrite)
-    }
-  }
-
-  def smoothSpline(tolerance : Double,
-                   spline : Spline) = {
-    val weights = spline.getWeights
-    val optimize = weights.map(x => x.toDouble).toArray
-    val errAndCoeff = SplineTrainer.fitPolynomial(optimize)
-    if (errAndCoeff._1 < tolerance) {
-      SplineTrainer.evaluatePolynomial(errAndCoeff._2, optimize, true)
-      for (i <- 0 until weights.length) {
-        weights(i) = optimize(i).toFloat
-      }
     }
   }
 

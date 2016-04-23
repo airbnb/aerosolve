@@ -117,4 +117,7 @@ public class Linear extends AbstractFunction {
   public void resample(int newBins) {
   }
 
+  @Override
+  public void smooth(double tolerance) {
+  }
 }

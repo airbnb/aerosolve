@@ -1,27 +1,20 @@
 package com.airbnb.aerosolve.training
 
-import java.io.{BufferedWriter, OutputStreamWriter}
-import java.util.concurrent.ConcurrentHashMap
-
-import com.airbnb.aerosolve.training.CyclicCoordinateDescent.Params
-import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.core.models.{AbstractModel, SplineModel}
+import com.airbnb.aerosolve.core.models.SplineModel
 import com.airbnb.aerosolve.core.models.SplineModel.WeightSpline
+import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.core.{Example, FeatureVector}
+import com.airbnb.aerosolve.training.CyclicCoordinateDescent.Params
 import com.typesafe.config.Config
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
-import scala.util.Try
-import scala.util.Random
+import scala.util.{Random, Try}
 
 object SplineTrainer {
   private final val log: Logger = LoggerFactory.getLogger("SplineTrainer")
@@ -244,7 +237,6 @@ object SplineTrainer {
   def fitPolynomial(data : Array[Double]) : (Double, Array[Double]) = {
     val numCoeff = 6
     val iterations = numCoeff * 4
-    val len = data.length - 1
     val initial = Array.fill(numCoeff)(0.0)
     val initialStep = Array.fill(numCoeff)(1.0)
     val bounds = Array.fill(numCoeff)((-10.0, 10.0))
