@@ -112,4 +112,9 @@ public class Linear extends AbstractFunction {
       return x;
     }
   }
+
+  @Override
+  public void resample(int newBins) {
+  }
+
 }

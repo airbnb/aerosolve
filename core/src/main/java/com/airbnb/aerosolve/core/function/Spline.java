@@ -26,33 +26,29 @@ public class Spline extends AbstractFunction {
     }
     setupSpline(minVal, maxVal, new float[numBins]);
   }
-  
-  // A resampling constructor
-  public Spline(Spline other, int newBins) {
-    setupSpline(other.minVal, other.maxVal, other.weightsByNumBins(newBins, true));
-  }
 
   /*
     Generates new weights[] from numBins
    */
-  public float[] weightsByNumBins(int numBins, boolean clone) {
+  public float[] weightsByNumBins(int numBins) {
     if (numBins == this.numBins) {
-      if (clone) {
-        return weights.clone();
-      } else {
-        return weights;
-      }
+      return weights;
     } else {
-      float[] newWeights = new float[numBins];
-      float scale = 1.0f / (numBins - 1.0f);
-      float diff = maxVal - minVal;
-      for (int i = 0; i < numBins; i++) {
-        float t = i * scale;
-        float x = diff * t + minVal;
-        newWeights[i] = evaluate(x);
-      }
-      return newWeights;
+      return newWeights(numBins);
     }
+  }
+
+  private float[] newWeights(int numBins) {
+    assert (numBins != this.numBins);
+    float[] newWeights = new float[numBins];
+    float scale = 1.0f / (numBins - 1.0f);
+    float diff = maxVal - minVal;
+    for (int i = 0; i < numBins; i++) {
+      float t = i * scale;
+      float x = diff * t + minVal;
+      newWeights[i] = evaluate(x);
+    }
+    return newWeights;
   }
 
   // A constructor from model record
@@ -89,7 +85,7 @@ public class Spline extends AbstractFunction {
 
     for (Function fun: functions) {
       Spline spline = (Spline) fun;
-      float[] w = spline.weightsByNumBins(numBins, false);
+      float[] w = spline.weightsByNumBins(numBins);
       for (int i = 0; i < length; i++) {
         aggWeights[i] += scale * w[i];
       }
@@ -139,17 +135,10 @@ public class Spline extends AbstractFunction {
     return record;
   }
 
+  @Override
   public void resample(int newBins) {
-    float[] newWeights = new float[newBins];
     if (newBins != numBins) {
-      float scale = 1.0f / (newBins - 1.0f);
-      float diff = maxVal - minVal;
-      for (int i = 0; i < newBins; i++) {
-        float t = i * scale;
-        float x = diff * t + minVal;
-        newWeights[i] = evaluate(x);
-      }
-      setupSpline(minVal, maxVal, newWeights);
+      setupSpline(minVal, maxVal, newWeights(newBins));
     }
   }
 

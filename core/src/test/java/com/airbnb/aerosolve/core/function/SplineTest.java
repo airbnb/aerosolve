@@ -21,18 +21,23 @@ public class SplineTest {
     Spline spline = new Spline(1.0f, 3.0f, weights);
     testSpline(spline, 0.1f);
   }
-  
+
+  public static Spline getSpline() {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    return new Spline(1.0f, 3.0f, weights);
+
+  }
   @Test
   public void testSplineResampleConstructor() {
-    float[] weights = {5.0f, 10.0f, -20.0f};
-    Spline spline = new Spline(1.0f, 3.0f, weights);
+    Spline spline = getSpline();
 
     // Same size
-    Spline spline2 = new Spline(spline, 3);
-    testSpline(spline2, 0.1f);
+    spline.resample(3);
+    testSpline(spline, 0.1f);
     
     // Smaller
-    Spline spline3 = new Spline(spline, 2);
+    Spline spline3 = getSpline();
+    spline3.resample(2);
     assertEquals(5.0f, spline3.evaluate(-1.0f), 0.1f);
     assertEquals(5.0f, spline3.evaluate(1.0f), 0.1f);
     assertEquals((5.0f - 20.0f) * 0.5f, spline3.evaluate(2.0f), 0.1f);
@@ -40,7 +45,8 @@ public class SplineTest {
     assertEquals(-20.0f, spline3.evaluate(4.0f), 0.1f);
     
     // Larger
-    Spline spline4 = new Spline(spline, 100);
+    Spline spline4 = getSpline();
+    spline4.resample(100);
     testSpline(spline4, 0.2f);
   }
 

@@ -162,13 +162,8 @@ object AdditiveModelTrainer {
     workingModel
       .getWeights
       .foreach(family => {
-      family._2.foreach(feature => {
-        val func = feature._2
-        if (func.isInstanceOf[Spline]) {
-          new Spline(func.asInstanceOf[Spline], newBins)
-        } else {
-          func
-        }
+        family._2.foreach(feature => {
+          feature._2.resample(newBins)
       })
     })
 
