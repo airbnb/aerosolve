@@ -19,4 +19,6 @@ public interface Function extends Serializable {
   void LInfinityCap(float cap);
 
   float LInfinityNorm();
+
+  void resample(int newBins);
 }

@@ -172,4 +172,8 @@ public class MultiDimensionSpline implements Function {
     assert (index != -1 && weights.containsKey(index));
     return weights.get(index);
   }
+
+  @Override
+  public void resample(int newBins) {
+  }
 }

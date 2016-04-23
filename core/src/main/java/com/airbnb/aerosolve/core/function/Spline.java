@@ -26,11 +26,6 @@ public class Spline extends AbstractFunction {
     }
     setupSpline(minVal, maxVal, new float[numBins]);
   }
-  
-  // A resampling constructor
-  public Spline(Spline other, int newBins) {
-    setupSpline(other.minVal, other.maxVal, other.weightsByNumBins(newBins, true));
-  }
 
   /*
     Generates new weights[] from numBins
@@ -139,6 +134,7 @@ public class Spline extends AbstractFunction {
     return record;
   }
 
+  @Override
   public void resample(int newBins) {
     float[] newWeights = new float[newBins];
     if (newBins != numBins) {

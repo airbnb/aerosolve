@@ -42,9 +42,8 @@ public class SplineModel extends AbstractModel {
     }
     
     public void resample(int newBins) {
-      Spline newSpline = new Spline(spline, newBins);
-      spline = newSpline;
-      splineWeights = newSpline.getWeights(); 
+      spline.resample(newBins);
+      splineWeights = spline.getWeights();
     }
     public Spline spline;
     public float[] splineWeights;
