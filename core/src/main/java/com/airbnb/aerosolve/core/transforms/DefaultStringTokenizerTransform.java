@@ -15,8 +15,6 @@ import com.typesafe.config.Config;
  * "generateBigrams" specifies whether bigrams should also be generated
  */
 public class DefaultStringTokenizerTransform implements Transform {
-  public static final String BIGRAM_SEPARATOR = " ";
-
   private String fieldName1;
   private String regex;
   private String outputName;
@@ -72,7 +70,7 @@ public class DefaultStringTokenizerTransform implements Transform {
           if (previousToken == null) {
             previousToken = token;
           } else {
-            String bigram = previousToken + BIGRAM_SEPARATOR + token;
+            String bigram = previousToken + NgramTransform.BIGRAM_SEPARATOR + token;
             incrementOutput(bigram, bigramOutput);
             previousToken = token;
           }
@@ -81,7 +79,7 @@ public class DefaultStringTokenizerTransform implements Transform {
     }
   }
 
-  private static void incrementOutput(String key, Map<String, Double> output) {
+  public static void incrementOutput(String key, Map<String, Double> output) {
     if (key == null || output == null) {
       return;
     }
