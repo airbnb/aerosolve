@@ -32,8 +32,11 @@ public class AdditiveModel extends AbstractModel {
 
   private Map<String, Function> getOrCreateDenseWeights() {
     if (denseWeights == null) {
-      denseWeights = new HashMap<>();
-      weights.put(DENSE_FAMILY, denseWeights);
+      denseWeights = weights.get(DENSE_FAMILY);
+      if (denseWeights == null) {
+        denseWeights = new HashMap<>();
+        weights.put(DENSE_FAMILY, denseWeights);
+      }
     }
     return denseWeights;
   }
