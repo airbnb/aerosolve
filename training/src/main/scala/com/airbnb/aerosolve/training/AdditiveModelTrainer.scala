@@ -230,16 +230,22 @@ object AdditiveModelTrainer {
                      label : Double,
                      params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    val prediction = (model.scoreFlatFeatures(flatFeatures) +
+      model.scoreDenseFeatures(denseFeatures)) /
+      (1.0 - params.dropout)
     // To prevent blowup.
     val corr = scala.math.min(10.0, label * prediction)
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    model.update(grad.toFloat,
-                 params.learningRate.toFloat,
+    val delta = -grad.toFloat * params.learningRate.toFloat
+    model.update(delta,
                  params.linfinityCap.toFloat,
                  flatFeatures)
+    model.updateDense(delta,
+                      params.linfinityCap.toFloat,
+                      denseFeatures)
     return loss
   }
 
@@ -248,14 +254,19 @@ object AdditiveModelTrainer {
                   label : Double,
                   params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    val prediction = (model.scoreFlatFeatures(flatFeatures) +
+      model.scoreDenseFeatures(denseFeatures)) /
+      (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val grad = -label
-      model.update(grad.toFloat,
-                   params.learningRate.toFloat,
+      val delta = label.toFloat * params.learningRate.toFloat
+      model.update(delta,
                    params.linfinityCap.toFloat,
                    flatFeatures)
+      model.updateDense(delta,
+                        params.linfinityCap.toFloat,
+                        denseFeatures)
     }
     return loss
   }
@@ -265,15 +276,22 @@ object AdditiveModelTrainer {
                       label: Double,
                       params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val prediction = model.scoreFlatFeatures(flatFeatures) / (1.0 - params.dropout)
+    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    val prediction = (model.scoreFlatFeatures(flatFeatures) +
+      model.scoreDenseFeatures(denseFeatures)) /
+      (1.0 - params.dropout)
     // absolute difference
     val loss = math.abs(prediction - label)
     if (prediction - label > params.epsilon) {
-      model.update(1.0f, params.learningRate.toFloat,
+      model.update(-params.learningRate.toFloat,
                    params.linfinityCap.toFloat, flatFeatures)
+      model.updateDense(-params.learningRate.toFloat,
+                        params.linfinityCap.toFloat, denseFeatures)
     } else if (prediction - label < -params.epsilon) {
-      model.update(-1.0f, params.learningRate.toFloat,
+      model.update(params.learningRate.toFloat,
                    params.linfinityCap.toFloat, flatFeatures)
+      model.updateDense(params.learningRate.toFloat,
+                        params.linfinityCap.toFloat, denseFeatures)
     }
     return loss
   }

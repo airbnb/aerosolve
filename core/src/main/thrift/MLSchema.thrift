@@ -142,6 +142,7 @@ struct DebugScoreRecord {
   4: optional double featureWeight;
   // This is only used for multi-class cases
   5: optional string label;
+  6: optional list<double> denseFeatureValue;
 }
 
 struct DebugScoreDiffRecord {

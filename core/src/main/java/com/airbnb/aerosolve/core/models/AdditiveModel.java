@@ -6,25 +6,55 @@ import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.function.AbstractFunction;
 import com.airbnb.aerosolve.core.function.Function;
+import com.airbnb.aerosolve.core.function.FunctionUtil;
+import com.airbnb.aerosolve.core.function.MultiDimensionSpline;
 import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.*;
 
+import static com.airbnb.aerosolve.core.function.FunctionUtil.toFloat;
+
 // A generalized additive model with a parametric function per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
+@Slf4j
 public class AdditiveModel extends AbstractModel {
+  private static final String DENSE_FAMILY = "dense";
   @Getter @Setter
   private Map<String, Map<String, Function>> weights = new HashMap<>();
+
+  private Map<String, Function> denseWeights;
+
+  private Map<String, Function> getOrCreateDenseWeights() {
+    if (denseWeights == null) {
+      denseWeights = new HashMap<>();
+      weights.put(DENSE_FAMILY, denseWeights);
+    }
+    return denseWeights;
+  }
 
   @Override
   public float scoreItem(FeatureVector combinedItem) {
     Map<String, Map<String, Double>> flatFeatures = Util.flattenFeature(combinedItem);
-    return scoreFlatFeatures(flatFeatures);
+    return scoreFlatFeatures(flatFeatures) + scoreDenseFeatures(combinedItem.getDenseFeatures());
+  }
+
+  public float scoreDenseFeatures(Map<String, List<Double>> denseFeatures) {
+    float sum = 0;
+    if (denseFeatures != null && !denseFeatures.isEmpty()) {
+      assert (denseWeights != null);
+      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+        String featureName = feature.getKey();
+        Function fun = denseWeights.get(featureName);
+        sum += fun.evaluate(toFloat(feature.getValue()));
+      }
+    }
+    return sum;
   }
 
   @Override
@@ -46,13 +76,29 @@ public class AdditiveModel extends AbstractModel {
         if (func == null)
           continue;
         float val = feature.getValue().floatValue();
-        float subscore = func.evaluate(val);
-        sum += subscore;
+        float subScore = func.evaluate(val);
+        sum += subScore;
         String str = featureFamily.getKey() + ":" + feature.getKey() + "=" + val
-                     + " = " + subscore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subscore));
+                     + " = " + subScore + "<br>\n";
+        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
       }
     }
+
+    Map<String, List<Double>> denseFeatures = combinedItem.getDenseFeatures();
+    if (denseFeatures != null) {
+      assert (denseWeights != null);
+      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+        String featureName = feature.getKey();
+        Function fun = denseWeights.get(featureName);
+        float[] val = toFloat(feature.getValue());
+        float subScore = fun.evaluate(val);
+        sum += subScore;
+        String str = DENSE_FAMILY + ":" + feature.getKey() + "=" + val
+            + " = " + subScore + "<br>\n";
+        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
+      }
+    }
+
     final int MAX_COUNT = 100;
     builder.append("Top scores ===>\n");
     if (!scores.isEmpty()) {
@@ -96,6 +142,24 @@ public class AdditiveModel extends AbstractModel {
         scoreRecordsList.add(record);
       }
     }
+
+    Map<String, List<Double>> denseFeatures = combinedItem.getDenseFeatures();
+    if (denseFeatures != null) {
+      assert (denseWeights != null);
+      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+        String featureName = feature.getKey();
+        Function fun = denseWeights.get(featureName);
+        float[] val = toFloat(feature.getValue());
+        float weight = fun.evaluate(val);
+        DebugScoreRecord record = new DebugScoreRecord();
+        record.setFeatureFamily(DENSE_FAMILY);
+        record.setFeatureName(feature.getKey());
+        record.setDenseFeatureValue(feature.getValue());
+        record.setFeatureWeight(weight);
+        scoreRecordsList.add(record);
+      }
+    }
+
     return scoreRecordsList;
   }
 
@@ -150,8 +214,10 @@ public class AdditiveModel extends AbstractModel {
     float sum = 0.0f;
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
       Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null)
+      if (familyWeightMap == null) {
+        log.error("miss featureFamily {}", featureFamily.getKey());
         continue;
+      }
       for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
         Function func = familyWeightMap.get(feature.getKey());
         if (func == null)
@@ -183,9 +249,14 @@ public class AdditiveModel extends AbstractModel {
     }
   }
 
+  public void addDenseFunction(String featureName, NDTreeModel ndtreeModel) {
+    MultiDimensionSpline spline = new MultiDimensionSpline(ndtreeModel);
+    Map<String, Function> dense = getOrCreateDenseWeights();
+    dense.put(featureName, spline);
+  }
+
   // Update weights based on gradient and learning rate
-  public void update(float grad,
-                     float learningRate,
+  public void update(float delta,
                      float cap,
                      Map<String, Map<String, Double>> flatFeatures) {
     // update with lInfinite cap
@@ -196,7 +267,23 @@ public class AdditiveModel extends AbstractModel {
         Function func = familyWeightMap.get(feature.getKey());
         if (func == null) continue;
         float val = feature.getValue().floatValue();
-        func.update(-grad * learningRate, val);
+        func.update(delta, val);
+        func.LInfinityCap(cap);
+      }
+    }
+  }
+
+  public void updateDense(float delta,
+                     float cap,
+                     Map<String, List<Double>> denseFeatures) {
+    // update with lInfinite cap
+    if (denseFeatures != null && !denseFeatures.isEmpty()) {
+      assert (denseWeights != null);
+      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+        String featureName = feature.getKey();
+        Function func = denseWeights.get(featureName);
+        float[] val = FunctionUtil.toFloat(feature.getValue());
+        func.update(delta, val);
         func.LInfinityCap(cap);
       }
     }

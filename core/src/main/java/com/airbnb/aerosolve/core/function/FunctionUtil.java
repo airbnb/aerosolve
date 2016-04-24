@@ -4,6 +4,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
+import java.util.List;
 
 public class FunctionUtil {
   public static float[] fitPolynomial(float[] data) {
@@ -73,5 +74,13 @@ public class FunctionUtil {
       }
     }
     return best;
+  }
+
+  public static float[] toFloat(List<Double> list) {
+    float[] result = new float[list.size()];
+    for (int i = 0; i < result.length; i++) {
+      result[i] = list.get(i).floatValue();
+    }
+   return result;
   }
 }

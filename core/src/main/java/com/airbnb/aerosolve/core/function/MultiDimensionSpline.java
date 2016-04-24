@@ -133,14 +133,6 @@ public class MultiDimensionSpline implements Function {
     return r;
   }
 
-  public static List<Float> toFloat(List<Double> list) {
-    List<Float> r = new ArrayList<>(list.size());
-    for (Double f: list) {
-      r.add(f.floatValue());
-    }
-    return r;
-  }
-
   @Override public void setPriors(float[] params) {
     assert (params.length == points.size());
     for (int i = 0; i < points.size(); i++) {

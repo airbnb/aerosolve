@@ -1,5 +1,13 @@
 package com.airbnb.aerosolve.core.models;
 
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.ModelHeader;
+import com.airbnb.aerosolve.core.MulticlassScoringResult;
+import com.airbnb.aerosolve.core.util.FloatVector;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -7,15 +15,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import com.airbnb.aerosolve.core.DebugScoreRecord;
-import com.airbnb.aerosolve.core.FeatureVector;
-import com.airbnb.aerosolve.core.ModelHeader;
-import com.airbnb.aerosolve.core.MulticlassScoringResult;
-import com.airbnb.aerosolve.core.util.FloatVector;
-
-import lombok.Getter;
-import lombok.Setter;
 /**
  * Created by hector_yee on 8/25/14.
  * Base class for models

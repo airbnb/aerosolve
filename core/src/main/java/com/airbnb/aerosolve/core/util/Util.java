@@ -302,6 +302,19 @@ public class Util implements Serializable {
     return flatFeature;
   }
 
+  public static Map<String, List<Double>> denseFeatureDropout(
+      FeatureVector featureVector,
+      double dropout) {
+    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
+    if (denseFeatures == null) return Collections.EMPTY_MAP;
+    Map<String, List<Double>> out = new HashMap<>();
+    for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+      if (Math.random() < dropout) continue;
+      out.put(feature.getKey(), feature.getValue());
+    }
+    return out;
+  }
+
   public static class DebugDiffRecordComparator implements Comparator<DebugScoreDiffRecord> {
     @Override
     public int compare(DebugScoreDiffRecord e1, DebugScoreDiffRecord e2) {
