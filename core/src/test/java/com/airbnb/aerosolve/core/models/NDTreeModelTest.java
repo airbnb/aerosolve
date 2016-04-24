@@ -5,10 +5,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static com.airbnb.aerosolve.core.models.NDTreeModel.LEAF;
 import static org.junit.Assert.assertEquals;
@@ -70,12 +67,12 @@ public class NDTreeModelTest {
 
     leaf = tree.leaf((float)1.0, (float)2.0);
     assertEquals(4, leaf);
-    leaf = tree.leaf(Arrays.asList((float)1.0, (float)2.0));
+    leaf = tree.leaf(Arrays.asList(1.0, 2.0));
     assertEquals(4, leaf);
 
     leaf = tree.leaf((float)0.99, (float)2.1);
     assertEquals(1, leaf);
-    leaf = tree.leaf(Arrays.asList((float)0.99, (float)2.1));
+    leaf = tree.leaf(Arrays.asList(0.99, 2.1));
     assertEquals(1, leaf);
   }
 
@@ -83,7 +80,7 @@ public class NDTreeModelTest {
   public void testQuery() {
     NDTreeModel tree = getNDTreeModel();
 
-    ArrayList<Integer> res1 = tree.query((float)-1.0, (float)-1.0);
+    List<Integer> res1 = tree.query((float)-1.0, (float)-1.0);
     assertEquals(2, res1.size());
     assertEquals(0, res1.get(0).intValue());
     assertEquals(1, res1.get(1).intValue());
@@ -92,7 +89,7 @@ public class NDTreeModelTest {
     assertEquals(0, res1.get(0).intValue());
     assertEquals(1, res1.get(1).intValue());
 
-    ArrayList<Integer> res2 = tree.query((float)1.1, (float)0.0);
+    List<Integer> res2 = tree.query((float)1.1, (float)0.0);
     assertEquals(3, res2.size());
     assertEquals(0, res2.get(0).intValue());
     assertEquals(2, res2.get(1).intValue());
@@ -103,7 +100,7 @@ public class NDTreeModelTest {
     assertEquals(2, res2.get(1).intValue());
     assertEquals(3, res2.get(2).intValue());
 
-    ArrayList<Integer> res3 = tree.query((float)1.0, (float)2.0);
+    List<Integer> res3 = tree.query((float)1.0, (float)2.0);
     assertEquals(3, res3.size());
     assertEquals(0, res3.get(0).intValue());
     assertEquals(2, res3.get(1).intValue());
@@ -114,7 +111,7 @@ public class NDTreeModelTest {
     assertEquals(2, res3.get(1).intValue());
     assertEquals(4, res3.get(2).intValue());
 
-    ArrayList<Integer> res4 = tree.query((float)0.99, (float)2.1);
+    List<Integer> res4 = tree.query((float)0.99, (float)2.1);
     assertEquals(2, res4.size());
     assertEquals(0, res4.get(0).intValue());
     assertEquals(1, res4.get(1).intValue());
@@ -124,7 +121,7 @@ public class NDTreeModelTest {
     assertEquals(1, res4.get(1).intValue());
   }
 
-  private Set<Integer> toSet(ArrayList<Integer> arr) {
+  private Set<Integer> toSet(List<Integer> arr) {
     Set<Integer> set = new HashSet<>();
     for (Integer i : arr) {
       set.add(i);
