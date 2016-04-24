@@ -39,5 +39,6 @@ dependencies {
   compile 'org.slf4j:slf4j-api:1.7.7'
   compile 'joda-time:joda-time:2.5'
   compile 'org.projectlombok:lombok:1.14.8'
+  compile 'org.apache.commons:commons-lang3:3.4'
   testCompile 'org.slf4j:slf4j-simple:1.7.7'
 }

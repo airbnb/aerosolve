@@ -176,4 +176,8 @@ public class MultiDimensionSpline implements Function {
   @Override
   public void resample(int newBins) {
   }
+
+  @Override
+  public void smooth(double tolerance) {
+  }
 }

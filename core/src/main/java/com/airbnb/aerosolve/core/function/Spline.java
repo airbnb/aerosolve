@@ -16,7 +16,7 @@ public class Spline extends AbstractFunction {
   private float binSize;
   private float binScale;
 
-  public Spline(float minVal, float maxVal, float [] weights) {
+  public Spline(float minVal, float maxVal, float[] weights) {
     setupSpline(minVal, maxVal, weights);
   }
 
@@ -66,8 +66,8 @@ public class Spline extends AbstractFunction {
     this.binSize = diff / (numBins - 1.0f);
     this.binScale = 1.0f / binSize;
   }
-  
-  private void setupSpline(float minVal, float maxVal, float [] weights) {
+
+  private void setupSpline(float minVal, float maxVal, float[] weights) {
     this.weights = weights;
     this.numBins = weights.length;
     this.minVal = minVal;
@@ -83,7 +83,7 @@ public class Spline extends AbstractFunction {
     int length = weights.length;
     float[] aggWeights = new float[length];
 
-    for (Function fun: functions) {
+    for (Function fun : functions) {
       Spline spline = (Spline) fun;
       float[] w = spline.weightsByNumBins(numBins);
       for (int i = 0; i < length; i++) {
@@ -94,7 +94,7 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public float evaluate(float ... x) {
+  public float evaluate(float... x) {
     int bin = getBin(x[0]);
     if (bin == numBins - 1) {
       return weights[numBins - 1];
@@ -106,7 +106,7 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void update(float delta, float ... values) {
+  public void update(float delta, float... values) {
     float x = values[0];
     int bin = getBin(x);
     if (bin == numBins - 1) {
@@ -190,6 +190,17 @@ public class Spline extends AbstractFunction {
     for (int i = 0; i < numBins; i++) {
       float t = i / (numBins - 1.0f);
       weights[i] = ((1.0f - t) * start + t * end);
+    }
+  }
+
+  @Override
+  public void smooth(double tolerance) {
+    // TODO use apache math's PolynomialCurveFitter
+    // compile 'org.apache.commons:commons-math3:3.6.1'
+    float[] best = FunctionUtil.fitPolynomial(weights);
+    float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
+    if (errAndCoeff < tolerance) {
+      FunctionUtil.evaluatePolynomial(best, weights, true);
     }
   }
 }

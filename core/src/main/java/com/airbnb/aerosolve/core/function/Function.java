@@ -21,4 +21,6 @@ public interface Function extends Serializable {
   float LInfinityNorm();
 
   void resample(int newBins);
+
+  void smooth(double tolerance);
 }
