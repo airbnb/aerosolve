@@ -76,14 +76,14 @@ public class FunctionUtil {
     return best;
   }
 
-//<<<<<<< e7bdc5a15a6998a02a124568c9283426e30c3621
-//  public static float[] toFloat(List<Double> list) {
-//    float[] result = new float[list.size()];
-//    for (int i = 0; i < result.length; i++) {
-//      result[i] = list.get(i).floatValue();
-//    }
-//   return result;
-//=======
+  public static float[] toFloat(List<Double> list) {
+    float[] result = new float[list.size()];
+    for (int i = 0; i < result.length; i++) {
+      result[i] = list.get(i).floatValue();
+    }
+    return result;
+  }
+
   /*
  * @param  tolerance if fitted array's deviation from weights is less than tolerance
  *         use the fitted, otherwise keep original weights.
