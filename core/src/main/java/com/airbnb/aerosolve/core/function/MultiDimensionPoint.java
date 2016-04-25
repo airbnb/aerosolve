@@ -134,11 +134,6 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
     only support 1D for now
    */
   public static Comparator<MultiDimensionPoint> get1DCoordinateComparator() {
-    return  new Comparator<MultiDimensionPoint>() {
-      @Override
-      public int compare(MultiDimensionPoint a, MultiDimensionPoint b) {
-        return a.coordinates.get(0).compareTo(b.coordinates.get(0));
-      }
-    };
+    return (a, b) -> a.coordinates.get(0).compareTo(b.coordinates.get(0));
   }
 }

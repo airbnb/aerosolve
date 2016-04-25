@@ -197,10 +197,6 @@ public class Spline extends AbstractFunction {
   public void smooth(double tolerance) {
     // TODO use apache math's PolynomialCurveFitter
     // compile 'org.apache.commons:commons-math3:3.6.1'
-    float[] best = FunctionUtil.fitPolynomial(weights);
-    float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
-    if (errAndCoeff < tolerance) {
-      FunctionUtil.evaluatePolynomial(best, weights, true);
-    }
+    FunctionUtil.smooth(tolerance, weights);
   }
 }

@@ -178,6 +178,18 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public void smooth(double tolerance) {
+    if (ndTreeModel.getDimension() != 1) return;
+    float[] weights = new float[points.size()];
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      weights[i] = (float) p.getWeight();
+    }
+    if (FunctionUtil.smooth(tolerance, weights)) {
+      for (int i = 0; i < points.size(); i++) {
+        MultiDimensionPoint p = points.get(i);
+        p.setWeight(weights[i]);
+      }
+    }
   }
 
   /*
