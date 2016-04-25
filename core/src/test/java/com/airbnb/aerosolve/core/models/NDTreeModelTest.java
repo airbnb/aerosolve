@@ -48,9 +48,58 @@ public class NDTreeModelTest {
 
     NDTreeNode[] arr = {parent, one, two, three, four};
     return new NDTreeModel(arr);
-
   }
+
+  public static NDTreeModel getNDTreeModel1D() {
+    NDTreeNode parent = new NDTreeNode();
+    parent.setCoordinateIndex(0);
+    parent.setSplitValue(1.0);
+    parent.setLeftChild(1);
+    parent.setRightChild(2);
+
+    NDTreeNode one = new NDTreeNode();
+    one.setCoordinateIndex(LEAF);
+    one.setMin(Arrays.asList(0.0));
+    one.setMax(Arrays.asList(1.0));
+
+    NDTreeNode two = new NDTreeNode();
+    two.setCoordinateIndex(0);
+    two.setSplitValue(2.0);
+    two.setLeftChild(3);
+    two.setRightChild(4);
+
+    NDTreeNode three = new NDTreeNode();
+    three.setCoordinateIndex(LEAF);
+    three.setMin(Arrays.asList(1.0));
+    three.setMax(Arrays.asList(2.0));
+
+    NDTreeNode four = new NDTreeNode();
+    four.setCoordinateIndex(LEAF);
+    four.setMin(Arrays.asList(2.0));
+    four.setMax(Arrays.asList(4.0));
+
+    NDTreeNode[] arr = {parent, one, two, three, four};
+    return new NDTreeModel(arr);
+  }
+
   @Test
+  public void testDimension() {
+    NDTreeModel tree = getNDTreeModel();
+    assertEquals(2, tree.getDimension());
+
+    NDTreeNode parent = new NDTreeNode();
+    parent.setCoordinateIndex(0);
+    NDTreeNode one = new NDTreeNode();
+    one.setCoordinateIndex(3);
+    NDTreeNode[] arr = {parent, one};
+    tree = new NDTreeModel(arr);
+    assertEquals(4, tree.getDimension());
+
+    tree = NDTreeModelTest.getNDTreeModel1D();
+    assertEquals(1, tree.getDimension());
+  }
+
+    @Test
   public void testLeaf() {
     NDTreeModel tree = getNDTreeModel();
 
