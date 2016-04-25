@@ -24,15 +24,22 @@ public class NDTreeModel implements Serializable {
   private static final Logger log = LoggerFactory.getLogger(NDTreeModel.class);
   public static final int LEAF = -1;
   @Getter
-  private NDTreeNode[] nodes;
+  private final NDTreeNode[] nodes;
+
+  @Getter
+  private final int dimension;
 
   public NDTreeModel(NDTreeNode[] nodes) {
     this.nodes = nodes;
+    int max = 0;
+    for (NDTreeNode node : nodes) {
+      max = Math.max(max, node.coordinateIndex);
+    }
+    dimension = max + 1;
   }
 
   public NDTreeModel(List<NDTreeNode> nodeList) {
-    nodes = new NDTreeNode[nodeList.size()];
-    nodeList.toArray(nodes);
+    this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
   }
 
   private static int binarySearch(NDTreeNode[] a, Object key, int currIdx) {
