@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -116,7 +117,7 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
     return (float) Math.sqrt(sum);
   }
 
-  @Override
+  @Override // used in LInfinityNorm
   public int compareTo(MultiDimensionPoint o) {
     final int BEFORE = -1;
     final int EQUAL = 0;
@@ -127,5 +128,17 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
     if (this.weight < o.weight) return BEFORE;
     if (this.weight > o.weight) return AFTER;
     return EQUAL;
+  }
+
+  /*
+    only support 1D for now
+   */
+  public static Comparator<MultiDimensionPoint> get1DCoordinateComparator() {
+    return  new Comparator<MultiDimensionPoint>() {
+      @Override
+      public int compare(MultiDimensionPoint a, MultiDimensionPoint b) {
+        return a.coordinates.get(0).compareTo(b.coordinates.get(0));
+      }
+    };
   }
 }

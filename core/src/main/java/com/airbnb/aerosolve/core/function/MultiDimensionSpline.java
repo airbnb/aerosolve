@@ -36,6 +36,12 @@ public class MultiDimensionSpline implements Function {
       }
     }
     points = new ArrayList<>(pointsMap.values());
+    if (ndTreeModel.getDimension() == 1) {
+      // sort 1D case for smooth,
+      // default MultiDimensionPoint Comparator compares weight
+      // so we need a new Comparator for compare coordinates
+      Collections.sort(points, MultiDimensionPoint.get1DCoordinateComparator());
+    }
   }
 
   public MultiDimensionSpline(ModelRecord record) {
