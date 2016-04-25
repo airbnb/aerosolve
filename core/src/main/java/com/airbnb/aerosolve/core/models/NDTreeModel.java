@@ -42,68 +42,6 @@ public class NDTreeModel implements Serializable {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
   }
 
-  private static int binarySearch(NDTreeNode[] a, Object key, int currIdx) {
-    while (true) {
-      int nextIdx = next(a[currIdx], key);
-      if (nextIdx == -1) {
-        return currIdx;
-      } else {
-        currIdx = nextIdx;
-      }
-    }
-  }
-
-  private static List<Integer> query(NDTreeNode[] a, Object key, int currIdx) {
-    List<Integer> idx = new ArrayList<>();
-    while (true) {
-      idx.add(currIdx);
-      int nextIdx = next(a[currIdx], key);
-      if (nextIdx == -1) {
-        return idx;
-      } else {
-        currIdx = nextIdx;
-      }
-    }
-  }
-
-  // TODO use https://github.com/facebook/swift
-  private static int next(NDTreeNode node, Object key) {
-    int index = node.coordinateIndex;
-    if (index == NDTreeModel.LEAF) {
-      // leaf
-      return -1;
-    } else {
-      if (key instanceof float[]) {
-        float[] coordinates = (float[]) key;
-        return nextChild(node, coordinates[index]);
-      } else if (key instanceof double[]) {
-        double[] coordinates = (double[]) key;
-        return nextChild(node, (float) coordinates[index]);
-      } else if (key instanceof List) {
-        Number x = (Number) ((List) key).get(index);
-        return nextChild(node, x);
-      } else {
-        throw new RuntimeException("obj " + key + " not supported");
-      }
-    }
-  }
-
-  private static int nextChild(NDTreeNode node, float value) {
-    if (value < node.splitValue) {
-      return node.leftChild;
-    } else {
-      return node.rightChild;
-    }
-  }
-
-  private static int nextChild(NDTreeNode node, Number value) {
-    if (value.doubleValue() < node.splitValue) {
-      return node.leftChild;
-    } else {
-      return node.rightChild;
-    }
-  }
-
   public int leaf(float ... coordinates) {
     if (nodes == null || nodes.length == 0) return -1;
     return binarySearch(nodes, coordinates, 0);
@@ -179,4 +117,65 @@ public class NDTreeModel implements Serializable {
     return readFromGzippedStream(stream);
   }
 
+  private static int binarySearch(NDTreeNode[] a, Object key, int currIdx) {
+    while (true) {
+      int nextIdx = next(a[currIdx], key);
+      if (nextIdx == -1) {
+        return currIdx;
+      } else {
+        currIdx = nextIdx;
+      }
+    }
+  }
+
+  private static List<Integer> query(NDTreeNode[] a, Object key, int currIdx) {
+    List<Integer> idx = new ArrayList<>();
+    while (true) {
+      idx.add(currIdx);
+      int nextIdx = next(a[currIdx], key);
+      if (nextIdx == -1) {
+        return idx;
+      } else {
+        currIdx = nextIdx;
+      }
+    }
+  }
+
+  // TODO use https://github.com/facebook/swift
+  private static int next(NDTreeNode node, Object key) {
+    int index = node.coordinateIndex;
+    if (index == NDTreeModel.LEAF) {
+      // leaf
+      return -1;
+    } else {
+      if (key instanceof float[]) {
+        float[] coordinates = (float[]) key;
+        return nextChild(node, coordinates[index]);
+      } else if (key instanceof double[]) {
+        double[] coordinates = (double[]) key;
+        return nextChild(node, (float) coordinates[index]);
+      } else if (key instanceof List) {
+        Number x = (Number) ((List) key).get(index);
+        return nextChild(node, x);
+      } else {
+        throw new RuntimeException("obj " + key + " not supported");
+      }
+    }
+  }
+
+  private static int nextChild(NDTreeNode node, float value) {
+    if (value < node.splitValue) {
+      return node.leftChild;
+    } else {
+      return node.rightChild;
+    }
+  }
+
+  private static int nextChild(NDTreeNode node, Number value) {
+    if (value.doubleValue() < node.splitValue) {
+      return node.leftChild;
+    } else {
+      return node.rightChild;
+    }
+  }
 }
