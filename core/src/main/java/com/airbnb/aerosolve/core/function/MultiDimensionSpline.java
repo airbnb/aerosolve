@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.NDTreeNode;
@@ -171,5 +172,21 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public void smooth(double tolerance) {
+  }
+
+  /*
+    This drop out is specific for MultiDimensionSpline
+   */
+  public static Map<String, List<Double>> featureDropout(
+      FeatureVector featureVector,
+      double dropout) {
+    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
+    if (denseFeatures == null) return Collections.EMPTY_MAP;
+    Map<String, List<Double>> out = new HashMap<>();
+    for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+      if (Math.random() < dropout) continue;
+      out.put(feature.getKey(), feature.getValue());
+    }
+    return out;
   }
 }

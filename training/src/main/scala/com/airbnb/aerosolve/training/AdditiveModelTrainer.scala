@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
-import com.airbnb.aerosolve.core.function.{Function, Linear, Spline}
+import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
 import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
 import com.typesafe.config.Config
@@ -230,7 +230,8 @@ object AdditiveModelTrainer {
                      label : Double,
                      params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    // only MultiDimensionSpline use denseFeatures for now
+    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
     val prediction = (model.scoreFlatFeatures(flatFeatures) +
       model.scoreDenseFeatures(denseFeatures)) /
       (1.0 - params.dropout)
@@ -239,11 +240,11 @@ object AdditiveModelTrainer {
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val delta = -grad.toFloat * params.learningRate.toFloat
-    model.update(delta,
+    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat
+    model.update(gradWithLearningRate,
                  params.linfinityCap.toFloat,
                  flatFeatures)
-    model.updateDense(delta,
+    model.updateDense(gradWithLearningRate,
                       params.linfinityCap.toFloat,
                       denseFeatures)
     return loss
@@ -254,17 +255,17 @@ object AdditiveModelTrainer {
                   label : Double,
                   params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
     val prediction = (model.scoreFlatFeatures(flatFeatures) +
       model.scoreDenseFeatures(denseFeatures)) /
       (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val delta = label.toFloat * params.learningRate.toFloat
-      model.update(delta,
+      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat
+      model.update(gradWithLearningRate,
                    params.linfinityCap.toFloat,
                    flatFeatures)
-      model.updateDense(delta,
+      model.updateDense(gradWithLearningRate,
                         params.linfinityCap.toFloat,
                         denseFeatures)
     }
@@ -276,21 +277,21 @@ object AdditiveModelTrainer {
                       label: Double,
                       params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
-    val denseFeatures = Util.denseFeatureDropout(fv, params.dropout)
+    val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
     val prediction = (model.scoreFlatFeatures(flatFeatures) +
       model.scoreDenseFeatures(denseFeatures)) /
       (1.0 - params.dropout)
     // absolute difference
     val loss = math.abs(prediction - label)
     if (prediction - label > params.epsilon) {
-      model.update(-params.learningRate.toFloat,
-                   params.linfinityCap.toFloat, flatFeatures)
-      model.updateDense(-params.learningRate.toFloat,
-                        params.linfinityCap.toFloat, denseFeatures)
-    } else if (prediction - label < -params.epsilon) {
       model.update(params.learningRate.toFloat,
                    params.linfinityCap.toFloat, flatFeatures)
       model.updateDense(params.learningRate.toFloat,
+                        params.linfinityCap.toFloat, denseFeatures)
+    } else if (prediction - label < -params.epsilon) {
+      model.update(-params.learningRate.toFloat,
+                   params.linfinityCap.toFloat, flatFeatures)
+      model.updateDense(-params.learningRate.toFloat,
                         params.linfinityCap.toFloat, denseFeatures)
     }
     return loss

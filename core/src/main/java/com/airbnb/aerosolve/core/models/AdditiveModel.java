@@ -28,6 +28,8 @@ public class AdditiveModel extends AbstractModel {
   @Getter @Setter
   private Map<String, Map<String, Function>> weights = new HashMap<>();
 
+  // only MultiDimensionSpline using denseWeights
+  // whole dense features belongs to feature family DENSE_FAMILY
   private Map<String, Function> denseWeights;
 
   private Map<String, Function> getOrCreateDenseWeights() {
@@ -96,7 +98,7 @@ public class AdditiveModel extends AbstractModel {
         float[] val = toFloat(feature.getValue());
         float subScore = fun.evaluate(val);
         sum += subScore;
-        String str = DENSE_FAMILY + ":" + feature.getKey() + "=" + val
+        String str = DENSE_FAMILY + ":" + featureName + "=" + val
             + " = " + subScore + "<br>\n";
         scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
       }
@@ -259,7 +261,7 @@ public class AdditiveModel extends AbstractModel {
   }
 
   // Update weights based on gradient and learning rate
-  public void update(float delta,
+  public void update(float gradWithLearningRate,
                      float cap,
                      Map<String, Map<String, Double>> flatFeatures) {
     // update with lInfinite cap
@@ -270,15 +272,15 @@ public class AdditiveModel extends AbstractModel {
         Function func = familyWeightMap.get(feature.getKey());
         if (func == null) continue;
         float val = feature.getValue().floatValue();
-        func.update(delta, val);
+        func.update(-gradWithLearningRate, val);
         func.LInfinityCap(cap);
       }
     }
   }
 
-  public void updateDense(float delta,
-                     float cap,
-                     Map<String, List<Double>> denseFeatures) {
+  public void updateDense(float gradWithLearningRate,
+                          float cap,
+                          Map<String, List<Double>> denseFeatures) {
     // update with lInfinite cap
     if (denseFeatures != null && !denseFeatures.isEmpty()) {
       assert (denseWeights != null);
@@ -286,7 +288,7 @@ public class AdditiveModel extends AbstractModel {
         String featureName = feature.getKey();
         Function func = denseWeights.get(featureName);
         float[] val = FunctionUtil.toFloat(feature.getValue());
-        func.update(delta, val);
+        func.update(-gradWithLearningRate, val);
         func.LInfinityCap(cap);
       }
     }
