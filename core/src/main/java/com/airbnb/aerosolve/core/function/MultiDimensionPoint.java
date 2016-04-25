@@ -9,13 +9,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-import static com.airbnb.aerosolve.core.util.Util.euclideanDistance;
-
 /*
   represent a point in multi dimension space for Function
  */
 public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
-  @Getter
+  @Getter // TODO change FloatVector to List<T> and use FloatVector here.
   private List<Float> coordinates;
   @Getter @Setter
   private double weight;

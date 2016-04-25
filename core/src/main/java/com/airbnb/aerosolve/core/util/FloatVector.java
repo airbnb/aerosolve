@@ -6,6 +6,7 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.util.Random;
 
+// TODO change to FloatVector<T>
 public class FloatVector implements Serializable {
   private static final Random rnd = new java.util.Random();
 
