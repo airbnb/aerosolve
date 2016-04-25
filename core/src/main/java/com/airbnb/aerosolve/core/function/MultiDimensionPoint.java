@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -7,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+
+import static com.airbnb.aerosolve.core.util.Util.euclideanDistance;
 
 /*
   represent a point in multi dimension space for Function
@@ -104,31 +107,11 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
   }
 
   public float getDistance(float[] coordinates) {
-    return euclideanDistance(coordinates, this.coordinates);
+    return Util.euclideanDistance(coordinates, this.coordinates);
   }
 
   public float getDistance(List<Double> coordinates) {
-    return euclideanDistance(coordinates, this.coordinates);
-  }
-
-  public static float euclideanDistance(float[] x, List<Float> y) {
-    assert (x.length == y.size());
-    double sum = 0;
-    for (int i = 0; i < x.length; i++) {
-      final double dp = x[i] - y.get(i);
-      sum += dp * dp;
-    }
-    return (float) Math.sqrt(sum);
-  }
-
-  public static float euclideanDistance(List<Double> x, List<Float> y) {
-    assert (x.size() == y.size());
-    double sum = 0;
-    for (int i = 0; i < y.size(); i++) {
-      final double dp = x.get(i) - y.get(i);
-      sum += dp * dp;
-    }
-    return (float) Math.sqrt(sum);
+    return Util.euclideanDistance(coordinates, this.coordinates);
   }
 
   @Override // used in LInfinityNorm
