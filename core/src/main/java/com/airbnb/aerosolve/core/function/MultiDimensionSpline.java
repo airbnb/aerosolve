@@ -81,6 +81,23 @@ public class MultiDimensionSpline implements Function {
       distance[i] = point.getDistance(coordinates);
       sum += distance[i];
     }
+    return score(list, distance, sum);
+  }
+
+  @Override
+  public float evaluate(List<Double> coordinates) {
+    List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
+    double[] distance = new double[list.size()];
+    double sum = 0;
+    for (int i = 0; i < list.size(); i++) {
+      MultiDimensionPoint point = list.get(i);
+      distance[i] = point.getDistance(coordinates);
+      sum += distance[i];
+    }
+    return score(list, distance, sum);
+  }
+
+  private static float score(List<MultiDimensionPoint> list, double[] distance, double sum) {
     float score = 0;
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
@@ -99,6 +116,23 @@ public class MultiDimensionSpline implements Function {
       distance[i] = point.getDistance(values);
       sum += distance[i];
     }
+    update(delta, list, distance, sum);
+  }
+
+  @Override
+  public void update(float delta, List<Double> values){
+    List<MultiDimensionPoint> list = getNearbyPoints(values);
+    double[] distance = new double[list.size()];
+    double sum = 0;
+    for (int i = 0; i < list.size(); i++) {
+      MultiDimensionPoint point = list.get(i);
+      distance[i] = point.getDistance(values);
+      sum += distance[i];
+    }
+    update(delta, list, distance, sum);
+  }
+
+  private static void update(float delta, List<MultiDimensionPoint> list, double[] distance, double sum) {
     for (int i = 0; i < list.size(); i++) {
       MultiDimensionPoint point = list.get(i);
       point.updateWeight(delta * (distance[i]/sum));
@@ -167,6 +201,12 @@ public class MultiDimensionSpline implements Function {
   }
 
   private List<MultiDimensionPoint> getNearbyPoints(float ... coordinates) {
+    int index = ndTreeModel.leaf(coordinates);
+    assert (index != -1 && weights.containsKey(index));
+    return weights.get(index);
+  }
+
+  private List<MultiDimensionPoint> getNearbyPoints(List<Double> coordinates) {
     int index = ndTreeModel.leaf(coordinates);
     assert (index != -1 && weights.containsKey(index));
     return weights.get(index);
