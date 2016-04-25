@@ -255,6 +255,7 @@ object AdditiveModelTrainer {
                   label : Double,
                   params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
+    // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
     val prediction = (model.scoreFlatFeatures(flatFeatures) +
       model.scoreDenseFeatures(denseFeatures)) /
@@ -277,6 +278,7 @@ object AdditiveModelTrainer {
                       label: Double,
                       params : AdditiveTrainerParams) : Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
+    // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
     val prediction = (model.scoreFlatFeatures(flatFeatures) +
       model.scoreDenseFeatures(denseFeatures)) /
