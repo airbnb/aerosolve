@@ -30,14 +30,12 @@ public abstract class AbstractFunction implements Function {
   @Override
   public float evaluate(List<Double> values) {
     throw new RuntimeException("method not implemented");
-
   }
 
   @Override
   public void update(float delta, List<Double> values){
     throw new RuntimeException("method not implemented");
   }
-
 
   public static Function buildFunction(ModelRecord record) {
     FunctionForm funcForm = record.getFunctionForm();

@@ -84,7 +84,15 @@ public class FunctionUtil {
 //    }
 //   return result;
 //=======
+  /*
+ * @param  tolerance if fitted array's deviation from weights is less than tolerance
+ *         use the fitted, otherwise keep original weights.
+ * @param  weights the curve you want to smooth
+ * @return true if weights is modified by fitted curve.
+   */
   public static boolean smooth(double tolerance, float[] weights) {
+    // TODO use apache math's PolynomialCurveFitter
+    // compile 'org.apache.commons:commons-math3:3.6.1'
     float[] best = FunctionUtil.fitPolynomial(weights);
     float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
     if (errAndCoeff < tolerance) {

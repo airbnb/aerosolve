@@ -195,8 +195,6 @@ public class Spline extends AbstractFunction {
 
   @Override
   public void smooth(double tolerance) {
-    // TODO use apache math's PolynomialCurveFitter
-    // compile 'org.apache.commons:commons-math3:3.6.1'
     FunctionUtil.smooth(tolerance, weights);
   }
 }
