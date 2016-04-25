@@ -372,4 +372,24 @@ public class Util implements Serializable {
     Collections.sort(debugDiffRecord, new DebugDiffRecordComparator());
     return debugDiffRecord;
   }
+
+  public static float euclideanDistance(float[] x, List<Float> y) {
+    assert (x.length == y.size());
+    double sum = 0;
+    for (int i = 0; i < x.length; i++) {
+      final double dp = x[i] - y.get(i);
+      sum += dp * dp;
+    }
+    return (float) Math.sqrt(sum);
+  }
+
+  public static float euclideanDistance(List<Double> x, List<Float> y) {
+    assert (x.size() == y.size());
+    double sum = 0;
+    for (int i = 0; i < y.size(); i++) {
+      final double dp = x.get(i) - y.get(i);
+      sum += dp * dp;
+    }
+    return (float) Math.sqrt(sum);
+  }
 }

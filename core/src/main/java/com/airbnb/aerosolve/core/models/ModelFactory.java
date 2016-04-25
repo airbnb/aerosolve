@@ -1,8 +1,5 @@
 package com.airbnb.aerosolve.core.models;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.util.Util;
@@ -10,12 +7,17 @@ import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+
 public final class ModelFactory {
   private static final Logger log = LoggerFactory.getLogger(ModelFactory.class);
 
   private ModelFactory() {
   }
+
   // Creates
+  @SuppressWarnings("deprecation")
   public static AbstractModel createByName(String name) {
     switch (name) {
       case "linear": return new LinearModel();

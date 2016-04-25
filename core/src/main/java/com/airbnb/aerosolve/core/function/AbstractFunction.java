@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Base class for functions
@@ -24,6 +25,16 @@ public abstract class AbstractFunction implements Function {
   public String toString() {
     return String.format("minVal=%f, maxVal=%f, weights=%s",
         minVal, maxVal, Arrays.toString(weights));
+  }
+
+  @Override
+  public float evaluate(List<Double> values) {
+    throw new RuntimeException("method not implemented");
+  }
+
+  @Override
+  public void update(float delta, List<Double> values){
+    throw new RuntimeException("method not implemented");
   }
 
   public static Function buildFunction(ModelRecord record) {

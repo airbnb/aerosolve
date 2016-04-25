@@ -1,9 +1,11 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -11,7 +13,7 @@ import java.util.Map;
   represent a point in multi dimension space for Function
  */
 public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
-  @Getter
+  @Getter // TODO change FloatVector to List<T> and use FloatVector here.
   private List<Float> coordinates;
   @Getter @Setter
   private double weight;
@@ -103,20 +105,14 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
   }
 
   public float getDistance(float[] coordinates) {
-    return euclideanDistance(coordinates, this.coordinates);
+    return Util.euclideanDistance(coordinates, this.coordinates);
   }
 
-  public static float euclideanDistance(float[] x, List<Float> y) {
-    assert (x.length == y.size());
-    double sum = 0;
-    for (int i = 0; i < x.length; i++) {
-      final double dp = x[i] - y.get(i);
-      sum += dp * dp;
-    }
-    return (float) Math.sqrt(sum);
+  public float getDistance(List<Double> coordinates) {
+    return Util.euclideanDistance(coordinates, this.coordinates);
   }
 
-  @Override
+  @Override // used in LInfinityNorm
   public int compareTo(MultiDimensionPoint o) {
     final int BEFORE = -1;
     final int EQUAL = 0;
@@ -127,5 +123,12 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
     if (this.weight < o.weight) return BEFORE;
     if (this.weight > o.weight) return AFTER;
     return EQUAL;
+  }
+
+  /*
+    only support 1D for now
+   */
+  public static Comparator<MultiDimensionPoint> get1DCoordinateComparator() {
+    return (a, b) -> a.coordinates.get(0).compareTo(b.coordinates.get(0));
   }
 }

@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.core.function;
 
+import com.airbnb.aerosolve.core.util.Util;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -97,8 +98,8 @@ public class MultiDimensionPointTest {
     List<Float> al = Arrays.asList(0f, 1f, -2f,  3.4f, 5.0f, -6.7f, 8.9f);
     List<Float> b = Arrays.asList(0f, 1.0f,  -2.0f, 3.4f, 5.0f, -6.7f, 8.9f);
 
-    assertEquals(0, MultiDimensionPoint.euclideanDistance(af, al), 0);
-    assertEquals(0, MultiDimensionPoint.euclideanDistance(af, b), 0);
+    assertEquals(0, Util.euclideanDistance(af, al), 0);
+    assertEquals(0, Util.euclideanDistance(af, b), 0);
   }
 
   @Test
@@ -109,7 +110,7 @@ public class MultiDimensionPointTest {
     List<Float> b = Arrays.asList(-5.0f, -6.0f, 7.0f, 8.0f);
 
     final double expected = Math.sqrt(84);
-    assertEquals(expected, MultiDimensionPoint.euclideanDistance(af, b), 0.001);
-    assertEquals(expected, MultiDimensionPoint.euclideanDistance(bf, a), 0.001);
+    assertEquals(expected, Util.euclideanDistance(af, b), 0.001);
+    assertEquals(expected, Util.euclideanDistance(bf, a), 0.001);
   }
 }
