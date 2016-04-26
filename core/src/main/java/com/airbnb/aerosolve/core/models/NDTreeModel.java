@@ -33,7 +33,7 @@ public class NDTreeModel implements Serializable {
     this.nodes = nodes;
     int max = 0;
     for (NDTreeNode node : nodes) {
-      max = Math.max(max, node.coordinateIndex);
+      max = Math.max(max, node.axisIndex);
     }
     dimension = max + 1;
   }
@@ -80,7 +80,7 @@ public class NDTreeModel implements Serializable {
       int currIdx = stack.pop();
       idx.add(currIdx);
       NDTreeNode node = nodes[currIdx];
-      int index = node.coordinateIndex;
+      int index = node.axisIndex;
       if (index > LEAF) {
         if (min.get(index) < node.splitValue) {
           stack.push(node.leftChild);
@@ -143,7 +143,7 @@ public class NDTreeModel implements Serializable {
 
   // TODO use https://github.com/facebook/swift
   private static int next(NDTreeNode node, Object key) {
-    int index = node.coordinateIndex;
+    int index = node.axisIndex;
     if (index == NDTreeModel.LEAF) {
       // leaf
       return -1;

@@ -25,7 +25,7 @@ public class MultiDimensionSpline implements Function {
     NDTreeNode[] nodes = ndTreeModel.getNodes();
     for (int i = 0; i < nodes.length; i++) {
       NDTreeNode node = nodes[i];
-      if (node.getCoordinateIndex() == NDTreeModel.LEAF) {
+      if (node.getAxisIndex() == NDTreeModel.LEAF) {
         List<MultiDimensionPoint> list = MultiDimensionPoint.getCombinationWithoutDuplication(
             node.getMin(), node.getMax(), pointsMap);
         if (list != null && !list.isEmpty()) {

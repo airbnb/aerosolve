@@ -92,10 +92,10 @@ struct ModelHeader {
 }
 
 struct NDTreeNode {
-// coordinateIndex = -1 is child,
-// coordinateIndex from 0 to min.size()-1 means split in that coordinate
-// similar to KDTreeNode's X_SPLIT, Y_SPLIT
-  1: optional i32 coordinateIndex;
+// axisIndex = -1 is child,
+// axisIndex from 0 to min.size()-1 means split is along that axis
+// (similar to KDTreeNode's X_SPLIT, Y_SPLIT)
+  1: optional i32 axisIndex;
   2: optional i32 leftChild;
   3: optional i32 rightChild;
   4: optional i32 count;

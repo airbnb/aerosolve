@@ -27,7 +27,7 @@ class NDTreeTest {
     val nodes = tree.nodes
     log.info("Num nodes = %d".format(nodes.size))
     // Since the x dimension is largest we expect the first node to be an xsplit
-    assertEquals(0, nodes(0).coordinateIndex)
+    assertEquals(0, nodes(0).axisIndex)
     assertEquals(-1.81, nodes(0).splitValue, 0.1)
     assertEquals(1, nodes(0).leftChild)
     assertEquals(2, nodes(0).rightChild)    // Ensure every point is bounded in the box of the kdtree
@@ -47,11 +47,10 @@ class NDTreeTest {
       for (i <- 0 until dimensions) {
         assert(node.min.get(i) <= node.max.get(i))
       }
-      if (node.coordinateIndex != NDTreeModel.LEAF) {
+      if (node.axisIndex != NDTreeModel.LEAF) {
         assert(node.leftChild >= 0 && node.leftChild < nodes.length)
         assert(node.rightChild >= 0 && node.rightChild < nodes.length)
       }
     }
   }
-
 }
