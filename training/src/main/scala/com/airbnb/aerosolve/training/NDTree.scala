@@ -39,9 +39,7 @@ object NDTree {
       return 0
     }
 
-    points.reduceLeft((minLength: Int, point: List[Double]) => {
-      math.min(minLength, point.length)
-    })
+    points.minBy(_.length).length
   }
 
   private def buildTreeRecursive(
@@ -204,11 +202,12 @@ object NDTree {
 class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
   val model = new NDTreeModel(nodes)
 
-//  // Returns the indices of nodes traversed to get to the leaf containing the point.
-//  def query(loc : (Double, Double)) : Array[Int] = {
-////    model.query(loc._1, loc._2).asScala.map(x => x.intValue()).toArray
-//    null
-//  }
+  // Returns the indices of nodes traversed to get to the leaf containing the point.
+  def query(point: List[Double]): Array[Int] = {
+    model.query(
+      point.map(_.toFloat).map(java.lang.Float.valueOf).asJava
+    ).asScala.map(_.intValue()).toArray
+  }
 //
 //  // Returns the indices of all node overlapping the box
 //  def queryBox(minXY : (Double, Double), maxXY : (Double, Double)) : Array[Int] = {
