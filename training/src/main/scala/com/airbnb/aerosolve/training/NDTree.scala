@@ -27,7 +27,7 @@ object NDTree {
       minLeafCount: Int,
       splitType: SplitType.Value = SplitType.Unspecified)
 
-  private case class Bounds(minima: List[Double], maxima: List[Double])
+  private case class Bounds(minima: Array[Double], maxima: Array[Double])
 
   private case class Split(
     axisIndex: Int,
@@ -35,8 +35,7 @@ object NDTree {
     leftIndices: Array[Int],
     rightIndices: Array[Int])
 
-  // TODO (christhetree): use an indexed data structure for a point rather than List[Double]
-  def apply(options: NDTreeBuildOptions, points: Array[List[Double]]): NDTree = {
+  def apply(options: NDTreeBuildOptions, points: Array[Array[Double]]): NDTree = {
     val nodes = ArrayBuffer[NDTreeNode]()
     val indices = points.indices.toArray
     val dimensions = getDimensions(points)
@@ -60,7 +59,7 @@ object NDTree {
     tree
   }
 
-  def getDimensions(points: Array[List[Double]]): Int = {
+  def getDimensions(points: Array[Array[Double]]): Int = {
     if (points.length == 0) {
       return 0
     }
@@ -72,7 +71,7 @@ object NDTree {
 
   private def buildTreeRecursive(
       options: NDTreeBuildOptions,
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       nodes: ArrayBuffer[NDTreeNode],
       node: NDTreeNode,
@@ -85,8 +84,8 @@ object NDTree {
 
     // Determine the min and max dimensions of the active set
     val bounds = getBounds(points, indices, dimensions)
-    node.setMin(bounds.minima.map(java.lang.Double.valueOf).asJava)
-    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).asJava)
+    node.setMin(bounds.minima.map(java.lang.Double.valueOf).toList.asJava)
+    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toList.asJava)
 
     var makeLeaf = false
 
@@ -139,20 +138,20 @@ object NDTree {
 
   // TODO (christhetree): this can be done more efficiently
   private def getBounds(
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       dimensions: Int): Bounds = {
     val bounds = (0 until dimensions).map((axisIndex: Int) => {
-      val axisIndexValues = indices.map(i => points(i)).map((point: List[Double]) => {
+      val axisIndexValues = indices.map(i => points(i)).map((point: Array[Double]) => {
         point(axisIndex)
       })
 
       (axisIndexValues.min, axisIndexValues.max)
-    }).toList
+    }).toArray
 
     val (minima, maxima) = bounds.unzip
 
-    Bounds(minima, maxima)
+    Bounds(minima.toArray, maxima.toArray)
   }
 
   private def areBoundsOverlapping(bounds: Bounds): Boolean = {
@@ -162,7 +161,7 @@ object NDTree {
   }
 
   private def getSplitUsingMedian(
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       axisIndex: Int): Split = {
     val splitValue = getMedian(points, indices, axisIndex)
@@ -184,7 +183,7 @@ object NDTree {
   }
 
   private def getMedian(
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       axisIndex: Int): Double = {
     // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
@@ -207,7 +206,7 @@ object NDTree {
   // P(S(L) | S(P)) * N_L + P(S(R) | S(P)) * N_R
   // which is the surface area of the sides weighted by point counts
   private def getSplitUsingSurfaceArea(
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       bounds: Bounds,
       dimensions: Int,
@@ -245,7 +244,7 @@ object NDTree {
   }
 
   private def computeCost(
-      points: Array[List[Double]],
+      points: Array[Array[Double]],
       indices: Array[Int],
       parentArea: Double,
       dimensions: Int): Double = {
@@ -271,7 +270,7 @@ object NDTree {
     })
   }
 
-  private def getDeltas(bounds: Bounds): List[Double] = {
+  private def getDeltas(bounds: Bounds): Array[Double] = {
     val deltas = bounds.minima.zip(bounds.maxima).map((bound: (Double, Double)) => {
       bound._2 - bound._1
     })
@@ -284,9 +283,9 @@ class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
   val model = new NDTreeModel(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
-  def query(point: List[Double]): Array[Int] = {
+  def query(point: Array[Double]): Array[Int] = {
     model.query(
-      point.map(_.toFloat).map(java.lang.Float.valueOf).asJava
+      point.map(_.toFloat).map(java.lang.Float.valueOf).toList.asJava
     ).asScala.map(_.intValue()).toArray
   }
 //

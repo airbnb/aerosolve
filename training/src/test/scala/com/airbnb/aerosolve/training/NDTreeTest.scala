@@ -13,11 +13,11 @@ class NDTreeTest {
 
   @Test
   def buildTreeTest: Unit = {
-    val pts = ArrayBuffer[List[Double]]()
+    val pts = ArrayBuffer[Array[Double]]()
     for (x <- -20 to 20) {
       for (y <- 1 to 19) {
         for (z <- 3 to 18) {
-          pts.append(List[Double](x.toDouble, y.toDouble, z.toDouble))
+          pts.append(Array[Double](x.toDouble, y.toDouble, z.toDouble))
         }
       }
     }
