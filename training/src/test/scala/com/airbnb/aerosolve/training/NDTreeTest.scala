@@ -15,14 +15,17 @@ class NDTreeTest {
   def buildTreeTest: Unit = {
     val pts = ArrayBuffer[List[Double]]()
     for (x <- -20 to 20) {
-      for (y <- 1 to 5) {
-        for (z <- 3 to 4) {
+      for (y <- 1 to 19) {
+        for (z <- 3 to 18) {
           pts.append(List[Double](x.toDouble, y.toDouble, z.toDouble))
         }
       }
     }
     val dimensions = pts.head.length
-    val options = NDTreeBuildOptions(maxTreeDepth = 16, minLeafCount = 1)
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 16,
+      minLeafCount = 0,
+      splitType = SplitType.SurfaceArea)
     val tree = NDTree(options, pts.toArray)
     val nodes = tree.nodes
     log.info("Num nodes = %d".format(nodes.size))

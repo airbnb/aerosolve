@@ -35,6 +35,7 @@ object NDTree {
     leftIndices: Array[Int],
     rightIndices: Array[Int])
 
+  // TODO (christhetree): use an indexed data structure for a point rather than List[Double]
   def apply(options: NDTreeBuildOptions, points: Array[List[Double]]): NDTree = {
     val nodes = ArrayBuffer[NDTreeNode]()
     val indices = points.indices.toArray
@@ -97,11 +98,16 @@ object NDTree {
 
     // Recursively build tree
     if (!makeLeaf) {
+      val deltas = getDeltas(bounds)
+
+      // Choose axisIndex with largest corresponding delta
+      val axisIndex = deltas.zipWithIndex.maxBy(_._1)._2
+
       val split = splitType match {
         case SplitType.Median =>
-          getSplitUsingMedian(points, indices, bounds, dimensions)
+          getSplitUsingMedian(points, indices, axisIndex)
         case SplitType.SurfaceArea =>
-          getSplitUsingSurfaceArea(points, indices, bounds, dimensions)
+          getSplitUsingSurfaceArea(points, indices, bounds, dimensions, axisIndex)
       }
 
       if (split.leftIndices.length <= options.minLeafCount ||
@@ -136,10 +142,8 @@ object NDTree {
       points: Array[List[Double]],
       indices: Array[Int],
       dimensions: Int): Bounds = {
-    val applicablePoints = indices.map(i => points(i))
-
     val bounds = (0 until dimensions).map((axisIndex: Int) => {
-      val axisIndexValues = applicablePoints.map((point: List[Double]) => {
+      val axisIndexValues = indices.map(i => points(i)).map((point: List[Double]) => {
         point(axisIndex)
       })
 
@@ -160,9 +164,41 @@ object NDTree {
   private def getSplitUsingMedian(
       points: Array[List[Double]],
       indices: Array[Int],
-      bounds: Bounds,
-      dimensions: Int): Split = {
-    null
+      axisIndex: Int): Split = {
+    val splitValue = getMedian(points, indices, axisIndex)
+
+    val leftIndices = indices.filter((index: Int) => {
+      points(index)(axisIndex) < splitValue
+    })
+    val rightIndices = indices.filter((index: Int) => {
+      points(index)(axisIndex) >= splitValue
+    })
+
+    val split = if ((leftIndices.length > 0) && (rightIndices.length > 0)) {
+      Split(axisIndex, splitValue, leftIndices, rightIndices)
+    } else {
+      Split(0, 0.0, Array(), Array())
+    }
+
+    split
+  }
+
+  private def getMedian(
+      points: Array[List[Double]],
+      indices: Array[Int],
+      axisIndex: Int): Double = {
+    // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
+    // performance instead of O(nln(n)) performance
+    val sortedPoints = indices.map(i => points(i)).sortBy(_(axisIndex))
+    val length = sortedPoints.length
+
+    val median = if ((length % 2) == 0) {
+      (sortedPoints(length / 2)(axisIndex) + sortedPoints((length / 2) - 1)(axisIndex)) / 2.0
+    } else {
+      sortedPoints(length / 2)(axisIndex)
+    }
+
+    median
   }
 
   // Split using the surface area heuristic
@@ -174,12 +210,10 @@ object NDTree {
       points: Array[List[Double]],
       indices: Array[Int],
       bounds: Bounds,
-      dimensions: Int): Split = {
+      dimensions: Int,
+      axisIndex: Int): Split = {
     val deltas = getDeltas(bounds)
     val parentArea = getArea(bounds)
-
-    // Choose axisIndex with largest corresponding delta
-    val axisIndex = deltas.zipWithIndex.maxBy(_._1)._2
 
     var bestSplit = Split(0, 0.0, Array(), Array())
     var bestScore = Double.MaxValue
@@ -189,20 +223,20 @@ object NDTree {
 
       val splitValue = bounds.minima(axisIndex) + (deltas(axisIndex) * fraction)
 
-      val leftIndex = indices.filter((index: Int) => {
+      val leftIndices = indices.filter((index: Int) => {
         points(index)(axisIndex) < splitValue
       })
-      val rightIndex = indices.filter((index: Int) => {
+      val rightIndices = indices.filter((index: Int) => {
         points(index)(axisIndex) >= splitValue
       })
 
-      val leftCost = computeCost(points, leftIndex, parentArea, dimensions)
-      val rightCost = computeCost(points, rightIndex, parentArea, dimensions)
+      val leftCost = computeCost(points, leftIndices, parentArea, dimensions)
+      val rightCost = computeCost(points, rightIndices, parentArea, dimensions)
 
       val score = leftCost + rightCost
 
-      if (i == 0 || ((score < bestScore) && (leftIndex.length > 0) && (rightIndex.length > 0))) {
-        bestSplit = Split(axisIndex, splitValue, leftIndex, rightIndex)
+      if (i == 0 || ((score < bestScore) && (leftIndices.length > 0) && (rightIndices.length > 0))) {
+        bestSplit = Split(axisIndex, splitValue, leftIndices, rightIndices)
         bestScore = score
       }
     }
