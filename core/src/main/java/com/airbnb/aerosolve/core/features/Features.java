@@ -44,6 +44,7 @@ public class Features {
     return features;
   }
 
+  // TODO  make it more generic, for example, taking care of dense feature
   public Example toExample(boolean isMultiClass) {
     assert (names.length == values.length);
     if (names.length != values.length) {
