@@ -37,8 +37,15 @@ object NDTree {
 
   def apply(options: NDTreeBuildOptions, points: Array[Array[Double]]): NDTree = {
     val nodes = ArrayBuffer[NDTreeNode]()
+
     val indices = points.indices.toArray
-    val dimensions = getDimensions(points)
+
+    if (indices.isEmpty) {
+      return new NDTree(nodes.toArray)
+    }
+
+    val dimensions = points.head.length
+    val isConstantDimension = points.forall(_.length == dimensions)
 
     val splitType = if (options.splitType == SplitType.Unspecified) {
       dimensions match {
@@ -49,24 +56,14 @@ object NDTree {
       options.splitType
     }
 
-    if (indices.length > 0 && dimensions > 0) {
+    if ((indices.length > 0) && (dimensions > 0) && isConstantDimension) {
       val node = new NDTreeNode()
       nodes.append(node)
-      buildTreeRecursive(options, points, indices, nodes, node, 1, dimensions, splitType)
+      buildTreeRecursive(options, points, indices, nodes, node, 1, splitType)
     }
 
     val tree = new NDTree(nodes.toArray)
     tree
-  }
-
-  def getDimensions(points: Array[Array[Double]]): Int = {
-    if (points.length == 0) {
-      return 0
-    }
-
-    // All points should be of the same dimension, but if this is not the case the smallest
-    // dimension is used
-    points.minBy(_.length).length
   }
 
   private def buildTreeRecursive(
@@ -76,14 +73,13 @@ object NDTree {
       nodes: ArrayBuffer[NDTreeNode],
       node: NDTreeNode,
       depth: Int,
-      dimensions: Int,
       splitType: SplitType.Value): Unit = {
-    assert(indices.length > 0 && dimensions > 0 && splitType != SplitType.Unspecified)
+    assert(indices.length > 0 && splitType != SplitType.Unspecified)
 
     node.setCount(indices.length)
 
     // Determine the min and max dimensions of the active set
-    val bounds = getBounds(points, indices, dimensions)
+    val bounds = getBounds(points, indices)
     node.setMin(bounds.minima.map(java.lang.Double.valueOf).toList.asJava)
     node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toList.asJava)
 
@@ -106,7 +102,7 @@ object NDTree {
         case SplitType.Median =>
           getSplitUsingMedian(points, indices, axisIndex)
         case SplitType.SurfaceArea =>
-          getSplitUsingSurfaceArea(points, indices, bounds, dimensions, axisIndex)
+          getSplitUsingSurfaceArea(points, indices, bounds, axisIndex)
       }
 
       if (split.leftIndices.length <= options.minLeafCount ||
@@ -125,9 +121,9 @@ object NDTree {
         node.setRightChild(nodes.size - 1)
 
         buildTreeRecursive(
-          options, points, split.leftIndices, nodes, left, depth + 1, dimensions, splitType)
+          options, points, split.leftIndices, nodes, left, depth + 1, splitType)
         buildTreeRecursive(
-          options, points, split.rightIndices, nodes, right, depth + 1, dimensions, splitType)
+          options, points, split.rightIndices, nodes, right, depth + 1, splitType)
       }
     }
 
@@ -136,22 +132,24 @@ object NDTree {
     }
   }
 
-  // TODO (christhetree): this can be done more efficiently
   private def getBounds(
       points: Array[Array[Double]],
-      indices: Array[Int],
-      dimensions: Int): Bounds = {
-    val bounds = (0 until dimensions).map((axisIndex: Int) => {
-      val axisIndexValues = indices.map(i => points(i)).map((point: Array[Double]) => {
-        point(axisIndex)
+      indices: Array[Int]): Bounds = {
+    val applicablePoints = indices.map(i => points(i))
+
+    val minima = applicablePoints.reduceLeft((result: Array[Double], point: Array[Double]) => {
+      result.zip(point).map((axisIndexValues: (Double, Double)) => {
+        math.min(axisIndexValues._1, axisIndexValues._2)
       })
+    })
 
-      (axisIndexValues.min, axisIndexValues.max)
-    }).toArray
+    val maxima = applicablePoints.reduceLeft((result: Array[Double], point: Array[Double]) => {
+      result.zip(point).map((axisIndexValues: (Double, Double)) => {
+        math.max(axisIndexValues._1, axisIndexValues._2)
+      })
+    })
 
-    val (minima, maxima) = bounds.unzip
-
-    Bounds(minima.toArray, maxima.toArray)
+    Bounds(minima, maxima)
   }
 
   private def areBoundsOverlapping(bounds: Bounds): Boolean = {
@@ -209,7 +207,6 @@ object NDTree {
       points: Array[Array[Double]],
       indices: Array[Int],
       bounds: Bounds,
-      dimensions: Int,
       axisIndex: Int): Split = {
     val deltas = getDeltas(bounds)
     val parentArea = getArea(bounds)
@@ -229,8 +226,8 @@ object NDTree {
         points(index)(axisIndex) >= splitValue
       })
 
-      val leftCost = computeCost(points, leftIndices, parentArea, dimensions)
-      val rightCost = computeCost(points, rightIndices, parentArea, dimensions)
+      val leftCost = computeCost(points, leftIndices, parentArea)
+      val rightCost = computeCost(points, rightIndices, parentArea)
 
       val score = leftCost + rightCost
 
@@ -246,13 +243,12 @@ object NDTree {
   private def computeCost(
       points: Array[Array[Double]],
       indices: Array[Int],
-      parentArea: Double,
-      dimensions: Int): Double = {
+      parentArea: Double): Double = {
     if (parentArea == 0.0) {
       return indices.length
     }
 
-    val bounds = getBounds(points, indices, dimensions)
+    val bounds = getBounds(points, indices)
     val area = getArea(bounds)
 
     if (area == 0.0) {
