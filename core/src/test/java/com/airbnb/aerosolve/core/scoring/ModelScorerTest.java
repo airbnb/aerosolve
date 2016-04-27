@@ -29,9 +29,9 @@ public class ModelScorerTest {
     ModelScorer modelScorer = new ModelScorer(incomeModel);
 
     FeatureMapping featureMapping = new FeatureMapping();
-    featureMapping.add(dataName1, Features.FloatType);
-    featureMapping.add(dataName2, Features.FloatType);
-    featureMapping.add(dataName3, Features.StringType);
+    featureMapping.add(dataName1);
+    featureMapping.add(dataName2);
+    featureMapping.add(dataName3);
     featureMapping.finish();
 
     FeatureGen f = new FeatureGen(featureMapping);
