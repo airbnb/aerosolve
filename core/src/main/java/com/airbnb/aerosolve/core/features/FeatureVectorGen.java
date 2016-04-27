@@ -35,16 +35,20 @@ public class FeatureVectorGen {
       Object feature = features.values[i];
 
       if (feature != null) {
-        Integer type = features.types[i];
+       // Integer type = features.types[i];
         String name = features.names[i];
-        if (type == Features.FloatType) {
+        if (feature instanceof Double || feature instanceof Float ||
+            feature instanceof Integer || feature instanceof Long) {
           for (FloatFamily featureFamily : floatFamilies) {
             if (featureFamily.add(name, feature)) break;
           }
-        } else {
-          assert(type == Features.StringType || type == Features.BooleanType);
+        } else if (feature instanceof String) {
           for (StringFamily featureFamily : stringFamilies) {
-            if (featureFamily.add(name, feature, type)) break;
+            if (featureFamily.add(name, feature)) break;
+          }
+        } else if (feature instanceof Boolean){
+          for (StringFamily featureFamily : stringFamilies) {
+            if (featureFamily.add(name, (Boolean) feature)) break;
           }
         }
       }

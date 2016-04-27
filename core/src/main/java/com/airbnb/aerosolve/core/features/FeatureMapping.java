@@ -14,10 +14,7 @@ public class FeatureMapping {
   public final static int DEFAULT_SIZE = 100;
   @Getter
   private String[] names;
-  @Getter
-  private Integer[] types;
   private ArrayList<String> nameList;
-  private ArrayList<Integer> typeList;
   @Getter
   private final Map<Object, Entry> mapping;
 
@@ -32,16 +29,15 @@ public class FeatureMapping {
 
   public FeatureMapping(int size) {
     nameList = new ArrayList<>(size);
-    typeList = new ArrayList<>(size);
     mapping = new HashMap<>(size);
   }
 
   // use name mapping array as key.
-  public void add(String[] names, Integer type) {
-    add(names, names, type);
+  public void add(String[] names) {
+    add(names, names);
   }
 
-  public void add(Object c, String[] names, Integer type) {
+  public void add(Object c, String[] names) {
     assert(names.length > 0);
     // should not add duplicated feature mapping
     assert(mapping.get(c) == null);
@@ -49,20 +45,16 @@ public class FeatureMapping {
     e.start = nameList.size();
     e.length = names.length;
     Collections.addAll(nameList, names);
-    for (int i = 0; i < names.length; i++) {
-      typeList.add(type);
-    }
     mapping.put(c, e);
   }
 
-  public void add(Class c, List<ScoringFeature> features) {
+  public void add(Class c, List<String> features) {
     assert (features.size() > 0);
     Entry e = new Entry();
     e.start = nameList.size();
     e.length = features.size();
-    for (ScoringFeature f : features) {
-      nameList.add(f.getName());
-      typeList.add(f.getType());
+    for (String name : features) {
+      nameList.add(name);
     }
     mapping.put(c, e);
   }
@@ -70,9 +62,6 @@ public class FeatureMapping {
   public void finish() {
     names = new String[nameList.size()];
     nameList.toArray(names);
-    types = new Integer[typeList.size()];
-    typeList.toArray(types);
     nameList = null;
-    typeList = null;
   }
 }

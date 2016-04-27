@@ -33,7 +33,6 @@ public class FeatureGen {
   public Features gen() {
     return Features.builder().
         names(mapping.getNames()).
-        types(mapping.getTypes()).
         values(values).
         build();
   }

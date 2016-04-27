@@ -1,8 +1,5 @@
 package com.airbnb.aerosolve.core.features;
 
-import com.airbnb.aerosolve.core.features.FeatureGen;
-import com.airbnb.aerosolve.core.features.FeatureMapping;
-import com.airbnb.aerosolve.core.features.Features;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -13,11 +10,11 @@ public class FeatureGenTest {
   public void add() throws Exception {
     FeatureMapping m = new FeatureMapping(100);
     String[] doubleNames = {"a", "b"};
-    m.add(Double.class, doubleNames, 2);
+    m.add(Double.class, doubleNames);
     String[] booleanNames = {"c", "d"};
-    m.add(Boolean.class, booleanNames, 3);
+    m.add(Boolean.class, booleanNames);
     String[] strNames = {"e", "f"};
-    m.add(String.class, strNames, 1);
+    m.add(String.class, strNames);
     m.finish();
 
     FeatureGen f = new FeatureGen(m);

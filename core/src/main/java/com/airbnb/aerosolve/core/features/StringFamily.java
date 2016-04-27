@@ -19,15 +19,7 @@ public class StringFamily extends FeatureFamily<String> {
     features.add(feature);
   }
 
-  public boolean add(String name, Object feature, Integer type) {
-    if (type == Features.StringType) {
-      return add(name, feature);
-    } else {
-      return add(name, (Boolean) feature);
-    }
-  }
-
-  private boolean add(String name, Boolean feature) {
+  public boolean add(String name, Boolean feature) {
     String value = getBooleanFeatureAsString(name, feature);
     return add(name, value);
   }
