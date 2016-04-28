@@ -2,25 +2,24 @@ package com.airbnb.aerosolve.training.pipeline
 
 import java.io.{BufferedWriter, OutputStreamWriter}
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector, ModelRecord}
 import com.airbnb.aerosolve.core.models.{AbstractModel, ForestModel, FullRankLinearModel}
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, ModelRecord}
 import com.airbnb.aerosolve.training._
 import com.typesafe.config.{Config, ConfigValueFactory}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.io.compress.GzipCodec
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.sql._
-import org.apache.spark.rdd.RDD
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import org.apache.hadoop.io.compress.GzipCodec
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types._
+import org.slf4j.{Logger, LoggerFactory}
 
-import scala.math.{ceil, max, pow}
 import scala.collection.JavaConverters._
+import scala.math.{ceil, max, pow}
 import scala.util.{Random, Try}
 
 /*
@@ -646,101 +645,7 @@ object GenericPipeline {
       row: Row,
       schema: Array[StructField],
       isMulticlass: Boolean = false): Example = {
-    val example = new Example()
-    val featureVector = new FeatureVector()
-    example.addToExample(featureVector)
-
-    val stringFeatures = new java.util.HashMap[String, java.util.Set[java.lang.String]]()
-    featureVector.setStringFeatures(stringFeatures)
-
-    val floatFeatures = new java.util.HashMap[String, java.util.Map[
-      java.lang.String, java.lang.Double]]()
-    featureVector.setFloatFeatures(floatFeatures)
-
-    val bias = new java.util.HashSet[java.lang.String]()
-    val missing = new java.util.HashSet[java.lang.String]()
-    bias.add("B")
-
-    stringFeatures.put("BIAS", bias)
-    stringFeatures.put("MISS", missing)
-
-    //val genericFloat = new java.util.HashMap[java.lang.String, java.lang.Double]()
-    for (i <- schema.indices) {
-      val rowSchema = schema(i)
-      val name = rowSchema.name
-      val tokens = rowSchema.name.split("_")
-
-      if (tokens.size != 2) {
-        if (tokens(0) != LABEL) {
-          log.error("Column name not in FAMILY_NAME format or is not LABEL! %s".format(name))
-          System.exit(-1)
-        }
-      }
-
-      val featureFamily = tokens(0)
-      val featureName = if (tokens.size > 1) tokens(1) else ""
-
-      if (row.isNullAt(i)) {
-        missing.add(name)
-      } else {
-        rowSchema.dataType match {
-          case StringType =>
-            val str = row.getString(i)
-
-            if (isMulticlass && featureFamily == LABEL) {
-              str.split(",").foreach(classStr => {
-                val labelTokens = classStr.split(":").toIndexedSeq
-
-                if (labelTokens.size != 2) {
-                  log.error("Multiclass LABEL \"%s\" not in format [label1]:[weight1],...!"
-                    .format(str))
-                  System.exit(-1)
-                }
-
-                val feature = Util.getOrCreateFloatFeature(featureFamily, floatFeatures)
-
-                feature.put(labelTokens(0), labelTokens(1).toDouble)
-              })
-            } else {
-              val feature = Util.getOrCreateStringFeature(featureFamily, stringFeatures)
-
-              if (featureName == "RAW") {
-                // In RAW case, don't append feature name
-                feature.add(str)
-              } else {
-                feature.add(featureName + ':' + str)
-              }
-            }
-
-          case LongType =>
-            val lng = row.getLong(i)
-            val feature = Util.getOrCreateFloatFeature(featureFamily, floatFeatures)
-            feature.put(featureName, lng.toDouble)
-
-          case IntegerType =>
-            val int = row.getInt(i)
-            val feature = Util.getOrCreateFloatFeature(featureFamily, floatFeatures)
-            feature.put(featureName, int.toDouble)
-
-          case FloatType =>
-            val dbl = row.getFloat(i)
-            val feature = Util.getOrCreateFloatFeature(featureFamily, floatFeatures)
-            feature.put(featureName, dbl.toDouble)
-
-          case DoubleType =>
-            val dbl = row.getDouble(i)
-            val feature = Util.getOrCreateFloatFeature(featureFamily, floatFeatures)
-            feature.put(featureName, dbl.toDouble)
-
-          case BooleanType =>
-            val bool = row.getBoolean(i)
-            val feature = Util.getOrCreateStringFeature(featureFamily, stringFeatures)
-            val str = if (bool) "T" else "F"
-            feature.add(featureName + ':' + str)
-        }
-      }
-    }
-
-    example
+    val features = ExampleUtil.getFeatures(row, schema)
+    features.toExample(isMulticlass);
   }
 }
