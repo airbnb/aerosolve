@@ -220,7 +220,7 @@ public class AdditiveModel extends AbstractModel {
     for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
       Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
       if (familyWeightMap == null) {
-        // this is may due to certain feature is not important so removed.
+        // not important families/features are removed from model
         log.debug("miss featureFamily {}", featureFamily.getKey());
         continue;
       }
