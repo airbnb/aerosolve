@@ -56,7 +56,7 @@ object FullRankLinearTrainer {
 
     options.cache match {
       case "memory" => pointwise.unpersist()
-      case _ : String => Unit
+      case _ : String =>
     }
     model
   }

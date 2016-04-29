@@ -76,6 +76,7 @@ class LinearRankerTrainerTest {
       |  lambda : 0.4
       |  lambda2 : 0.1
       |  iterations : 10
+      |  cache : "memory"
       |  dropout : 0.1
       |  context_transform : identity_transform
       |  item_transform : identity_transform
