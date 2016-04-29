@@ -73,6 +73,10 @@ public class NgramTransform implements Transform {
         }
       }
 
+      if (cleanedTokens.size() < minN) {
+        continue;
+      }
+
       for (int i = minN; i <= n; ++i) {
         List<String> ngrams = generateNgrams(cleanedTokens, i);
 

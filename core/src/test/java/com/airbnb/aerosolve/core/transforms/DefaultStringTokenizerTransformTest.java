@@ -118,33 +118,19 @@ public class DefaultStringTokenizerTransformTest {
     Map<String, Double> bigrams = floatFeatures.get("bigrams");
 
     assertEquals(14, bigrams.size());
-    assertEquals(2.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blueberry"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "blueberry" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "apple"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "apple" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "pie" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "and"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "and" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "also"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "also" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "like"), 0.0);
-    assertEquals(2.0, bigrams.get(
-        "like" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "blue"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "I" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "m"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "m" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "so"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "so" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "excited"), 0.0);
-    assertEquals(1.0, bigrams.get(
-        "excited" + DefaultStringTokenizerTransform.BIGRAM_SEPARATOR + "I"), 0.0);
+    assertEquals(2.0, bigrams.get("I" + NgramTransform.BIGRAM_SEPARATOR + "like"), 0.0);
+    assertEquals(1.0, bigrams.get("like" + NgramTransform.BIGRAM_SEPARATOR + "blueberry"), 0.0);
+    assertEquals(1.0, bigrams.get("blueberry" + NgramTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
+    assertEquals(1.0, bigrams.get("pie" + NgramTransform.BIGRAM_SEPARATOR + "apple"), 0.0);
+    assertEquals(1.0, bigrams.get("apple" + NgramTransform.BIGRAM_SEPARATOR + "pie"), 0.0);
+    assertEquals(1.0, bigrams.get("pie" + NgramTransform.BIGRAM_SEPARATOR + "and"), 0.0);
+    assertEquals(1.0, bigrams.get("and" + NgramTransform.BIGRAM_SEPARATOR + "I"), 0.0);
+    assertEquals(1.0, bigrams.get("I" + NgramTransform.BIGRAM_SEPARATOR + "also"), 0.0);
+    assertEquals(1.0, bigrams.get("also" + NgramTransform.BIGRAM_SEPARATOR + "like"), 0.0);
+    assertEquals(2.0, bigrams.get("like" + NgramTransform.BIGRAM_SEPARATOR + "blue"), 0.0);
+    assertEquals(1.0, bigrams.get("I" + NgramTransform.BIGRAM_SEPARATOR + "m"), 0.0);
+    assertEquals(1.0, bigrams.get("m" + NgramTransform.BIGRAM_SEPARATOR + "so"), 0.0);
+    assertEquals(1.0, bigrams.get("so" + NgramTransform.BIGRAM_SEPARATOR + "excited"), 0.0);
+    assertEquals(1.0, bigrams.get("excited" + NgramTransform.BIGRAM_SEPARATOR + "I"), 0.0);
   }
 }
