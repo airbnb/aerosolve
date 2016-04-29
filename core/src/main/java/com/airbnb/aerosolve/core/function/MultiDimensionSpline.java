@@ -53,7 +53,9 @@ public class MultiDimensionSpline implements Function {
     updateWeights(weights);
   }
 
-  @Override // it doesn't need numBins just like linear
+  // Spline is multi scale, so it needs numBins
+  // MultiDimensionSpline does not support multi scale.
+  @Override
   public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
     // functions size == 1/scale
     int length = points.size();
