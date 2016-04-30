@@ -36,7 +36,7 @@ public class MultiDimensionSpline implements Function {
       }
     }
     points = new ArrayList<>(pointsMap.values());
-    if (ndTreeModel.getDimension() == 1) {
+    if (canDoSmooth()) {
       // sort 1D case for smooth,
       // default MultiDimensionPoint Comparator compares weight
       // so we need a new Comparator for compare coordinates
@@ -53,7 +53,9 @@ public class MultiDimensionSpline implements Function {
     updateWeights(weights);
   }
 
-  @Override // it doesn't need numBins just like linear
+  // Spline is multi scale, so it needs numBins
+  // MultiDimensionSpline does not support multi scale.
+  @Override
   public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
     // functions size == 1/scale
     int length = points.size();
@@ -218,7 +220,7 @@ public class MultiDimensionSpline implements Function {
 
   @Override
   public void smooth(double tolerance) {
-    if (ndTreeModel.getDimension() != 1) return;
+    if (!canDoSmooth()) return;
     float[] weights = new float[points.size()];
     for (int i = 0; i < points.size(); i++) {
       MultiDimensionPoint p = points.get(i);
@@ -230,6 +232,10 @@ public class MultiDimensionSpline implements Function {
         p.setWeight(weights[i]);
       }
     }
+  }
+
+  private boolean canDoSmooth() {
+    return ndTreeModel.getDimension() == 1;
   }
 
   /*
