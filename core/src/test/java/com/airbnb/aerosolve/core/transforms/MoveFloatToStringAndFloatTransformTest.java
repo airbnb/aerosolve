@@ -20,12 +20,14 @@ import static org.junit.Assert.assertTrue;
  * Created by christhetree on 4/8/16.
  */
 public class MoveFloatToStringAndFloatTransformTest {
-  private static final Logger log = LoggerFactory.getLogger(MoveFloatToStringAndFloatTransformTest.class);
+  private static final Logger log = LoggerFactory.getLogger(
+    MoveFloatToStringAndFloatTransformTest.class);
 
   public String makeConfig() {
     return "test_move_float_to_string_and_float {\n" +
         " transform : move_float_to_string_and_float\n" +
         " field1 : floatFeature1\n" +
+        " keys : [a, b, c, d, e, f, g, h, i]\n" +
         " bucket : 1.0\n" +
         " max_bucket : 10.0\n" +
         " min_bucket : 0.0\n" +
@@ -48,6 +50,8 @@ public class MoveFloatToStringAndFloatTransformTest {
     floatFeature1.put("g", -1.01);
     floatFeature1.put("h", 21.3);
     floatFeature1.put("i", 2000.0);
+    floatFeature1.put("j", 1.0);
+    floatFeature1.put("k", 9000.0);
 
     floatFeatures.put("floatFeature1", floatFeature1);
 

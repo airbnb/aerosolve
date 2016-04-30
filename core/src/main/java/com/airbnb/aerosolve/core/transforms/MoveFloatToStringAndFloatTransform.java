@@ -11,12 +11,11 @@ import com.typesafe.config.Config;
 
 /**
  * Takes the floats in the keys of fieldName1 (or if keys are not specified, all floats) and
- * quantizes them into buckets. If the quantized float is
- * less than or equal to a maximum specified bucket value or greater than or equal to a minimum
- * specified bucket value, then the quantized float is stored as a string in a new string
- * feature output specified by stringOutputName. Otherwise, the original, unchanged float is
- * stored in a new float feature output specified by floatOutputName. The input float feature
- * remains unchanged.
+ * quantizes them into buckets. If the quantized float is less than or equal to a maximum specified
+ * bucket value or greater than or equal to a minimum specified bucket value, then the quantized
+ * float is stored as a string in a new string feature output specified by stringOutputName.
+ * Otherwise, the original, unchanged float is stored in a new float feature output specified by
+ * floatOutputName. The input float feature remains unchanged.
  */
 public class MoveFloatToStringAndFloatTransform implements Transform {
   private String fieldName1;
