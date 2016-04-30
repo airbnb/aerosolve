@@ -64,7 +64,7 @@ object Evaluation {
     trainPR.append((1.0, 0.0))
     holdPR.append((1.0, 0.0))
 
-    for (i <- 0 until thresholds.size - 1) {
+    for (i <- 0 until thresholds.length - 1) {
       val threshold = thresholds(i)
       val tmp = evaluateBinaryClassificationAtThreshold(records, threshold)
       val tmpMap = tmp.toMap
@@ -320,6 +320,17 @@ object Evaluation {
       .collect
 
     (getAUC(buckets.map(x=>(x._2._1, x._2._2))), getAUC(buckets.map(x=>(x._2._3, x._2._4))))
+  }
+
+  def getClassificationAUC(records: List[EvaluationRecord]): Double = {
+    // compute just one AUC for all records without discriminating training and hold out
+    val evalRecords = records.map(record => {
+      // assuming all in holdout group
+      record.setIs_training(false)
+      record
+    })
+    val aucs = getClassificationAUCTrainHold(evalRecords)
+    aucs._2
   }
 
   private def getClassificationAUCTrainHold(records : List[EvaluationRecord]) : (Double, Double) = {

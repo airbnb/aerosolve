@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.demo.ImageImpressionism;
+package com.airbnb.aerosolve.demo.ImageImpressionism
 
 import java.awt.image.BufferedImage
 import java.util
