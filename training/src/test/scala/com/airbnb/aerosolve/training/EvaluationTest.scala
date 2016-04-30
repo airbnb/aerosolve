@@ -223,6 +223,25 @@ class EvaluationTest {
   }
 
   @Test
+  def evaluationGaussianAUCTest(): Unit = {
+    val recs = generateDataGaussian
+    var sc = new SparkContext("local", "EvaluationTest")
+
+    try {
+      val auc = Evaluation.getClassificationAUC(recs.toList)
+      val THRESHOLD = 0.7
+      assertTrue(auc > THRESHOLD)
+    }
+    finally {
+      sc.stop
+      sc = null
+      // To avoid Akka rebinding to the same port,
+      // since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
+
+  @Test
   def evaluationGaussianListTest(): Unit = {
     val recs = generateDataGaussian.toList
     val results = Evaluation.evaluateBinaryClassification(recs, 11, "!HOLD_F1").toMap
