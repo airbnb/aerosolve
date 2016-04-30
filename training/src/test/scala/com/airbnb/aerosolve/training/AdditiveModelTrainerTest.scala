@@ -34,6 +34,7 @@ class AdditiveModelTrainerTest {
       |  dropout : %f
       |  min_count : 0
       |  subsample : 1.0
+      |  cache : "memory"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
@@ -63,6 +64,7 @@ class AdditiveModelTrainerTest {
       |  dropout : 0.0
       |  min_count : 0
       |  subsample : 1.0
+      |  cache : "memory"
       |  epsilon: 0.1
       |  context_transform : identity_transform
       |  item_transform : identity_transform

@@ -451,7 +451,20 @@ object LinearRankerTrainer {
       case _: Throwable => "ranking"
     }
     log.info("Training using " + loss)
-    sgdTrain(sc, input, config, key, loss)
+    val cache = Try(config.getString("cache")).getOrElse("")
+    val examples = cache match {
+      case "memory" => input.cache()
+      case _ => input
+    }
+
+    val model = sgdTrain(sc, examples, config, key, loss)
+
+    cache match {
+      case "memory" => examples.unpersist()
+      case _ =>
+    }
+
+    model
   }
 
   def setPrior(config : Config,
@@ -556,7 +569,7 @@ object LinearRankerTrainer {
       writer.write(Util.encode(record))
       writer.write('\n')
     }
-    writer.close
+    writer.close()
   }
 
   def trainAndSaveToFile(sc : SparkContext,

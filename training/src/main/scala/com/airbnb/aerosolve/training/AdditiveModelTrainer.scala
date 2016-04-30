@@ -38,12 +38,12 @@ object AdditiveModelTrainer {
                                    linfinityCap : Double,
                                    threshold : Double,
                                    lossMod : Int,
-                                   isRanking : Boolean,    // If we have a list based ranking loss
                                    rankMargin : Double,    // The margin for ranking loss
                                    epsilon : Double,       // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: Array[String],
-                                   priors: Array[String])
+                                   priors: Array[String],
+                                   cache: String)
 
   def train(sc : SparkContext,
             input : RDD[Example],
@@ -52,7 +52,13 @@ object AdditiveModelTrainer {
     val trainConfig = config.getConfig(key)
     val iterations : Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
-    val transformed = transformExamples(input, config, key, params)
+    val pointwise = LinearRankerUtils.makePointwiseFloat(input, config, key)
+
+    val transformed = params.cache match {
+      case "memory" => pointwise.cache()
+      case _ : String => pointwise
+    }
+
     var model = modelInitialization(transformed, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
@@ -73,6 +79,12 @@ object AdditiveModelTrainer {
           output)
       }
     }
+
+    params.cache match {
+      case "memory" => transformed.unpersist()
+      case _ =>
+    }
+
     model
   }
 
@@ -299,17 +311,6 @@ object AdditiveModelTrainer {
     return loss
   }
 
-  private def transformExamples(input: RDD[Example],
-                        config: Config,
-                        key: String,
-                        params: AdditiveTrainerParams): RDD[Example] = {
-    if (params.isRanking) {
-      LinearRankerUtils.transformExamples(input, config, key)
-    } else {
-      LinearRankerUtils.makePointwiseFloat(input, config, key)
-    }
-  }
-
   private def modelInitialization(input: RDD[Example],
                                   params: AdditiveTrainerParams): AdditiveModel = {
     // add functions to additive model
@@ -409,30 +410,6 @@ object AdditiveModelTrainer {
   }
 
   def loadTrainingParameters(config: Config): AdditiveTrainerParams = {
-    val loss : String = config.getString("loss")
-    val isRanking = loss match {
-      case "logistic" => false
-      case "hinge" => false
-      case "regression" => false
-      case _ => {
-        log.error("Unknown loss function %s".format(loss))
-        System.exit(-1)
-        false
-      }
-    }
-    val numBins : Int = config.getInt("num_bins")
-    val numBags : Int = config.getInt("num_bags")
-    val rankKey : String = config.getString("rank_key")
-    val learningRate : Double = config.getDouble("learning_rate")
-    val dropout : Double = config.getDouble("dropout")
-    val subsample : Double = config.getDouble("subsample")
-    val linfinityCap : Double = config.getDouble("linfinity_cap")
-    val smoothingTolerance : Double = config.getDouble("smoothing_tolerance")
-    val linfinityThreshold : Double = config.getDouble("linfinity_threshold")
-    val initModelPath : String = Try{config.getString("init_model")}.getOrElse("")
-    val threshold : Double = config.getDouble("rank_threshold")
-    val epsilon: Double = Try{config.getDouble("epsilon")}.getOrElse(0.0)
-    val minCount : Int = config.getInt("min_count")
     val linearFeatureFamilies : Array[String] = Try(
       config.getStringList("linear_feature").toList.toArray)
       .getOrElse(Array[String]())
@@ -441,36 +418,32 @@ object AdditiveModelTrainer {
       config.getStringList("prior").toList.toArray)
     .getOrElse(Array[String]())
 
-    val margin : Double = Try(config.getDouble("margin")).getOrElse(1.0)
-
     val multiscale : Array[Int] = Try(
       config.getIntList("multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
 
-    val rankMargin : Double = Try(config.getDouble("rank_margin")).getOrElse(0.5)
-
     AdditiveTrainerParams(
-      numBins,
-      numBags,
-      rankKey,
-      loss,
-      minCount,
-      learningRate,
-      dropout,
-      subsample,
-      margin,
+      config.getInt("num_bins"),
+      config.getInt("num_bags"),
+      config.getString("rank_key"),
+      config.getString("loss"),
+      config.getInt("min_count"),
+      config.getDouble("learning_rate"),
+      Try(config.getDouble("dropout")).getOrElse(0.0),
+      config.getDouble("subsample"),
+      Try(config.getDouble("margin")).getOrElse(1.0),
       multiscale,
-      smoothingTolerance,
-      linfinityThreshold,
-      linfinityCap,
-      threshold,
-      lossMod,
-      isRanking,
-      rankMargin,
-      epsilon,
-      initModelPath,
+      config.getDouble("smoothing_tolerance"),
+      config.getDouble("linfinity_threshold"),
+      config.getDouble("linfinity_cap"),
+      config.getDouble("rank_threshold"),
+      Try{config.getInt("loss_mod")}.getOrElse(100),
+      Try(config.getDouble("rank_margin")).getOrElse(0.5),
+      Try{config.getDouble("epsilon")}.getOrElse(0.0),
+      Try{config.getString("init_model")}.getOrElse(""),
       linearFeatureFamilies,
-      priors)
+      priors,
+      Try(config.getString("cache")).getOrElse(""))
   }
 
   def trainAndSaveToFile(sc : SparkContext,
