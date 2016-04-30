@@ -3,13 +3,15 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import com.typesafe.config.Config;
 
 /**
- * Takes the floats in fieldName1 and quantizes them into buckets. If the quantized float is
+ * Takes the floats in the keys of fieldName1 (or if keys are not specified, all floats) and
+ * quantizes them into buckets. If the quantized float is
  * less than or equal to a maximum specified bucket value or greater than or equal to a minimum
  * specified bucket value, then the quantized float is stored as a string in a new string
  * feature output specified by stringOutputName. Otherwise, the original, unchanged float is
@@ -18,6 +20,7 @@ import com.typesafe.config.Config;
  */
 public class MoveFloatToStringAndFloatTransform implements Transform {
   private String fieldName1;
+  private List<String> keys;
   private double bucket;
   private double maxBucket;
   private double minBucket;
@@ -27,6 +30,9 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
+    if (config.hasPath(key + ".keys")) {
+      keys = config.getStringList(key + ".keys");
+    }
     bucket = config.getDouble(key + ".bucket");
     maxBucket = config.getDouble(key + ".max_bucket");
     minBucket = config.getDouble(key + ".min_bucket");
@@ -54,17 +60,37 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
 
     Map<String, Double> floatOutput = Util.getOrCreateFloatFeature(floatOutputName, floatFeatures);
 
-    for (Map.Entry<String, Double> inputEntry : input.entrySet()) {
-      String inputFloatKey = inputEntry.getKey();
-      Double inputFloatValue = inputEntry.getValue();
+    if (keys != null) {
+      for (String key : keys) {
+        moveFloatToStringAndFloat(
+          input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
+      }
+    } else {
+      for (String key : input.keySet()) {
+        moveFloatToStringAndFloat(
+          input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
+      }
+    }
+  }
+
+  private static void moveFloatToStringAndFloat(
+      Map<String, Double> input,
+      String key,
+      double bucket,
+      double minBucket,
+      double maxBucket,
+      Set<String> stringOutput,
+      Map<String, Double> floatOutput) {
+    if (input.containsKey(key)) {
+      Double inputFloatValue = input.get(key);
 
       Double inputFloatQuantized = LinearLogQuantizeTransform.quantize(inputFloatValue, bucket);
 
       if (inputFloatQuantized >= minBucket && inputFloatQuantized <= maxBucket) {
-        String movedFloat = inputFloatKey + "=" + inputFloatQuantized;
+        String movedFloat = key + "=" + inputFloatQuantized;
         stringOutput.add(movedFloat);
       } else {
-        floatOutput.put(inputFloatKey, inputFloatValue);
+        floatOutput.put(key, inputFloatValue);
       }
     }
   }
