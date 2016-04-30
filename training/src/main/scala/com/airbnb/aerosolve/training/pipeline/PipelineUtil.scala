@@ -3,9 +3,13 @@ package com.airbnb.aerosolve.training.pipeline
 import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
 import java.net.URI
 
+import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.models.AbstractModel
+import com.airbnb.aerosolve.core.transforms.Transformer
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 import org.apache.hadoop.io.compress.GzipCodec
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -104,5 +108,24 @@ object PipelineUtil {
       }
     }
     log.info("Copy done.")
+  }
+
+  def scoreExamples(sc: SparkContext,
+                    transformer: Transformer,
+                    modelOpt: AbstractModel,
+                    examples: RDD[Example],
+                    isTraining: Example => Boolean,
+                    labelKey: String): RDD[(Float, String)] = {
+    val modelBC = sc.broadcast(modelOpt)
+    val transformerBC = sc.broadcast(transformer)
+    val scoreAndLabel = examples
+      .map(example => {
+        transformerBC.value.combineContextAndItems(example)
+        val score = modelBC.value.scoreItem(example.example.get(0))
+        val rank = example.example.get(0).floatFeatures.get(labelKey).get("")
+        val label = (if (isTraining(example)) "TRAIN_" else "HOLD_") + (if (rank > 0) "P" else "N")
+        (score, label)
+      })
+    scoreAndLabel
   }
 }

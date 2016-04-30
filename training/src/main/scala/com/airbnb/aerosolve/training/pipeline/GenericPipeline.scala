@@ -159,7 +159,7 @@ object GenericPipeline {
     val data = getExamples(sc, input)
         .sample(false, plattsConfig.getDouble("subsample"))
 
-    val scoresAndLabel = EvalUtil.scoreExamples(sc, transformer, model, data, isTraining, LABEL)
+    val scoresAndLabel = PipelineUtil.scoreExamples(sc, transformer, model, data, isTraining, LABEL)
 
     // Use TRAIN data for train and HOLD data for eval
     val calibrationTraining = scoresAndLabel
@@ -463,7 +463,7 @@ object GenericPipeline {
 
     builder ++= "\nFloat Features:"
 
-  if (fv.floatFeatures != null) {
+    if (fv.floatFeatures != null) {
       fv.floatFeatures.asScala.foreach(x =>  {
         builder ++= "FAMILY : " + x._1 + '\n'
         x._2.asScala.foreach(y => {builder ++= "--> " + y.toString + '\n'})
@@ -560,7 +560,7 @@ object GenericPipeline {
       paramCfg.asScala.map(_.getDoubleList("val").asScala
         .map(_.doubleValue()).toArray).toArray).getOrElse(Array[Array[Double]]())
 
-    if (paramNames.size != initParamVals.size) {
+    if (paramNames.length != initParamVals.length) {
       log.error("incomplete parameter info")
     }
 
@@ -568,9 +568,9 @@ object GenericPipeline {
       // TODO (hui_duan) can be extended to adopt more strategies
       case "guided" => initParamVals
       case "grid" => initParamVals.map((x:Array[Double]) => {
-        val low = if (x.size > 0) x(0) else 0
-        val high = if (x.size > 1) x(1) else 1
-        val count = max(ceil(pow(maxRound,1d / initParamVals.size)).toInt, 2)
+        val low = if (x.length > 0) x(0) else 0
+        val high = if (x.length > 1) x(1) else 1
+        val count = max(ceil(pow(maxRound,1d / initParamVals.length)).toInt, 2)
         val step = (high - low) / (count - 1)
         (0 until count).map(_ * step + low).toArray
       })
@@ -646,6 +646,6 @@ object GenericPipeline {
       schema: Array[StructField],
       isMulticlass: Boolean = false): Example = {
     val features = ExampleUtil.getFeatures(row, schema)
-    features.toExample(isMulticlass);
+    features.toExample(isMulticlass)
   }
 }
