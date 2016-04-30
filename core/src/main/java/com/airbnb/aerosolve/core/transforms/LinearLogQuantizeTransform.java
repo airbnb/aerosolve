@@ -1,14 +1,13 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -67,9 +66,9 @@ public class LinearLogQuantizeTransform implements Transform {
   private static boolean checkAndQuantize(Double featureValue, double limit, double stepSize, boolean integerRounding) {
     if (featureValue <= limit) {
       if (!integerRounding) {
-        sb.append(quantize(featureValue, stepSize));
+        sb.append(TransformUtil.quantize(featureValue, stepSize));
       } else {
-        sb.append(quantize(featureValue, stepSize).intValue());
+        sb.append(TransformUtil.quantize(featureValue, stepSize).intValue());
       }
 
       return true;
@@ -115,11 +114,6 @@ public class LinearLogQuantizeTransform implements Transform {
     }
 
     return sb.toString();
-  }
-
-  public static Double quantize(double val, double delta) {
-    Double mult = val / delta;
-    return delta * mult.intValue();
   }
 
   @Override

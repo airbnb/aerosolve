@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 
@@ -74,7 +75,7 @@ public class CustomMultiscaleQuantizeTransform implements Transform {
     }
 
     for (double bucket : buckets) {
-      double quantized = LinearLogQuantizeTransform.quantize(featureValue, bucket);
+      double quantized = TransformUtil.quantize(featureValue, bucket);
       output.add(featureName + '[' + bucket + "]=" + quantized);
     }
   }

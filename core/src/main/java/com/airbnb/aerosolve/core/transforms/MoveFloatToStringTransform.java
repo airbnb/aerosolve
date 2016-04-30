@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 
@@ -81,7 +82,7 @@ public class MoveFloatToStringTransform implements Transform {
         dbl = cap;
       }
 
-      Double quantized = LinearLogQuantizeTransform.quantize(dbl, bucket);
+      Double quantized = TransformUtil.quantize(dbl, bucket);
       output.add(key + '=' + quantized);
     }
   }

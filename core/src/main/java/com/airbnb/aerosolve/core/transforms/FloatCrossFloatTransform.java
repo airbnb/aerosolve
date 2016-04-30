@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 
 import java.util.Map;
@@ -62,7 +63,7 @@ public class FloatCrossFloatTransform implements Transform {
         float1Value = cap;
       }
 
-      Double float1Quantized = LinearLogQuantizeTransform.quantize(float1Value, bucket);
+      Double float1Quantized = TransformUtil.quantize(float1Value, bucket);
 
       for (Map.Entry<String, Double> entry2 : map2.entrySet()) {
         String float2Key = entry2.getKey();

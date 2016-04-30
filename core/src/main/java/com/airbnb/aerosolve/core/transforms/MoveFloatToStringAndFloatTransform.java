@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 
 import java.util.Map;
@@ -58,7 +59,7 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
       String inputFloatKey = inputEntry.getKey();
       Double inputFloatValue = inputEntry.getValue();
 
-      Double inputFloatQuantized = LinearLogQuantizeTransform.quantize(inputFloatValue, bucket);
+      Double inputFloatQuantized = TransformUtil.quantize(inputFloatValue, bucket);
 
       if (inputFloatQuantized >= minBucket && inputFloatQuantized <= maxBucket) {
         String movedFloat = inputFloatKey + "=" + inputFloatQuantized;
