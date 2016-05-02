@@ -29,7 +29,7 @@ after_success:
       test "${TRAVIS_TAG}" &&
       test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' &&
       gradle --info bintrayUpload &&
-      curl -X POST -H 'Content-type: application/json' --data '{"text":"Aerosolve version ${TRAVIS_TAG} has been <https://travis-ci.org/airbnb/aerosolve/builds/${TRAVIS_BUILD_ID}|built> and published!"}' ${AEROSOLVE_CHANNEL}
+      ./publish-notify.sh
 
 # environment variables for bintray credentials
 # https://docs.travis-ci.com/user/encryption-keys/
