@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -79,7 +80,7 @@ public class CustomLinearLogQuantizeTransform implements Transform {
         bucket = limitBucketPairsMap.get(limit);
       }
 
-      Double val = LinearLogQuantizeTransform.quantize(featureValue, bucket) * 1000;
+      Double val = TransformUtil.quantize(featureValue, bucket) * 1000;
 
       sb.append('=');
       if (isValueNegative) {

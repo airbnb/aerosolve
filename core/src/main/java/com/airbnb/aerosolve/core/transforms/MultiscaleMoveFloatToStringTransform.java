@@ -1,12 +1,11 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.List;
 
 /**
@@ -55,7 +54,7 @@ public class MultiscaleMoveFloatToStringTransform implements Transform {
           dbl = cap;
         }
         for (Double bucket : buckets) {
-          Double quantized = LinearLogQuantizeTransform.quantize(dbl, bucket);
+          Double quantized = TransformUtil.quantize(dbl, bucket);
           output.add(key + '[' + bucket + "]=" + quantized);
         }
         feature1.remove(key);

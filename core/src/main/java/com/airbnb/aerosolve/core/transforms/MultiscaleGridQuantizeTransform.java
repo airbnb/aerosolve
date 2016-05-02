@@ -1,11 +1,11 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.util.TransformUtil;
 import com.airbnb.aerosolve.core.util.Util;
 import com.typesafe.config.Config;
 
 import java.util.*;
-import java.util.Map.Entry;
 
 /**
  * Created by hector_yee on 8/25/14.
@@ -59,8 +59,8 @@ public class MultiscaleGridQuantizeTransform implements Transform {
   }
 
   public static void transformFeature(double v1, double v2, double bucket, Set<String> output) {
-    double q1 = LinearLogQuantizeTransform.quantize(v1, bucket);
-    double q2 = LinearLogQuantizeTransform.quantize(v2, bucket);
+    double q1 = TransformUtil.quantize(v1, bucket);
+    double q2 = TransformUtil.quantize(v2, bucket);
     output.add("[" + bucket + "]=(" + q1 + ',' + q2 + ')');
   }
 }
