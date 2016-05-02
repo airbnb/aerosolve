@@ -2,7 +2,6 @@ apply plugin: "java"
 apply plugin: "scala"
 apply plugin: 'com.jfrog.bintray'
 
-ext.publish = false
 bintray {
   user = System.env.BINTRAY_USER ?: bintray_user
   key = System.env.BINTRAY_KEY ?: bintray_key
