@@ -13,6 +13,8 @@ bintray {
   // rename '(.+)\\.(.+)', '$1-suffix.$2'
   //}
   publish = project.publish
+  dryRun = project.dryRun
+
   pkg {
     repo = 'aerosolve'
     userOrg = 'airbnb'

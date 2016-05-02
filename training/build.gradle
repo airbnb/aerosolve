@@ -1,5 +1,6 @@
 apply plugin: "java"
 apply plugin: "scala"
+apply plugin: 'com.jfrog.bintray'
 
 ext.publish = false
 bintray {
@@ -13,6 +14,8 @@ bintray {
   // rename '(.+)\\.(.+)', '$1-suffix.$2'
   //}
   publish = project.publish
+  dryRun = project.dryRun
+
   pkg {
     repo = 'aerosolve'
     userOrg = 'airbnb'
