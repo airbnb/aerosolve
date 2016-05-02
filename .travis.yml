@@ -21,7 +21,7 @@ before_install:
 
 script:
   - gradle assemble
-  - test ! "${TRAVIS_TAG}" && gradle check # only run check on non-tag build because of flaky tests
+  - test "${TRAVIS_TAG}" || gradle check # only run check on non-tag build because of flaky tests
 
 # publish artifacts to bintray on tag builds
 after_success:
