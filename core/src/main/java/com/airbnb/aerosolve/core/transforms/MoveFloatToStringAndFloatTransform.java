@@ -2,12 +2,11 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
+import com.typesafe.config.Config;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-
-import com.typesafe.config.Config;
 
 /**
  * Takes the floats in the keys of fieldName1 (or if keys are not specified, all floats) and
@@ -19,7 +18,7 @@ import com.typesafe.config.Config;
  */
 public class MoveFloatToStringAndFloatTransform implements Transform {
   private String fieldName1;
-  private List<String> keys;
+  private Collection<String> keys;
   private double bucket;
   private double maxBucket;
   private double minBucket;
@@ -59,16 +58,13 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
 
     Map<String, Double> floatOutput = Util.getOrCreateFloatFeature(floatOutputName, floatFeatures);
 
-    if (keys != null) {
-      for (String key : keys) {
-        moveFloatToStringAndFloat(
-          input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
-      }
-    } else {
-      for (String key : input.keySet()) {
-        moveFloatToStringAndFloat(
-          input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
-      }
+    if (keys == null) {
+      keys = input.keySet();
+    }
+
+    for (String key : keys) {
+      moveFloatToStringAndFloat(
+        input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
     }
   }
 
