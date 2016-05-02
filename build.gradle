@@ -36,7 +36,7 @@ allprojects {
   status = version.status
 
   ext.publish = true
-  ext.dryRun = true
+  ext.dryRun = false
 
   sourceSets {
       main {
