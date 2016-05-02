@@ -3,8 +3,8 @@ apply plugin: "java"
 apply plugin: 'com.jfrog.bintray'
 
 bintray {
-  user = bintray_user
-  key = bintray_key
+  user = System.env.BINTRAY_USER ?: bintray_user
+  key = System.env.BINTRAY_KEY ?: bintray_key
   configurations = ['published', 'archives']
   //publications = ['published']
   //filesSpec {
@@ -13,6 +13,8 @@ bintray {
   // rename '(.+)\\.(.+)', '$1-suffix.$2'
   //}
   publish = project.publish
+  dryRun = project.dryRun
+
   pkg {
     repo = 'aerosolve'
     userOrg = 'airbnb'
