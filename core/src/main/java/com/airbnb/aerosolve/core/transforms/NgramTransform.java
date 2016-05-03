@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.transforms.Transform;
 import com.airbnb.aerosolve.core.util.Util;
 
 import java.util.ArrayList;
@@ -43,17 +44,13 @@ public class NgramTransform implements Transform {
 
   @Override
   public void doTransform(FeatureVector featureVector) {
-    if (regex == null) {
-      return;
-    }
-
     Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     if (stringFeatures == null) {
       return ;
     }
 
-    Set<String> feature1 = stringFeatures.get(fieldName1);
-    if (feature1 == null) {
+    Set<String> input = stringFeatures.get(fieldName1);
+    if (input == null) {
       return;
     }
 
@@ -61,17 +58,19 @@ public class NgramTransform implements Transform {
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
 
-    for (String rawString : feature1) {
+    generateOutputTokens(input, regex, output, minN, n);
+  }
+
+  public static void generateOutputTokens(
+      Set<String> input,
+      String regex,
+      Map<String, Double> output,
+      int minN,
+      int n) {
+    for (String rawString : input) {
       if (rawString == null) continue;
 
-      String[] rawTokens = rawString.split(regex);
-      ArrayList<String> cleanedTokens = new ArrayList<>();
-
-      for (String token: rawTokens) {
-        if (token != null && token.length() > 0) {
-          cleanedTokens.add(token);
-        }
-      }
+      List<String> cleanedTokens = generateCleanedTokens(rawString, regex);
 
       if (cleanedTokens.size() < minN) {
         continue;
@@ -81,13 +80,31 @@ public class NgramTransform implements Transform {
         List<String> ngrams = generateNgrams(cleanedTokens, i);
 
         for (String ngram : ngrams) {
-          DefaultStringTokenizerTransform.incrementOutput(ngram, output);
+          incrementOutput(ngram, output);
         }
       }
     }
   }
 
-  public static List<String> generateNgrams(ArrayList<String> tokens, int n) {
+  public static List<String> generateCleanedTokens(String rawString, String regex) {
+    ArrayList<String> cleanedTokens = new ArrayList<>();
+
+    if (rawString == null) {
+      return cleanedTokens;
+    }
+
+    String[] rawTokens = rawString.split(regex);
+
+    for (String token : rawTokens) {
+      if (token != null && token.length() > 0) {
+        cleanedTokens.add(token);
+      }
+    }
+
+    return cleanedTokens;
+  }
+
+  public static List<String> generateNgrams(List<String> tokens, int n) {
     List<String> ngrams = new LinkedList<>();
 
     if (n < 1 || tokens == null) {
@@ -101,7 +118,7 @@ public class NgramTransform implements Transform {
     return ngrams;
   }
 
-  private static String concatenate(ArrayList<String> tokens, int start, int end) {
+  private static String concatenate(List<String> tokens, int start, int end) {
     StringBuilder sb = new StringBuilder();
 
     for (int i = start; i < end; ++i) {
@@ -114,5 +131,17 @@ public class NgramTransform implements Transform {
     }
 
     return sb.toString();
+  }
+
+  private static void incrementOutput(String key, Map<String, Double> output) {
+    if (key == null || output == null) {
+      return;
+    }
+    if (output.containsKey(key)) {
+      double count = output.get(key);
+      output.put(key, (count + 1.0));
+    } else {
+      output.put(key, 1.0);
+    }
   }
 }
