@@ -19,6 +19,11 @@ import scala.util.Try
   * Additive Model Trainer
   * By default, we use a spline function to represent a float feature; use linear function to represent a string feature.
   * Additionally, float features that are specified as 'linear_feature' in config are also represented by a linear function.
+  *
+  * Model is fitted using [[https://en.wikipedia.org/wiki/Backfitting_algorithm Backfitting Algorithm]] where weight vectors
+  * for each feature is updated independently using SGD and after each iteration spline features are passed under a smoothing
+  * operator. This is a simplified implementation of GAM where features are bucketed into exactly where knots are with some
+  * flexibility being provided by applying multiscaling to the bucketing scheme.
   */
 //noinspection NameBooleanParameters
 
@@ -71,6 +76,19 @@ object AdditiveModelTrainer {
     model
   }
 
+  /**
+    * During each iteration, we:
+    *
+    * 1. Sample dataset with subsample (this is analogous to mini-batch sgd?)
+    * 1. Repartition to numBags (this is analogous to ensemble averaging?)
+    * 1. For each bag we run SGD (observation-wise gradient updates)
+    * 1. We then average fitted weights for each feature and return them as updated model
+    *
+    * @param input    collection of examples to be trained in sgd iteration
+    * @param paramsBC broadcasted model params
+    * @param modelBC  broadcasted current model (weights)
+    * @return
+    */
   def sgdTrain(input: RDD[Example],
                paramsBC: Broadcast[AdditiveTrainerParams],
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
@@ -100,6 +118,16 @@ object AdditiveModelTrainer {
     model
   }
 
+  /**
+    * For multiscale feature, we need to resample the model so we can update the model using
+    * the particular number of knots
+    *
+    * @param index     partition index (for multiscale distribution)
+    * @param partition list of examples in this partition
+    * @param modelBC   broadcasted model weights
+    * @param paramsBC  broadcasted model params
+    * @return
+    */
   def sgdPartition(index: Int,
                    partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
@@ -119,6 +147,16 @@ object AdditiveModelTrainer {
     output.iterator
   }
 
+  /**
+    * Average function weights according to function type. Optionally smooth the weights
+    * for spline function.
+    *
+    * @param input              list of function weights
+    * @param scale              scaling factor for aggregation
+    * @param numBins            number of bins for final weights
+    * @param smoothingTolerance smoothing tolerance for spline
+    * @return
+    */
   private def aggregateFuncWeights(input: Iterable[Function],
                                    scale: Float,
                                    numBins: Int,
@@ -130,10 +168,18 @@ object AdditiveModelTrainer {
     output
   }
 
+  /**
+    * Actually perform SGD on examples by applying approriate gradient updates according
+    * to model specification
+    *
+    * @param partition    list of examples
+    * @param workingModel model to be updated
+    * @param params       model parameters
+    * @return
+    */
   private def sgdPartitionInternal(partition: Iterator[Example],
                                    workingModel: AdditiveModel,
-                                   params: AdditiveTrainerParams):
-  mutable.HashMap[(String, String), Function] = {
+                                   params: AdditiveTrainerParams): mutable.HashMap[(String, String), Function] = {
     var lossSum: Double = 0.0
     var lossCount: Int = 0
     partition.foreach(example => {
@@ -156,6 +202,15 @@ object AdditiveModelTrainer {
     output
   }
 
+  /**
+    * Compute loss for a single observation and update model weights during the process
+    *
+    * @param fv           observation
+    * @param workingModel model to be updated
+    * @param loss         loss type
+    * @param params       model params
+    * @return
+    */
   def pointwiseLoss(fv: FeatureVector,
                     workingModel: AdditiveModel,
                     loss: String,
