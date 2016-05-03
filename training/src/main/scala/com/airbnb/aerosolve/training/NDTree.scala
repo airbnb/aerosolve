@@ -284,46 +284,62 @@ class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
       point.map(_.toFloat).map(java.lang.Float.valueOf).toList.asJava
     ).asScala.map(_.intValue()).toArray
   }
-//
-//  // Returns the indices of all node overlapping the box
-//  def queryBox(minXY : (Double, Double), maxXY : (Double, Double)) : Array[Int] = {
-////    model.queryBox(minXY._1, minXY._2, maxXY._1, maxXY._2).asScala.map(x => x.intValue()).toArray
-//    null
-//  }
 
-//  // Return nodes as csv.
-//  // node_id, minX, minY, maxX, maxY, count, parent, is_leaf, left_child, right_child, is_xsplit, split_value
-//  def getCSV() : Array[String] = {
-//    val csv  = ArrayBuffer[String]()
-//    getCSVRecursive(0, -1, csv)
-//    return csv.toArray
-//  }
+  // Returns the indices of all nodes overlapping the box
+  def queryBox(minPoint: Array[Double], maxPoint: Array[Double]): Array[Int] = {
+    model.queryBox(
+      minPoint.map(java.lang.Double.valueOf).toList.asJava,
+      maxPoint.map(java.lang.Double.valueOf).toList.asJava
+    ).asScala.map(_.intValue()).toArray
+  }
 
-//  private def getCSVRecursive(currIdx : Int, parent : Int, csv : ArrayBuffer[String]) : Unit = {
-//    val builder = StringBuilder.newBuilder
-//
-//    val node = nodes(currIdx)
-//    builder.append("%d,%f,%f,%f,%f,%d".format(
-//      currIdx, node.minX, node.minY, node.maxX, node.maxY, node.count))
-//    if (parent < 0) {
-//      builder.append(",")
-//    } else {
-//      builder.append(",%d".format(parent))
-//    }
-//    if (node.nodeType == NDTreeNodeType.LEAF) {
-//      builder.append(",TRUE,,,,")
-//    } else {
-//      builder.append(",FALSE,%d,%d,%s,%f".format(
-//        node.leftChild,
-//        node.rightChild,
-//        (if (node.nodeType == NDTreeNodeType.X_SPLIT) "TRUE" else "FALSE"),
-//        node.splitValue
-//        ))
-//    }
-//    csv.append(builder.toString)
-//    if (node.nodeType != NDTreeNodeType.LEAF) {
-//      getCSVRecursive(node.leftChild, currIdx, csv)
-//      getCSVRecursive(node.rightChild, currIdx, csv)
-//    }
-//  }
+  // Return nodes as a csv:
+  // nodeId, minCoordinates, maxCoordinates, count, parent, isLeaf, leftChild, rightChild,
+  // axisIndex, splitValue
+  def getCSV: Array[String] = {
+    val csv = ArrayBuffer[String]()
+    getCSVRecursive(0, -1, csv)
+    csv.toArray
+  }
+
+  private def getCSVRecursive(current: Int, parent: Int, csv: ArrayBuffer[String]): Unit = {
+    val builder = StringBuilder.newBuilder
+    val node = nodes(current)
+
+    builder.append("%d,".format(current))
+
+    // TODO: instead of converting entire collection to Scala, use a Java to Scala foreach iterator
+    node.min.asScala.map(_.doubleValue()).foreach((minimum: Double) => {
+      builder.append("%f,".format(minimum))
+    })
+    node.max.asScala.map(_.doubleValue()).foreach((maximum: Double) => {
+      builder.append("%f,".format(maximum))
+    })
+
+    builder.append("%d".format(node.count))
+
+    if (parent < 0) {
+      builder.append(",")
+    } else {
+      builder.append(",%d".format(parent))
+    }
+
+    if (node.axisIndex == NDTreeModel.LEAF) {
+      builder.append(",TRUE,,,,")
+    } else {
+      builder.append(",FALSE,%d,%d,%d,%f".format(
+        node.leftChild,
+        node.rightChild,
+        node.axisIndex,
+        node.splitValue
+      ))
+    }
+
+    csv.append(builder.toString)
+
+    if (node.axisIndex != NDTreeModel.LEAF) {
+      getCSVRecursive(node.leftChild, current, csv)
+      getCSVRecursive(node.rightChild, current, csv)
+    }
+  }
 }
