@@ -61,10 +61,9 @@ object AdditiveModelTrainer {
     val paramsBC = sc.broadcast(params)
     var model = modelInitialization(transformed, params)
     for (i <- 1 to iterations) {
-      log.info("Iteration %d".format(i))
+      log.info(s"Iteration $i")
       val modelBC = sc.broadcast(model)
-      model = sgdTrain(transformed, paramsBC, modelBC,
-        if (params.multiscale.length == 0) sgdPartition else sgdPartitionMultiscale)
+      model = sgdTrain(transformed, paramsBC, modelBC)
       modelBC.unpersist()
 
       TrainingUtils.saveModel(model, output)
@@ -74,10 +73,7 @@ object AdditiveModelTrainer {
 
   def sgdTrain(input: RDD[Example],
                paramsBC: Broadcast[AdditiveTrainerParams],
-               modelBC: Broadcast[AdditiveModel],
-               sgdPartition:
-               (Int, Iterator[Example], Broadcast[AdditiveModel], Broadcast[AdditiveTrainerParams]) =>
-                 Iterator[((String, String), Function)]): AdditiveModel = {
+               modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
     val params = paramsBC.value
 
@@ -105,32 +101,19 @@ object AdditiveModelTrainer {
   }
 
   def sgdPartition(index: Int,
-                   partition: Iterator[Example],
-                   modelBC: Broadcast[AdditiveModel],
-                   paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
-    val workingModel = modelBC.value
-    val params = paramsBC.value
-    val output = sgdPartitionInternal(partition, workingModel, params)
-    output.iterator
-  }
-
-  def sgdPartitionMultiscale(index: Int,
                              partition: Iterator[Example],
                              modelBC: Broadcast[AdditiveModel],
                              paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value
     val params = paramsBC.value
     val multiscale = params.multiscale
-    val newBins = multiscale(index % multiscale.length)
 
-    log.info("Resampling to %d bins".format(newBins))
-    workingModel
-      .getWeights
-      .foreach(family => {
-        family._2.foreach(feature => {
-          feature._2.resample(newBins)
-        })
-      })
+    if(multiscale.nonEmpty) {
+      val newBins = multiscale(index % multiscale.length)
+
+      log.info(s"Resampling to $newBins bins")
+      workingModel.resample(newBins)
+    }
 
     val output = sgdPartitionInternal(partition, workingModel, params)
     output.iterator
@@ -141,6 +124,7 @@ object AdditiveModelTrainer {
                                    numBins: Int,
                                    smoothingTolerance: Float): Function = {
     val head: Function = input.head
+    // TODO: revisit asJava performance impact
     val output = head.aggregate(input.asJava, scale, numBins)
     output.smooth(smoothingTolerance)
     output
