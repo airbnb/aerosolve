@@ -38,6 +38,7 @@ class BoostedForestTrainerTest {
       |  iterations : 3
       |  learning_rate : 0.1
       |  subsample : 0.5
+      |  cache: "memory"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform

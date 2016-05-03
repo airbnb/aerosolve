@@ -70,6 +70,7 @@ object BoostedForestTrainer {
     val samplingStrategy : String = taskConfig.getString("sampling_strategy")
     val loss : String = Try{taskConfig.getString("loss")}.getOrElse("logistic")
     val margin: Double = Try{taskConfig.getDouble("margin")}.getOrElse(1.0)
+    val cache: String = Try{taskConfig.getString("cache")}.getOrElse("")
     
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
           rankKey = rankKey,
@@ -90,15 +91,27 @@ object BoostedForestTrainer {
     
     val forest = new ForestModel()
     forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
-    
+
+    val raw = LinearRankerUtils.makePointwiseFloat(input, config, key)
+
+    val examples = cache match {
+      case "memory" => raw.cache()
+      case _ : String => raw
+    }
+
     for (i <- 0 until numTrees) {
       log.info("Iteration %d".format(i))
       addNewTree(sc, forest, input, config, key, params)
       if (params.multiclass) {
-        boostForestMulticlass(sc, forest, input, config, key, params)
+        boostForestMulticlass(sc, forest, examples, config, key, params)
       } else {
-        boostForest(sc, forest, input, config, key, params)
+        boostForest(sc, forest, examples, config, key, params)
       }
+    }
+
+    cache match {
+      case "memory" => examples.unpersist()
+      case _ : String =>
     }
     
     forest
@@ -124,9 +137,9 @@ object BoostedForestTrainer {
 
       val importance = 1.0 - probs.head.probability
       if (scala.util.Random.nextDouble < importance) {
-        return Some(item)
+        Some(item)
       } else {
-        return None
+        None
       }
     } else {
       val label = TrainingUtils.getLabel(item, params.rankKey, params.rankThreshold)
@@ -138,12 +151,11 @@ object BoostedForestTrainer {
         prob
       }
       if (scala.util.Random.nextDouble < importance) {
-        return Some(item)
+        Some(item)
       } else {
-        return None
+        None
       }
     }
-    return None
   }
 
   def getSample(sc : SparkContext,
@@ -154,10 +166,9 @@ object BoostedForestTrainer {
       params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
     val paramsBC = sc.broadcast(params)
-    val examples = LinearRankerUtils
-              .makePointwiseFloat(input, config, key)
+    val examples = input
               .map(x => optionalExample(x, forestBC.value, paramsBC.value))
-              .filter(x => x != None)
+              .filter(x => x.isDefined)
               .map(x => Util.flattenFeature(x.get))
 
      params.samplingStrategy match {
@@ -165,7 +176,7 @@ object BoostedForestTrainer {
        case "first" => {
          examples.take(params.candidateSize)
        }
-       // Picks uniformly. Beter for small data sets.
+       // Picks uniformly. Better for small data sets.
        case "uniform" => examples.takeSample(false, params.candidateSize)
      }
   }
@@ -177,7 +188,7 @@ object BoostedForestTrainer {
       key : String,
       params : BoostedForestTrainerParams) = {
     val ex = getSample(sc, forest, input, config, key, params)
-    log.info("Got %d examples".format(ex.size))
+    log.info("Got %d examples".format(ex.length))
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
     DecisionTreeTrainer.buildTree(
@@ -203,7 +214,7 @@ object BoostedForestTrainer {
 
           for (key <- dist.keys) {
             val v = dist.get(key)
-            if (v != None) {
+            if (v.isDefined) {
               dist.put(key, scale * (2.0 * v.get - 1.0))
             }
           }
@@ -217,7 +228,7 @@ object BoostedForestTrainer {
         }
       }
     }
-    forest.getTrees().append(tree)
+    forest.getTrees.append(tree)
   }
   
   def boostForest(sc : SparkContext,
@@ -229,10 +240,9 @@ object BoostedForestTrainer {
      for (i <- 0 until params.iterations) {
        log.info("Running boost iteration %d".format(i))
        val forestBC = sc.broadcast(forest)
-       var paramsBC = sc.broadcast(params)
+       val paramsBC = sc.broadcast(params)
        // Get forest responses
-       val labelSumResponse = LinearRankerUtils
-              .makePointwiseFloat(input, config, key)
+       val labelSumResponse = input
               .sample(false, params.subsample)
               .map(x => getForestResponse(forestBC.value, x, params))
        // Get forest batch gradient
@@ -262,14 +272,14 @@ object BoostedForestTrainer {
        .collectAsMap
 
        // Gradient step
-       val trees = forest.getTrees().asScala.toArray
+       val trees = forest.getTrees.asScala.toArray
        var sum : Double = 0.0
        for (cg <- countAndGradient) {
          val key = cg._1
          val tree = trees(key._1)
-         val stump = tree.getStumps().get(key._2)
+         val stump = tree.getStumps.get(key._2)
          val (count, grad) = cg._2
-         val curr = stump.getFeatureWeight()
+         val curr = stump.getFeatureWeight
          val avgGrad = grad / count
          stump.setFeatureWeight(curr - params.learningRate * avgGrad)
          sum += avgGrad * avgGrad
@@ -289,8 +299,7 @@ object BoostedForestTrainer {
       log.info("Running boost iteration %d".format(i))
       val forestBC = sc.broadcast(forest)
       // Get forest responses
-      val labelSumResponse = LinearRankerUtils
-        .makePointwiseFloat(input, config, key)
+      val labelSumResponse = input
         .sample(false, params.subsample)
         .map(x => getForestResponse(forestBC.value, x, params))
       // Get forest batch gradient
@@ -321,12 +330,12 @@ object BoostedForestTrainer {
         .collectAsMap
 
       // Gradient step
-      val trees = forest.getTrees().asScala.toArray
+      val trees = forest.getTrees.asScala.toArray
       var sum : Double = 0.0
       for (cg <- countAndGradient) {
         val key = cg._1
         val tree = trees(key._1)
-        val stump = tree.getStumps().get(key._2)
+        val stump = tree.getStumps.get(key._2)
         val label = key._3
         val (count, grad) = cg._2
         val curr = stump.labelDistribution.get(label)

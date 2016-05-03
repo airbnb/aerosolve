@@ -105,7 +105,7 @@ object AdditiveModelTrainer {
     deleteSmallFunctions(model, params.linfinityThreshold)
 
     TrainingUtils.saveModel(model, output)
-    return model
+    model
   }
 
   def sgdMultiscaleTrain(sc : SparkContext,
@@ -136,7 +136,7 @@ object AdditiveModelTrainer {
 
     deleteSmallFunctions(model, params.linfinityThreshold)
     TrainingUtils.saveModel(model, output)
-    return model
+    model
   }
 
   def sgdPartition(partition : Iterator[Example],
