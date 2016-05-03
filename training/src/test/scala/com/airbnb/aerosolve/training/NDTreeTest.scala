@@ -36,7 +36,7 @@ class NDTreeTest {
     log.info("Number of nodes = %d".format(nodes.length))
 
     // Since the y dimension is largest, we expect the first node to be a split along the y axis
-    assertEquals(0, nodes(0).axisIndex)
+    assertEquals(1, nodes(0).axisIndex)
     assertEquals(21.0, nodes(0).splitValue, 0)
     assertEquals(1, nodes(0).leftChild)
     assertEquals(2, nodes(0).rightChild)
