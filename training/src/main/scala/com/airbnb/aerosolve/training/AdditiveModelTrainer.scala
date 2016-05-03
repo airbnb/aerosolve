@@ -55,46 +55,42 @@ object AdditiveModelTrainer {
     val iterations: Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
     val transformed = transformExamples(input, config, key, params)
-    var model = modelInitialization(transformed, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
+
+    val paramsBC = sc.broadcast(params)
+    var model = modelInitialization(transformed, params)
     for (i <- 1 to iterations) {
       log.info("Iteration %d".format(i))
-      model = if (params.multiscale.length == 0) {
-        sgdTrain(
-          sc,
-          transformed,
-          params,
-          model,
-          output)
-      } else {
-        sgdMultiscaleTrain(sc,
-          transformed,
-          params,
-          model,
-          output)
-      }
+      val modelBC = sc.broadcast(model)
+      model = sgdTrain(transformed, paramsBC, modelBC,
+        if (params.multiscale.length == 0) sgdPartition else sgdPartitionMultiscale)
+      modelBC.unpersist()
+
+      TrainingUtils.saveModel(model, output)
     }
     model
   }
 
-  def sgdTrain(sc: SparkContext,
-               input: RDD[Example],
-               params: AdditiveTrainerParams,
-               model: AdditiveModel,
-               output: String): AdditiveModel = {
-    val modelBC = sc.broadcast(model)
-    val paramsBC = sc.broadcast(params)
+  def sgdTrain(input: RDD[Example],
+               paramsBC: Broadcast[AdditiveTrainerParams],
+               modelBC: Broadcast[AdditiveModel],
+               sgdPartition:
+               (Int, Iterator[Example], Broadcast[AdditiveModel], Broadcast[AdditiveTrainerParams]) =>
+                 Iterator[((String, String), Function)]): AdditiveModel = {
+    val model = modelBC.value
+    val params = paramsBC.value
+
     input
       .sample(false, params.subsample)
       .coalesce(params.numBags, true)
-      .mapPartitions(partition => sgdPartition(partition, modelBC, paramsBC))
+      .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, paramsBC))
       .groupByKey()
       // Average the feature functions
       // Average the weights
       .mapValues(x => {
-      val scale = 1.0f / params.numBags.toFloat
-      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
+      val scale = 1.0f / paramsBC.value.numBags.toFloat
+      aggregateFuncWeights(x, scale, paramsBC.value.numBins, paramsBC.value.smoothingTolerance.toFloat)
     })
       .collect()
       .foreach(entry => {
@@ -105,43 +101,11 @@ object AdditiveModelTrainer {
       })
 
     deleteSmallFunctions(model, params.linfinityThreshold)
-
-    TrainingUtils.saveModel(model, output)
     model
   }
 
-  def sgdMultiscaleTrain(sc: SparkContext,
-                         input: RDD[Example],
-                         params: AdditiveTrainerParams,
-                         model: AdditiveModel,
-                         output: String): AdditiveModel = {
-    val modelBC = sc.broadcast(model)
-    val paramsBC = sc.broadcast(params)
-    input
-      .sample(false, params.subsample)
-      .coalesce(params.numBags, true)
-      .mapPartitionsWithIndex((index, partition) =>
-        sgdPartitionMultiscale(index, partition, modelBC, paramsBC))
-      .groupByKey()
-      // Average the weights
-      .mapValues(x => {
-      val scale = 1.0f / params.numBags.toFloat
-      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
-    })
-      .collect()
-      .foreach(entry => {
-        val family = model.getWeights.get(entry._1._1)
-        if (family != null && family.containsKey(entry._1._2)) {
-          family.put(entry._1._2, entry._2)
-        }
-      })
-
-    deleteSmallFunctions(model, params.linfinityThreshold)
-    TrainingUtils.saveModel(model, output)
-    model
-  }
-
-  def sgdPartition(partition: Iterator[Example],
+  def sgdPartition(index: Int,
+                   partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
                    paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value
