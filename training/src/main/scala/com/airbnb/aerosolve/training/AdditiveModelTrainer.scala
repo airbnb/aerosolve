@@ -101,14 +101,14 @@ object AdditiveModelTrainer {
   }
 
   def sgdPartition(index: Int,
-                             partition: Iterator[Example],
-                             modelBC: Broadcast[AdditiveModel],
-                             paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
+                   partition: Iterator[Example],
+                   modelBC: Broadcast[AdditiveModel],
+                   paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value
     val params = paramsBC.value
     val multiscale = params.multiscale
 
-    if(multiscale.nonEmpty) {
+    if (multiscale.nonEmpty) {
       val newBins = multiscale(index % multiscale.length)
 
       log.info(s"Resampling to $newBins bins")
@@ -134,17 +134,18 @@ object AdditiveModelTrainer {
                                    workingModel: AdditiveModel,
                                    params: AdditiveTrainerParams):
   mutable.HashMap[(String, String), Function] = {
-    @volatile var lossSum: Double = 0.0
-    @volatile var lossCount: Int = 0
+    var lossSum: Double = 0.0
+    var lossCount: Int = 0
     partition.foreach(example => {
       lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
       lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
-        log.info("Loss = %f, samples = %d".format(lossSum / params.lossMod.toDouble, lossCount))
+        log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
         lossSum = 0.0
       }
     })
     val output = mutable.HashMap[(String, String), Function]()
+    // TODO: weights should be a vector instead of stored in hashmap
     workingModel
       .getWeights
       .foreach(family => {
