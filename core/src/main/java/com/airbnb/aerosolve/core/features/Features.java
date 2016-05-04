@@ -4,16 +4,18 @@ import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.annotations.VisibleForTesting;
-import lombok.experimental.Builder;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.reflect.Field;
 import java.util.*;
 
-@Builder @Slf4j
 public class Features {
+  public final static String DEFAULT_STRING_FAMILY = "L";
+  public final static String NO_DEFAULT_STRING_FAMILY = "";
+  // rank_key should set to LABEL then TrainingUtils.getLabel load the label
+  // label should be a float feature.
+  // For multi class, pass label in string with format a:1,b:2
   public final static String LABEL = "LABEL";
   public final static String LABEL_FEATURE_NAME = "";
   public final static String MISS = "MISS";
@@ -25,6 +27,39 @@ public class Features {
 
   public final String[] names;
   public final Object[] values;
+  private final String defaultStringFamilyName;
+
+  public static Features genDefaultStringFamilyFeatures(String[] names, Object[] values) {
+    return new Features(names, values);
+  }
+
+  public static Features genFeaturesWithCustomerStringFamily(
+      String[] names, Object[] values, String defaultStringFamilyName) {
+    return new Features(names, values, defaultStringFamilyName);
+  }
+
+  public static Features genFeaturesWithoutDefaultStringFamily(
+      String[] names, Object[] values) {
+    return new Features(names, values, NO_DEFAULT_STRING_FAMILY);
+  }
+
+  /*
+    if all names has family names in the prefix
+    pass defaultStringFamilyName = "" or null
+   */
+  private Features(String[] names, Object[] values, String defaultStringFamilyName) {
+    this.names = names;
+    this.values = values;
+    this.defaultStringFamilyName = defaultStringFamilyName;
+  }
+
+  private Features(String[] names, Object[] values) {
+    this(names, values, DEFAULT_STRING_FAMILY);
+  }
+
+  private boolean hasDefaultStringFamily() {
+    return !defaultStringFamilyName.isEmpty();
+  }
 
   /*
     Util function to get features for FeatureMapping
@@ -63,33 +98,73 @@ public class Features {
 
     final Set<String> bias = new HashSet<>();
     final Set<String> missing = new HashSet<>();
+
     bias.add("B");
     stringFeatures.put("BIAS", bias);
     stringFeatures.put(MISS, missing);
+    Set<String> defaultStringFamily = null;
+    if (hasDefaultStringFamily()) {
+      defaultStringFamily = new HashSet<>();
+      stringFeatures.put(DEFAULT_STRING_FAMILY, defaultStringFamily);
+    }
 
     for (int i = 0; i < names.length; i++) {
       String name = names[i];
       Object value = values[i];
       if (value == null) {
         missing.add(name);
-      } else {
+      } else if (defaultStringFamily == null){
         Pair<String, String> feature = getFamily(name);
-        if (value instanceof String) {
-          String str = (String) value;
-          if (isMultiClass && isLabel(feature)) {
-            addMultiClassLabel(str, floatFeatures);
-          } else {
-            addStringFeature(str, feature, stringFeatures);
-          }
-        } else if (value instanceof Boolean) {
-          Boolean b = (Boolean) value;
-          addBoolFeature(b, feature, stringFeatures);
-        } else {
-          addNumberFeature((Number) value, feature, floatFeatures);
-        }
+        addFeature(isMultiClass, feature, value, floatFeatures, stringFeatures);
+      } else {
+        addFeature(isMultiClass, name, value, floatFeatures, defaultStringFamily);
       }
     }
     return example;
+  }
+
+  private void addFeature(
+      boolean isMultiClass, Pair<String, String> feature, Object value,
+      Map<String, Map<String, Double>> floatFeatures,
+      final Map<String, Set<String>> stringFeatures) {
+    if (value instanceof String) {
+      String str = (String) value;
+      if (isMultiClass && isLabel(feature)) {
+        addMultiClassLabel(str, floatFeatures);
+      } else {
+        addStringFeature(str, feature, stringFeatures);
+      }
+    } else if (value instanceof Boolean) {
+      Boolean b = (Boolean) value;
+      addBoolFeature(b, feature, stringFeatures);
+    } else {
+      addNumberFeature((Number) value, feature, floatFeatures);
+    }
+  }
+
+  private void addFeature(
+      boolean isMultiClass, String name, Object value,
+      Map<String, Map<String, Double>> floatFeatures,
+      Set<String> defaultStringFamily) {
+    if (value instanceof String) {
+      String str = (String) value;
+      if (isMultiClass && isLabel(name)) {
+        addMultiClassLabel(str, floatFeatures);
+      } else {
+        addStringFeature(str, name, defaultStringFamily);
+      }
+    } else if (value instanceof Boolean) {
+      Boolean b = (Boolean) value;
+      addBoolFeature(b, name, defaultStringFamily);
+    } else {
+      Pair<String, String> feature = getFamily(name);
+      addNumberFeature((Number) value, feature, floatFeatures);
+    }
+  }
+
+  static void addBoolFeature(Boolean b, String name, Set<String> feature) {
+    char str = (b.booleanValue()) ? TRUE_FEATURE : FALSE_FEATURE;
+    feature.add(name + ':' + str);
   }
 
   @VisibleForTesting
@@ -104,21 +179,25 @@ public class Features {
       Boolean b, Pair<String, String> featurePair, Map<String, Set<String>> stringFeatures) {
     Set<String> feature = Util.getOrCreateStringFeature(featurePair.getLeft(), stringFeatures);
     String featureName = featurePair.getRight();
-    char str = (b.booleanValue()) ? TRUE_FEATURE : FALSE_FEATURE;
-    feature.add(featureName + ':' + str);
+    addBoolFeature(b, featureName, feature);
   }
 
   @VisibleForTesting
   static void addStringFeature(
-      String str, Pair<String, String> featurePair, Map<String, Set<String>> stringFeatures) {
+      String value, Pair<String, String> featurePair, Map<String, Set<String>> stringFeatures) {
     Set<String> feature = Util.getOrCreateStringFeature(featurePair.getLeft(), stringFeatures);
-    String featureName = featurePair.getRight();
+    addStringFeature(value, featurePair.getRight(), feature);
+  }
+
+  static void addStringFeature(
+      String value, String featureName, Set<String> feature) {
     if (featureName.equals(RAW)) {
-      feature.add(str);
+      feature.add(value);
     } else {
-      feature.add(featureName + ":" + str);
+      feature.add(featureName + ":" + value);
     }
   }
+
 
   @VisibleForTesting
   static void addMultiClassLabel(String str, Map<String, Map<String, Double>> floatFeatures) {
@@ -134,15 +213,19 @@ public class Features {
     }
   }
 
-  static boolean isLabel(Pair<String, String> feature) {
-    return feature.getRight().equals(LABEL_FEATURE_NAME);
+  static boolean isLabel(Pair<String, String> featurePair) {
+    return featurePair.getLeft().equals(LABEL);
+  }
+
+  static boolean isLabel(String name) {
+    return name.equals(LABEL);
   }
 
   @VisibleForTesting
   static Pair<String, String> getFamily(String name) {
     int pos = name.indexOf(FAMILY_SEPARATOR);
     if (pos == -1) {
-      if (name.compareTo(LABEL) == 0) {
+      if (name.compareToIgnoreCase(LABEL) == 0) {
         return new ImmutablePair<>(LABEL, LABEL_FEATURE_NAME) ;
       } else {
         throw new RuntimeException("Column name not in FAMILY_NAME format or is not LABEL! " + name);

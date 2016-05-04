@@ -31,9 +31,6 @@ public class FeatureGen {
   }
 
   public Features gen() {
-    return Features.builder().
-        names(mapping.getNames()).
-        values(values).
-        build();
+    return Features.genFeaturesWithoutDefaultStringFamily(mapping.getNames(), values);
   }
 }
