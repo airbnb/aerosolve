@@ -8,7 +8,6 @@ import scala.collection.mutable.ArrayBuffer
 
 object ExampleUtil {
   def getFeatures(row: Row, schema: Array[StructField]) = {
-    val features = Features.builder()
     val names = ArrayBuffer[String]()
     val values = ArrayBuffer[AnyRef]()
 
@@ -44,9 +43,7 @@ object ExampleUtil {
         values += null
       }
     }
-
-    features.names(names.toArray)
-    features.values(values.toArray)
-    features.build()
+    Features.genFeaturesWithoutDefaultStringFamily(
+      names.toArray, values.toArray)
   }
 }

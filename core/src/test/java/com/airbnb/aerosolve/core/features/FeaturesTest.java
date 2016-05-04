@@ -77,13 +77,13 @@ public class FeaturesTest {
     // we have default BIAS
     assertEquals(3, stringFeatures.size());
     Set<String> stringFeature = stringFeatures.get("f");
-    assertEquals(1, stringFeature.size());
-    assertTrue(stringFeature.contains("raw_feature"));
+    assertNull(stringFeature);
 
     stringFeature = stringFeatures.get(Features.DEFAULT_STRING_FAMILY);
-    assertEquals(2, stringFeature.size());
+    assertEquals(3, stringFeature.size());
     assertTrue(stringFeature.contains("star:monkey"));
     assertTrue(stringFeature.contains("good:F"));
+    assertTrue(stringFeature.contains("raw_feature"));
 
     stringFeature = stringFeatures.get("X");
     assertNull(stringFeature);
