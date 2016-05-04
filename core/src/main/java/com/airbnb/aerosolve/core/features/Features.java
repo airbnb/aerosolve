@@ -37,7 +37,7 @@ public class Features {
 
   public static Features genFeaturesWithoutDefaultStringFamily(
       String[] names, Object[] values) {
-    return new Features(names, values, "");
+    return new Features(names, values, NO_DEFAULT_STRING_FAMILY);
   }
 
   /*
@@ -222,7 +222,7 @@ public class Features {
   static Pair<String, String> getFamily(String name) {
     int pos = name.indexOf(FAMILY_SEPARATOR);
     if (pos == -1) {
-      if (name.compareTo(LABEL) == 0) {
+      if (name.compareToIgnoreCase(LABEL) == 0) {
         return new ImmutablePair<>(LABEL, LABEL_FEATURE_NAME) ;
       } else {
         throw new RuntimeException("Column name not in FAMILY_NAME format or is not LABEL! " + name);
