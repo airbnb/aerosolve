@@ -13,6 +13,9 @@ import java.util.*;
 public class Features {
   public final static String DEFAULT_STRING_FAMILY = "L";
   public final static String NO_DEFAULT_STRING_FAMILY = "";
+  // rank_key should set to LABEL then TrainingUtils.getLabel load the label
+  // label should be a float feature.
+  // For multi class, pass label in string with format a:1,b:2
   public final static String LABEL = "LABEL";
   public final static String LABEL_FEATURE_NAME = "";
   public final static String MISS = "MISS";
@@ -126,7 +129,7 @@ public class Features {
       final Map<String, Set<String>> stringFeatures) {
     if (value instanceof String) {
       String str = (String) value;
-      if (isMultiClass && isLabel(feature.getRight())) {
+      if (isMultiClass && isLabel(feature)) {
         addMultiClassLabel(str, floatFeatures);
       } else {
         addStringFeature(str, feature, stringFeatures);
@@ -211,11 +214,11 @@ public class Features {
   }
 
   static boolean isLabel(Pair<String, String> featurePair) {
-    return featurePair.getRight().equals(LABEL_FEATURE_NAME);
+    return featurePair.getLeft().equals(LABEL);
   }
 
   static boolean isLabel(String name) {
-    return name.equals(LABEL_FEATURE_NAME);
+    return name.equals(LABEL);
   }
 
   @VisibleForTesting
