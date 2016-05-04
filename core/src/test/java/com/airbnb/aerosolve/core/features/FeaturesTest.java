@@ -33,7 +33,7 @@ public class FeaturesTest {
     names[5] = "X_jump";
     values[5] = null;
 
-    return Features.builder().names(names).values(values).build();
+    return Features.genFeaturesWithoutDefaultStringFamily(names, values);
   }
 
   public static Features createMultiClassFeature() {
@@ -42,7 +42,64 @@ public class FeaturesTest {
 
     names[0] = Features.LABEL;
     values[0] = "a:1,b:2";
-    return Features.builder().names(names).values(values).build();
+    return Features.genFeaturesWithoutDefaultStringFamily(names, values);
+  }
+
+  public static Features createDefaultStringFeatureFamily() {
+    Object[] values = new Object[6];
+    String[] names = new String[6];
+
+    names[0] = Features.LABEL;
+    values[0] = new Double(5.0);
+
+    names[1] = "RAW";
+    values[1] = "raw_feature";
+    names[2] = "star";
+    values[2] = "monkey";
+    names[3] = "good";
+    values[3] = Boolean.FALSE;
+    names[4] = "S_speed";
+    values[4] = new Double(10.0);
+
+    names[5] = "X_jump";
+    values[5] = null;
+
+    return Features.genDefaultStringFamilyFeatures(names, values);
+  }
+
+  @Test
+  public void toExampleDefaultStringFamily() throws Exception {
+    Example example = createDefaultStringFeatureFamily().toExample(false);
+    FeatureVector featureVector = example.getExample().get(0);
+    final Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
+    final Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+
+    // we have default BIAS
+    assertEquals(3, stringFeatures.size());
+    Set<String> stringFeature = stringFeatures.get("f");
+    assertEquals(1, stringFeature.size());
+    assertTrue(stringFeature.contains("raw_feature"));
+
+    stringFeature = stringFeatures.get(Features.DEFAULT_STRING_FAMILY);
+    assertEquals(2, stringFeature.size());
+    assertTrue(stringFeature.contains("star:monkey"));
+    assertTrue(stringFeature.contains("good:F"));
+
+    stringFeature = stringFeatures.get("X");
+    assertNull(stringFeature);
+
+    stringFeature = stringFeatures.get(Features.MISS);
+    assertEquals(1, stringFeature.size());
+    assertTrue(stringFeature.contains("X_jump"));
+
+    assertEquals(2, floatFeatures.size());
+    Map<String, Double> floatFeature = floatFeatures.get("S");
+    assertEquals(1, floatFeature.size());
+    assertEquals(10.0, floatFeature.get("speed"), 0);
+
+    floatFeature = floatFeatures.get(Features.LABEL);
+    assertEquals(1, floatFeature.size());
+    assertEquals(5.0, floatFeature.get(Features.LABEL_FEATURE_NAME), 0);
   }
 
   @Test
