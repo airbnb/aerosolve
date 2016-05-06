@@ -294,8 +294,4 @@ public class AdditiveModel extends AbstractModel {
       }
     }
   }
-
-  public void resample(int newBins) {
-    weights.values().forEach(m -> m.values().forEach(f -> f.resample(newBins)));
-  }
 }

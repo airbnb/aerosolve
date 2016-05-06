@@ -140,7 +140,11 @@ object AdditiveModelTrainer {
       val newBins = multiscale(index % multiscale.length)
 
       log.info(s"Resampling to $newBins bins")
-      workingModel.resample(newBins)
+      for(family <- workingModel.getWeights.values) {
+        for(feature <- family.values) {
+          feature.resample(newBins)
+        }
+      }
     }
 
     val output = sgdPartitionInternal(partition, workingModel, params)
