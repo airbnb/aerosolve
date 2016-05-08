@@ -365,7 +365,7 @@ object AdditiveModelTrainer {
     for (((featureFamily, featureName), stats) <- minMaxLinear) {
       // set default linear function as f(x) = 0
       model.addFunction(featureFamily, featureName,
-        new Linear(stats.min.toFloat, stats.min.toFloat), overwrite)
+        new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
     }
   }
 

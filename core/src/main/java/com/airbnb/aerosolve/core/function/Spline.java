@@ -80,13 +80,12 @@ public class Spline extends AbstractFunction {
 
   @Override
   public Function aggregate(Iterable<Function> functions, float scale, int numBins) {
-    int length = weights.length;
-    float[] aggWeights = new float[length];
+    float[] aggWeights = new float[numBins];
 
     for (Function fun : functions) {
       Spline spline = (Spline) fun;
       float[] w = spline.weightsByNumBins(numBins);
-      for (int i = 0; i < length; i++) {
+      for (int i = 0; i < numBins; i++) {
         aggWeights[i] += scale * w[i];
       }
     }
