@@ -4,8 +4,10 @@
 # ./demo.bash demo_train.conf GenericDebugExamples
 # if you have additional java options (options pass to conf) i.e. ds=2016-01-01
 # ./demo.bash demo_train.conf GenericDebugExamples ds=2016-01-01
+# echo $SPARK_HOME to see if spark is defined, if not, ask admin for spark location.
+# i.e. inside airbnb cluster, use /usr/bin/abb-spark-15-submit
 
-/usr/bin/abb-spark-15-submit \
+$SPARK_HOME/spark-submit \
 --master yarn-client \
 --conf spark.akka.frameSize=800 \
 --conf spark.akka.timeout=300 \
