@@ -48,7 +48,8 @@ object AdditiveModelTrainer {
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: Array[String],
-                                   priors: Array[String])
+                                   priors: Array[String],
+                                   dynamicBuckets: Boolean)
 
   def train(sc: SparkContext,
             input: RDD[Example],
@@ -445,6 +446,7 @@ object AdditiveModelTrainer {
     val multiscale: Array[Int] = Try(
       config.getIntList("multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
+    val dynamicBuckets = Try(config.getBoolean("dynamic_buckets")).getOrElse(false)
 
     AdditiveTrainerParams(
       numBins,
@@ -465,7 +467,8 @@ object AdditiveModelTrainer {
       epsilon,
       initModelPath,
       linearFeatureFamilies,
-      priors)
+      priors,
+      dynamicBuckets)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
