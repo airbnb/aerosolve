@@ -251,6 +251,14 @@ public class Util implements Serializable {
     return rankMap;
   }
 
+  public static <K,V> Map<K, V> safeMap(Map<K, V> map) {
+    if (map == null) {
+      return Collections.EMPTY_MAP;
+    } else {
+      return map;
+    }
+  }
+
   public static  Map<String, Map<String, Double>> flattenFeature(
       FeatureVector featureVector) {
     Map<String, Map<String, Double>> flatFeature = new HashMap<>();
@@ -329,7 +337,7 @@ public class Util implements Serializable {
     return recordMap;
   }
 
-  
+
 
   public static List<DebugScoreDiffRecord> compareDebugRecords(List<DebugScoreRecord> record1,
                                                                List<DebugScoreRecord> record2){
