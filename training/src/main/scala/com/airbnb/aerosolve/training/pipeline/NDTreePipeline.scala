@@ -1,8 +1,8 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, NDTreeNode}
 import com.airbnb.aerosolve.training.NDTree
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
 import com.typesafe.config.Config
@@ -36,19 +36,19 @@ object NDTreePipeline {
     val cfg = config.getConfig("make_feature_map")
     val inputPattern: String = cfg.getString("input")
     val sample: Double = cfg.getDouble("sample")
-    val minCount: Int = config.getInt("min_count")
+    val minCount: Int = cfg.getInt("min_count")
     // minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
     val linearFeatureFamilies: java.util.List[String] = Try(config.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
 
     val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
     val options = sc.broadcast(NDTreeBuildOptions(
-      maxTreeDepth = config.getInt("max_tree_depth"),
-      minLeafCount = config.getInt("min_leaf_count")))
+      maxTreeDepth = cfg.getInt("max_tree_depth"),
+      minLeafCount = cfg.getInt("min_leaf_count")))
 
     log.info("Training data: ${inputPattern}")
     val input = GenericPipeline.getExamples(sc, inputPattern).sample(true, sample)
-    val tree = input.mapPartitions(partition => {
+    val tree: Array[((String, String), Array[NDTreeNode])] = input.mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
       a.++=(b)
@@ -56,8 +56,9 @@ object NDTreePipeline {
       // build tree
       .map(x => ((x._1._1, x._1._2), NDTree(options.value, x._2.toArray).nodes))
       .collect
-    for (((featureFamily, featureName), features) <- tree) {
+    for (((family, name), features) <- tree) {
       // save to disk.
+      log.info(s"${family}, ${name}: ${features.mkString(" ")}")
 
     }
   }
