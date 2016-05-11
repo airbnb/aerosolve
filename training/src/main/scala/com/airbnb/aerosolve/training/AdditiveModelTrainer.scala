@@ -45,8 +45,6 @@ object AdditiveModelTrainer {
                                    linfinityCap: Double,
                                    threshold: Double,
                                    lossMod: Int,
-                                   isRanking: Boolean, // If we have a list based ranking loss
-                                   rankMargin: Double, // The margin for ranking loss
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: Array[String],
@@ -80,9 +78,9 @@ object AdditiveModelTrainer {
     * During each iteration, we:
     *
     * 1. Sample dataset with subsample (this is analogous to mini-batch sgd?)
-    * 1. Repartition to numBags (this is analogous to ensemble averaging?)
-    * 1. For each bag we run SGD (observation-wise gradient updates)
-    * 1. We then average fitted weights for each feature and return them as updated model
+    * 2. Repartition to numBags (this is analogous to ensemble averaging?)
+    * 3. For each bag we run SGD (observation-wise gradient updates)
+    * 4. We then average fitted weights for each feature and return them as updated model
     *
     * @param input    collection of examples to be trained in sgd iteration
     * @param paramsBC broadcasted model params
@@ -313,11 +311,7 @@ object AdditiveModelTrainer {
                                 config: Config,
                                 key: String,
                                 params: AdditiveTrainerParams): RDD[Example] = {
-    if (params.isRanking) {
-      LinearRankerUtils.transformExamples(input, config, key)
-    } else {
       LinearRankerUtils.makePointwiseFloat(input, config, key)
-    }
   }
 
   private def modelInitialization(input: RDD[Example],
@@ -419,13 +413,6 @@ object AdditiveModelTrainer {
 
   def loadTrainingParameters(config: Config): AdditiveTrainerParams = {
     val loss: String = config.getString("loss")
-    val isRanking = loss match {
-      case "logistic" => false
-      case "hinge" => false
-      case "regression" => false
-      case _ =>
-        throw new IllegalArgumentException("Unknown loss function %s".format(loss))
-    }
     val numBins: Int = config.getInt("num_bins")
     val numBags: Int = config.getInt("num_bags")
     val rankKey: String = config.getString("rank_key")
@@ -459,8 +446,6 @@ object AdditiveModelTrainer {
       config.getIntList("multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
 
-    val rankMargin: Double = Try(config.getDouble("rank_margin")).getOrElse(0.5)
-
     AdditiveTrainerParams(
       numBins,
       numBags,
@@ -477,8 +462,6 @@ object AdditiveModelTrainer {
       linfinityCap,
       threshold,
       lossMod,
-      isRanking,
-      rankMargin,
       epsilon,
       initModelPath,
       linearFeatureFamilies,
