@@ -52,7 +52,7 @@ object AdditiveModelTrainer {
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
-                                   dynamicBuckets: Boolean)
+                                   nDTreeBuildOptions: NDTreeBuildOptions)
 
   def train(sc: SparkContext,
             input: RDD[Example],
@@ -66,7 +66,7 @@ object AdditiveModelTrainer {
     log.info("Training using " + params.loss)
 
     val paramsBC = sc.broadcast(params)
-    var model = modelInitialization(sc, transformed, params, trainConfig)
+    var model = modelInitialization(sc, transformed, params)
     for (i <- 1 to iterations) {
       log.info(s"Iteration $i")
       val modelBC = sc.broadcast(model)
@@ -320,36 +320,32 @@ object AdditiveModelTrainer {
 
   private def modelInitialization(sc: SparkContext,
                                   input: RDD[Example],
-                                  params: AdditiveTrainerParams,
-                                  config: Config): AdditiveModel = {
+                                  params: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, config, params, input, newModel, true)
+      initModel(sc, params, input, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, config, params, input, newModel, false)
+      initModel(sc, params, input, newModel, false)
       newModel
     }
   }
 
   // Initializes the model
   private def initModel(sc: SparkContext,
-                        config: Config,
                         params: AdditiveTrainerParams,
                         input: RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
-    if (params.dynamicBuckets) {
+    if (params.nDTreeBuildOptions != null) {
       val linearFeatureFamilies = params.linearFeatureFamilies
-      val options = NDTreeBuildOptions(
-        maxTreeDepth = config.getInt("max_tree_depth"),
-        minLeafCount = config.getInt("min_leaf_count"))
       val result: Array[((String, String), Any)] = NDTreePipeline.getFeatures(
-        sc, input, params.minCount, params.subsample, linearFeatureFamilies, options)
+        sc, input, params.minCount, params.subsample,
+        linearFeatureFamilies, params.nDTreeBuildOptions)
       for (((family, name), feature) <- result) {
         // save to disk.
         if (feature.isInstanceOf[FeatureStats]) {
@@ -474,7 +470,15 @@ object AdditiveModelTrainer {
     val multiscale: Array[Int] = Try(
       config.getIntList("multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
-    val dynamicBuckets = Try(config.getBoolean("dynamic_buckets")).getOrElse(false)
+    val dynamicBucketsConfig = Try(Some(config.getConfig("dynamic_buckets"))).getOrElse(None)
+    val options = if (dynamicBucketsConfig.nonEmpty) {
+      val cfg = dynamicBucketsConfig.get
+      NDTreeBuildOptions(
+        maxTreeDepth = cfg.getInt("max_tree_depth"),
+        minLeafCount = cfg.getInt("min_leaf_count"))
+    } else {
+      null
+    }
 
     AdditiveTrainerParams(
       numBins,
@@ -496,7 +500,7 @@ object AdditiveModelTrainer {
       initModelPath,
       linearFeatureFamilies,
       priors,
-      dynamicBuckets)
+      options)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
