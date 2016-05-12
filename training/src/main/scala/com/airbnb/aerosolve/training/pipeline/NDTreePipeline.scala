@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.training.pipeline
 
-import com.airbnb.aerosolve.core.{Example, NDTreeNode}
-import com.airbnb.aerosolve.core.models.AdditiveModel
+import com.airbnb.aerosolve.core.Example
+import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.training.NDTree
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
@@ -43,7 +43,7 @@ object NDTreePipeline {
         val stats = feature.asInstanceOf[FeatureStats]
         log.info(s"${family}, ${name}: ${stats.count} ${stats.min} ${stats.max}")
       } else {
-        log.info(s"${family}, ${name}: ${feature.asInstanceOf[Array[NDTreeNode]].mkString("\n")}")
+        log.info(s"${family}, ${name}: ${feature.asInstanceOf[NDTreeModel].getNodes.mkString("\n")}")
       }
     }
   }
@@ -90,7 +90,7 @@ object NDTreePipeline {
         if (a.isInstanceOf[ArrayBuffer]) {
           // build tree
           ((x._1._1, x._1._2), NDTree(options.value,
-            x._2.asInstanceOf[ArrayBuffer[Array[Double]]].toArray).nodes)
+            x._2.asInstanceOf[ArrayBuffer[Array[Double]]].toArray).model)
         } else {
           x
         }
