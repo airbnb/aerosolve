@@ -362,15 +362,15 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      initModel(params, input, model, overwrite)
+      initWithoutDynamicBucketModel(params, input, model, overwrite)
     }
   }
 
   // init spline and linear
-  private def initModel(params: AdditiveTrainerParams,
+  private def initWithoutDynamicBucketModel(params: AdditiveTrainerParams,
                         input: RDD[Example],
                         model: AdditiveModel,
-                        overwrite: Boolean)= {
+                        overwrite: Boolean) = {
     val linearFeatureFamilies = params.linearFeatureFamilies
     val initExamples = input.sample(false, params.subsample)
     val minMax = TrainingUtils

@@ -82,35 +82,48 @@ object NDTreePipeline {
     val tree: Array[((String, String), Any)] = input.sample(true, sample).mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
-      if (a.isInstanceOf[ArrayBuffer[Array[Double]]]) {
-        a.asInstanceOf[ArrayBuffer[Any]].++=(b.asInstanceOf[ArrayBuffer[Any]])
-      } else if (a.isInstanceOf[FeatureStats]) {
-        val as = a.asInstanceOf[FeatureStats]
-        val bs = b.asInstanceOf[FeatureStats]
-        FeatureStats(as.count + bs.count,
-          scala.math.min(as.min, bs.min),
-          scala.math.max(as.max, bs.max))
-      } else {
-        log.error(s"reduceByKey unknow ${a}")
+      a match {
+        case x: ArrayBuffer[Array[Double]] => {
+          b.asInstanceOf[ArrayBuffer[Array[Double]]].++=(x)
+        }
+        case y: FeatureStats => {
+          val bs = b.asInstanceOf[FeatureStats]
+          FeatureStats(y.count + bs.count,
+            scala.math.min(y.min, bs.min),
+            scala.math.max(y.max, bs.max))
+        }
+        case _ => {
+          log.error(s"reduceByKey unknow ${a}")
+        }
       }
     }).filter(x => {
       val a = x._2
-      if (a.isInstanceOf[ArrayBuffer[Array[Double]]]) {
-        a.asInstanceOf[ArrayBuffer[Any]].size >= minCount
-      } else if (a.isInstanceOf[FeatureStats]) {
-        a.asInstanceOf[FeatureStats].count >= minCount
-      } else {
-        log.error(s"filter unknown ${a}")
-        false
+      a match {
+        case x: ArrayBuffer[Array[Double]] => {
+          x.size >= minCount
+        }
+        case y: FeatureStats => {
+          y.count >= minCount
+        }
+        case _ => {
+          log.error(s"filter unknown ${a}")
+          false
+        }
       }
     }).map(x => {
       val a = x._2
-      if (a.isInstanceOf[ArrayBuffer[Array[Double]]]) {
-        // build tree
-        ((x._1._1, x._1._2), NDTree(optionsBC.value,
-          x._2.asInstanceOf[ArrayBuffer[Array[Double]]].toArray).model)
-      } else {
-        x
+      a match {
+        case y: ArrayBuffer[Array[Double]] => {
+          // build tree
+          ((x._1._1, x._1._2), NDTree(optionsBC.value, y.toArray).model)
+        }
+        case z: FeatureStats => {
+          x
+        }
+        case _ => {
+          log.error(s"map unknown ${a}")
+          x
+        }
       }
     }).collect
     linearFeatureFamiliesBC.unpersist()
