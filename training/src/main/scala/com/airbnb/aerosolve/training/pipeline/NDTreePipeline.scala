@@ -68,34 +68,43 @@ object NDTreePipeline {
     val tree: Array[((String, String), Any)] = input.mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
-      if (a.isInstanceOf[ArrayBuffer]) {
-        a.asInstanceOf[ArrayBuffer].++=(b.asInstanceOf[ArrayBuffer])
-      } else {
-        val as = a.asInstanceOf[FeatureStats]
-        val bs = b.asInstanceOf[FeatureStats]
-        FeatureStats(as.count + bs.count,
-          scala.math.min(as.min, bs.min),
-          scala.math.max(as.max, bs.max))
+      a match {
+        case ArrayBuffer => {
+          a.asInstanceOf[ArrayBuffer[Any]].++=(b.asInstanceOf[ArrayBuffer[Any]])
+        }
+        case FeatureStats => {
+          val as = a.asInstanceOf[FeatureStats]
+          val bs = b.asInstanceOf[FeatureStats]
+          FeatureStats(as.count + bs.count,
+            scala.math.min(as.min, bs.min),
+            scala.math.max(as.max, bs.max))
+        }
+        case _ => "" // should never happen
       }
     }).filter(x => {
       val a = x._2
-      if (a.isInstanceOf[ArrayBuffer]) {
-        a.asInstanceOf[ArrayBuffer].size >= minCount
-      } else {
-        a.asInstanceOf[FeatureStats].count >= minCount
+      a match {
+        case ArrayBuffer => {
+          a.asInstanceOf[ArrayBuffer[Any]].size >= minCount
+        }
+        case FeatureStats => {
+          a.asInstanceOf[FeatureStats].count >= minCount
+        }
+        case _ => false // should never happen
       }
-    })
-      .map(x => {
-        val a = x._2
-        if (a.isInstanceOf[ArrayBuffer]) {
+    }).map(x => {
+      val a = x._2
+      a match {
+        case ArrayBuffer => {
           // build tree
           ((x._1._1, x._1._2), NDTree(options.value,
             x._2.asInstanceOf[ArrayBuffer[Array[Double]]].toArray).model)
-        } else {
+        }
+        case FeatureStats => {
           x
         }
-      })
-      .collect
+      }
+      }).collect
     tree
   }
 
