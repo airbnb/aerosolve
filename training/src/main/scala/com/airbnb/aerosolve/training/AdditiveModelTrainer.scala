@@ -1,4 +1,4 @@
-package com.airbnb.aerosolve.training
+package com.airbnb.marketplace.pricing
 
 import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
@@ -12,6 +12,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
+import com.airbnb.aerosolve.training._
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -55,13 +56,13 @@ object AdditiveModelTrainer {
                                    nDTreeBuildOptions: NDTreeBuildOptions)
 
   def train(sc: SparkContext,
-            input: RDD[Example],
+            input: Double => RDD[Example],
             config: Config,
             key: String): AdditiveModel = {
     val trainConfig = config.getConfig(key)
     val iterations: Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
-    val transformed = transformExamples(input, config, key, params)
+    val transformed = (frac: Double) => transformExamples(input(frac), config, key, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
 
@@ -91,14 +92,13 @@ object AdditiveModelTrainer {
     * @param modelBC  broadcasted current model (weights)
     * @return
     */
-  def sgdTrain(input: RDD[Example],
+  def sgdTrain(input: Double => RDD[Example],
                paramsBC: Broadcast[AdditiveTrainerParams],
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
     val params = paramsBC.value
 
-    input
-      .sample(false, params.subsample)
+    input(params.subsample)
       .coalesce(params.numBags, true)
       .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, paramsBC))
       .groupByKey()
@@ -315,22 +315,22 @@ object AdditiveModelTrainer {
                                 config: Config,
                                 key: String,
                                 params: AdditiveTrainerParams): RDD[Example] = {
-      LinearRankerUtils.makePointwiseFloat(input, config, key)
+    LinearRankerUtils.makePointwiseFloat(input, config, key)
   }
 
-  private def modelInitialization(sc: SparkContext,
-                                  input: RDD[Example],
+  private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
                                   params: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
+    val initExamples = input(params.subsample)
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, params, input, newModel, true)
+      initModel(sc, params, initExamples, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, params, input, newModel, false)
+      initModel(sc, params, initExamples, newModel, false)
       newModel
     }
   }
@@ -505,6 +505,14 @@ object AdditiveModelTrainer {
 
   def trainAndSaveToFile(sc: SparkContext,
                          input: RDD[Example],
+                         config: Config,
+                         key: String) = {
+    val model = train(sc, frac => input.sample(false, frac), config, key)
+    TrainingUtils.saveModel(model, config, key + ".model_output")
+  }
+
+  def trainAndSaveToFile(sc: SparkContext,
+                         input: Double => RDD[Example],
                          config: Config,
                          key: String) = {
     val model = train(sc, input, config, key)
