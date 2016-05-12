@@ -72,7 +72,7 @@ object JobRunner extends Logging {
             .scoreTableRun(sc, config)
           case "GenericParamSearch" => GenericPipeline
             .paramSearch(sc, config)
-          case "BuildFeatureMap" => NDTreePipeline.buildFeatureMapRun(sc, config)
+          case "NDTreeBuildFeatureMap" => NDTreePipeline.buildFeatureMapRun(sc, config)
           case _ => log.error("Unknown job " + job)
         }
       } catch {
