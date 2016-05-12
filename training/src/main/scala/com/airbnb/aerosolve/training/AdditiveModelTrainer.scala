@@ -347,8 +347,7 @@ object AdditiveModelTrainer {
     if (params.nDTreeBuildOptions != null) {
       val linearFeatureFamilies = params.linearFeatureFamilies
       val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
-        sc, input, params.minCount, params.subsample,
-        linearFeatureFamilies, params.nDTreeBuildOptions)
+        sc, input, params.minCount, linearFeatureFamilies, params.nDTreeBuildOptions)
       for (((family, name), feature) <- result) {
         feature match {
           case Left(ndTreeModel) => {
@@ -509,7 +508,7 @@ object AdditiveModelTrainer {
                          input: RDD[Example],
                          config: Config,
                          key: String) = {
-    trainAndSaveToFile(sc, (frac: Double) => input.sample(false, frac), config, key)
+    trainAndSaveToFileEarlySample(sc, (frac: Double) => input.sample(false, frac), config, key)
   }
 
   /**
@@ -523,7 +522,7 @@ object AdditiveModelTrainer {
     *
     * @param sampleInput a function takes sampling fraction and returns sampled dataset
     */
-  def trainAndSaveToFile(sc: SparkContext,
+  def trainAndSaveToFileEarlySample(sc: SparkContext,
                          sampleInput: Double => RDD[Example],
                          config: Config,
                          key: String) = {
