@@ -92,7 +92,6 @@ object NDTreePipeline {
           scala.math.max(as.max, bs.max))
       } else {
         log.error(s"reduceByKey unknow ${a}")
-
       }
     }).filter(x => {
       val a = x._2

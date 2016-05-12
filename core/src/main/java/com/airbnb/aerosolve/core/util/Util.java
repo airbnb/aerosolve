@@ -337,8 +337,6 @@ public class Util implements Serializable {
     return recordMap;
   }
 
-
-
   public static List<DebugScoreDiffRecord> compareDebugRecords(List<DebugScoreRecord> record1,
                                                                List<DebugScoreRecord> record2){
     List<DebugScoreDiffRecord> debugDiffRecord = new ArrayList<>();

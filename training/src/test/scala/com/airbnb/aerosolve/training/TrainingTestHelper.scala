@@ -51,7 +51,6 @@ object TrainingTestHelper {
     example
   }
 
-
   def makeSimpleClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()

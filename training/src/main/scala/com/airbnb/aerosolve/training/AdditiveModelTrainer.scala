@@ -343,8 +343,8 @@ object AdditiveModelTrainer {
                         input: RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
-    val linearFeatureFamilies = params.linearFeatureFamilies
     if (params.dynamicBuckets) {
+      val linearFeatureFamilies = params.linearFeatureFamilies
       val options = NDTreeBuildOptions(
         maxTreeDepth = config.getInt("max_tree_depth"),
         minLeafCount = config.getInt("min_leaf_count"))
@@ -362,24 +362,33 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      val initExamples = input.sample(false, params.subsample)
-      val minMax = TrainingUtils
-        .getFeatureStatistics(params.minCount, initExamples)
-        .filter(x => x._1._1 != params.rankKey)
-      log.info("Num features = %d".format(minMax.length))
-      val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
-      val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
-      // add splines
-      for (((featureFamily, featureName), stats) <- minMaxSpline) {
-        val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
-        model.addFunction(featureFamily, featureName, spline, overwrite)
-      }
-      // add linear
-      for (((featureFamily, featureName), stats) <- minMaxLinear) {
-        // set default linear function as f(x) = 0
-        model.addFunction(featureFamily, featureName,
-          new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
-      }
+      initModel(params, input, model, overwrite)
+    }
+  }
+
+  // init spline and linear
+  private def initModel(params: AdditiveTrainerParams,
+                        input: RDD[Example],
+                        model: AdditiveModel,
+                        overwrite: Boolean)= {
+    val linearFeatureFamilies = params.linearFeatureFamilies
+    val initExamples = input.sample(false, params.subsample)
+    val minMax = TrainingUtils
+      .getFeatureStatistics(params.minCount, initExamples)
+      .filter(x => x._1._1 != params.rankKey)
+    log.info("Num features = %d".format(minMax.length))
+    val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
+    val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
+    // add splines
+    for (((featureFamily, featureName), stats) <- minMaxSpline) {
+      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
+      model.addFunction(featureFamily, featureName, spline, overwrite)
+    }
+    // add linear
+    for (((featureFamily, featureName), stats) <- minMaxLinear) {
+      // set default linear function as f(x) = 0
+      model.addFunction(featureFamily, featureName,
+        new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
     }
   }
 
