@@ -53,15 +53,19 @@ object AdditiveModelTrainer {
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
                                    nDTreeBuildOptions: NDTreeBuildOptions)
+  def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
+    train(sc, (frac: Double) => input.sample(false, frac), config, key)
 
   def train(sc: SparkContext,
-            input: RDD[Example],
+            input: Double => RDD[Example],
             config: Config,
             key: String): AdditiveModel = {
     val trainConfig = config.getConfig(key)
     val iterations: Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
-    val transformed = transformExamples(input, config, key, params)
+    // sample before we transform as it can be very expensive especially for crossing
+    // NB: this assumes we don't add/remove observations during transformation
+    val transformed = (frac: Double) => transformExamples(input(frac), config, key, params)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
 
@@ -86,19 +90,18 @@ object AdditiveModelTrainer {
     * 3. For each bag we run SGD (observation-wise gradient updates)
     * 4. We then average fitted weights for each feature and return them as updated model
     *
-    * @param input    collection of examples to be trained in sgd iteration
+    * @param input    takes a sample fraction and returns collection of examples to be trained in sgd iteration
     * @param paramsBC broadcasted model params
     * @param modelBC  broadcasted current model (weights)
     * @return
     */
-  def sgdTrain(input: RDD[Example],
+  def sgdTrain(input: Double => RDD[Example],
                paramsBC: Broadcast[AdditiveTrainerParams],
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
     val params = paramsBC.value
 
-    input
-      .sample(false, params.subsample)
+    input(params.subsample)
       .coalesce(params.numBags, true)
       .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, paramsBC))
       .groupByKey()
@@ -315,22 +318,22 @@ object AdditiveModelTrainer {
                                 config: Config,
                                 key: String,
                                 params: AdditiveTrainerParams): RDD[Example] = {
-      LinearRankerUtils.makePointwiseFloat(input, config, key)
+    LinearRankerUtils.makePointwiseFloat(input, config, key)
   }
 
-  private def modelInitialization(sc: SparkContext,
-                                  input: RDD[Example],
+  private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
                                   params: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
+    val initExamples = input(params.subsample)
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, params, input, newModel, true)
+      initModel(sc, params, initExamples, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, params, input, newModel, false)
+      initModel(sc, params, initExamples, newModel, false)
       newModel
     }
   }
@@ -344,8 +347,7 @@ object AdditiveModelTrainer {
     if (params.nDTreeBuildOptions != null) {
       val linearFeatureFamilies = params.linearFeatureFamilies
       val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
-        sc, input, params.minCount, params.subsample,
-        linearFeatureFamilies, params.nDTreeBuildOptions)
+        sc, input, params.minCount, linearFeatureFamilies, params.nDTreeBuildOptions)
       for (((family, name), feature) <- result) {
         feature match {
           case Left(ndTreeModel) => {
@@ -364,11 +366,10 @@ object AdditiveModelTrainer {
 
   // init spline and linear
   private def initWithoutDynamicBucketModel(params: AdditiveTrainerParams,
-                        input: RDD[Example],
+                        initExamples: RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
     val linearFeatureFamilies = params.linearFeatureFamilies
-    val initExamples = input.sample(false, params.subsample)
     val minMax = TrainingUtils
       .getFeatureStatistics(params.minCount, initExamples)
       .filter(x => x._1._1 != params.rankKey)
@@ -507,7 +508,25 @@ object AdditiveModelTrainer {
                          input: RDD[Example],
                          config: Config,
                          key: String) = {
-    val model = train(sc, input, config, key)
+    trainAndSaveToFileEarlySample(sc, (frac: Double) => input.sample(false, frac), config, key)
+  }
+
+  /**
+    * Entry point to train and persist model on disk
+    *
+    * This version allows sample to be pushed down in the Example loading process.
+    * One use case is to avoid deserialization when examples are discarded by sampling.
+    *
+    * @note Care should be taken when caching dataset as the order of cache and sample call will determine the proportion
+    * of dataset be cached and whether each reference will result in a new set of sample.
+    *
+    * @param sampleInput a function takes sampling fraction and returns sampled dataset
+    */
+  def trainAndSaveToFileEarlySample(sc: SparkContext,
+                         sampleInput: Double => RDD[Example],
+                         config: Config,
+                         key: String) = {
+    val model = train(sc, sampleInput, config, key)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }
