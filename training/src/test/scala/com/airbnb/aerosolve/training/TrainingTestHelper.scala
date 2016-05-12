@@ -39,6 +39,18 @@ object TrainingTestHelper {
     example
   }
 
+  def makeDenseExample(x : Double,
+                  y : Double,
+                  target : Double) : Example = {
+    val example = new Example
+    val item: FeatureVector = new FeatureVector
+    item.setDenseFeatures(new java.util.HashMap)
+    val denseFeatures = item.getDenseFeatures
+    denseFeatures.put("d", java.util.Arrays.asList(x, y))
+    example.addToExample(item)
+    example
+  }
+
   def makeSimpleClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()

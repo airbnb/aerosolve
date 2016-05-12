@@ -2,8 +2,11 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
-import com.airbnb.aerosolve.core.models.AdditiveModel
+import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
+import com.airbnb.aerosolve.training.pipeline.NDTreePipeline
+import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.FeatureStats
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
@@ -47,8 +50,9 @@ object AdditiveModelTrainer {
                                    lossMod: Int,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
-                                   linearFeatureFamilies: Array[String],
-                                   priors: Array[String])
+                                   linearFeatureFamilies: java.util.List[String],
+                                   priors: Array[String],
+                                   nDTreeBuildOptions: NDTreeBuildOptions)
 
   def train(sc: SparkContext,
             input: RDD[Example],
@@ -62,7 +66,7 @@ object AdditiveModelTrainer {
     log.info("Training using " + params.loss)
 
     val paramsBC = sc.broadcast(params)
-    var model = modelInitialization(transformed, params)
+    var model = modelInitialization(sc, transformed, params)
     for (i <- 1 to iterations) {
       log.info(s"Iteration $i")
       val modelBC = sc.broadcast(model)
@@ -314,38 +318,59 @@ object AdditiveModelTrainer {
       LinearRankerUtils.makePointwiseFloat(input, config, key)
   }
 
-  private def modelInitialization(input: RDD[Example],
+  private def modelInitialization(sc: SparkContext,
+                                  input: RDD[Example],
                                   params: AdditiveTrainerParams): AdditiveModel = {
-    // add functions to additive model
-    val initialModel = if (params.initModelPath == "") {
-      None
-    } else {
-      TrainingUtils.loadScoreModel(params.initModelPath)
-    }
-
     // sample examples to be used for model initialization
-    val initExamples = input.sample(false, params.subsample)
-    if (initialModel.isDefined) {
-      val newModel = initialModel.get.asInstanceOf[AdditiveModel]
-      initModel(params.minCount, params, initExamples, newModel, false)
+    if (params.initModelPath == "") {
+      val newModel = new AdditiveModel()
+      initModel(sc, params, input, newModel, true)
+      setPrior(params.priors, newModel)
       newModel
     } else {
-      val newModel = new AdditiveModel()
-      initModel(params.minCount, params, initExamples, newModel, true)
-      setPrior(params.priors, newModel)
+      val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
+        .get.asInstanceOf[AdditiveModel]
+      initModel(sc, params, input, newModel, false)
       newModel
     }
   }
 
   // Initializes the model
-  private def initModel(minCount: Int,
+  private def initModel(sc: SparkContext,
                         params: AdditiveTrainerParams,
-                        examples: RDD[Example],
+                        input: RDD[Example],
+                        model: AdditiveModel,
+                        overwrite: Boolean) = {
+    if (params.nDTreeBuildOptions != null) {
+      val linearFeatureFamilies = params.linearFeatureFamilies
+      val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
+        sc, input, params.minCount, params.subsample,
+        linearFeatureFamilies, params.nDTreeBuildOptions)
+      for (((family, name), feature) <- result) {
+        feature match {
+          case Left(ndTreeModel) => {
+            model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
+          }
+          case Right(stats) => {
+            model.addFunction(family, name,
+              new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+          }
+        }
+      }
+    } else {
+      initWithoutDynamicBucketModel(params, input, model, overwrite)
+    }
+  }
+
+  // init spline and linear
+  private def initWithoutDynamicBucketModel(params: AdditiveTrainerParams,
+                        input: RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
     val linearFeatureFamilies = params.linearFeatureFamilies
+    val initExamples = input.sample(false, params.subsample)
     val minMax = TrainingUtils
-      .getFeatureStatistics(minCount, examples)
+      .getFeatureStatistics(params.minCount, initExamples)
       .filter(x => x._1._1 != params.rankKey)
     log.info("Num features = %d".format(minMax.length))
     val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
@@ -430,9 +455,9 @@ object AdditiveModelTrainer {
       config.getDouble("epsilon")
     }.getOrElse(0.0)
     val minCount: Int = config.getInt("min_count")
-    val linearFeatureFamilies: Array[String] = Try(
-      config.getStringList("linear_feature").toList.toArray)
-      .getOrElse(Array[String]())
+    val linearFeatureFamilies: java.util.List[String] = Try(
+      config.getStringList("linear_feature"))
+      .getOrElse[java.util.List[String]](List.empty.asJava)
     val lossMod: Int = Try {
       config.getInt("loss_mod")
     }.getOrElse(100)
@@ -445,6 +470,15 @@ object AdditiveModelTrainer {
     val multiscale: Array[Int] = Try(
       config.getIntList("multiscale").asScala.map(x => x.toInt).toArray)
       .getOrElse(Array[Int]())
+    val dynamicBucketsConfig = Try(Some(config.getConfig("dynamic_buckets"))).getOrElse(None)
+    val options = if (dynamicBucketsConfig.nonEmpty) {
+      val cfg = dynamicBucketsConfig.get
+      NDTreeBuildOptions(
+        maxTreeDepth = cfg.getInt("max_tree_depth"),
+        minLeafCount = cfg.getInt("min_leaf_count"))
+    } else {
+      null
+    }
 
     AdditiveTrainerParams(
       numBins,
@@ -465,7 +499,8 @@ object AdditiveModelTrainer {
       epsilon,
       initModelPath,
       linearFeatureFamilies,
-      priors)
+      priors,
+      options)
   }
 
   def trainAndSaveToFile(sc: SparkContext,

@@ -24,7 +24,7 @@ import static com.airbnb.aerosolve.core.function.FunctionUtil.toFloat;
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
 @Slf4j
 public class AdditiveModel extends AbstractModel {
-  private static final String DENSE_FAMILY = "dense";
+  public static final String DENSE_FAMILY = "dense";
   @Getter @Setter
   private Map<String, Map<String, Function>> weights = new HashMap<>();
 
