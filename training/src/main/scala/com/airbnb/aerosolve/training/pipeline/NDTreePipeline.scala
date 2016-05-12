@@ -1,5 +1,7 @@
 package com.airbnb.aerosolve.training.pipeline
 
+import java.util
+
 import com.airbnb.aerosolve.core.Example
 import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
@@ -7,6 +9,7 @@ import com.airbnb.aerosolve.training.NDTree
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -36,36 +39,47 @@ object NDTreePipeline {
     TODO add rankKey: LABEL (default to GenericPipeline.LABEL)
   */
   def buildFeatureMapRun(sc: SparkContext, config : Config) = {
-    val features = getFeatures(sc, config)
+    val features = buildFeatures(sc, config)
     for (((family, name), feature) <- features) {
       // save to disk.
       if (feature.isInstanceOf[FeatureStats]) {
         val stats = feature.asInstanceOf[FeatureStats]
         log.info(s"${family}, ${name}: ${stats.count} ${stats.min} ${stats.max}")
       } else {
-        log.info(s"${family}, ${name}: ${feature.asInstanceOf[NDTreeModel].getNodes.mkString("\n")}")
+        val model = feature.asInstanceOf[NDTreeModel]
+        val nodes = model.getNodes
+        log.info(s"${family}, ${name}: ${model.getDimension} ${nodes.length} ${nodes.mkString("\n")}")
       }
     }
   }
 
-  def getFeatures(sc: SparkContext, config : Config):
+  def buildFeatures(sc: SparkContext, config : Config):
       Array[((String, String), Any)] = {
     val cfg = config.getConfig("make_feature_map")
     val inputPattern: String = cfg.getString("input")
+    log.info(s"Training data: ${inputPattern}")
     val sample: Double = cfg.getDouble("sample")
     val minCount: Int = cfg.getInt("min_count")
     // minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
     val linearFeatureFamilies: java.util.List[String] = Try(config.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
 
-    val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
-    val options = sc.broadcast(NDTreeBuildOptions(
+    val input = GenericPipeline.getExamples(sc, inputPattern)
+    val options = NDTreeBuildOptions(
       maxTreeDepth = cfg.getInt("max_tree_depth"),
-      minLeafCount = cfg.getInt("min_leaf_count")))
+      minLeafCount = cfg.getInt("min_leaf_count"))
 
-    log.info("Training data: ${inputPattern}")
-    val input = GenericPipeline.getExamples(sc, inputPattern).sample(true, sample)
-    val tree: Array[((String, String), Any)] = input.mapPartitions(partition => {
+    val result: Array[((String, String), Any)] = getFeatures(
+      sc, input, minCount, sample, linearFeatureFamilies, options)
+    result
+  }
+
+  def getFeatures(sc: SparkContext, input: RDD[Example], minCount: Int, sample: Double,
+                  linearFeatureFamilies: util.List[String],
+                  options: NDTreeBuildOptions): Array[((String, String), Any)] = {
+    val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
+    val optionsBC = sc.broadcast(options)
+    val tree: Array[((String, String), Any)] = input.sample(true, sample).mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
       a match {
@@ -79,7 +93,10 @@ object NDTreePipeline {
             scala.math.min(as.min, bs.min),
             scala.math.max(as.max, bs.max))
         }
-        case _ => "" // should never happen
+        case _ => {
+          log.error(s"reduceByKey unknow ${a}")
+          ""
+        } // should never happen
       }
     }).filter(x => {
       val a = x._2
@@ -90,14 +107,17 @@ object NDTreePipeline {
         case FeatureStats => {
           a.asInstanceOf[FeatureStats].count >= minCount
         }
-        case _ => false // should never happen
+        case _ => {
+          log.error(s"filter unknown ${a}")
+          false
+        } // should never happen
       }
     }).map(x => {
       val a = x._2
       a match {
         case ArrayBuffer => {
           // build tree
-          ((x._1._1, x._1._2), NDTree(options.value,
+          ((x._1._1, x._1._2), NDTree(optionsBC.value,
             x._2.asInstanceOf[ArrayBuffer[Array[Double]]].toArray).model)
         }
         case FeatureStats => {
@@ -105,6 +125,9 @@ object NDTreePipeline {
         }
       }
       }).collect
+    linearFeatureFamiliesBC.unpersist()
+    optionsBC.unpersist()
+    log.info(s"tree ${tree}")
     tree
   }
 
