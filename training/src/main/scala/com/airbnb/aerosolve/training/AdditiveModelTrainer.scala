@@ -1,4 +1,4 @@
-package com.airbnb.marketplace.pricing
+package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
@@ -12,7 +12,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
-import com.airbnb.aerosolve.training._
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
