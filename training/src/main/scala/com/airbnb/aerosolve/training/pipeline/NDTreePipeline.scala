@@ -42,19 +42,20 @@ object NDTreePipeline {
     val features = buildFeatures(sc, config)
     for (((family, name), feature) <- features) {
       // save to disk.
-      if (feature.isInstanceOf[FeatureStats]) {
-        val stats = feature.asInstanceOf[FeatureStats]
-        log.info(s"${family}, ${name}: ${stats.count} ${stats.min} ${stats.max}")
-      } else {
-        val model = feature.asInstanceOf[NDTreeModel]
-        val nodes = model.getNodes
-        log.info(s"${family}, ${name}: ${model.getDimension} ${nodes.length} ${nodes.mkString("\n")}")
+      feature match {
+        case Left(model) => {
+          val nodes = model.getNodes
+          log.info(s"${family}, ${name}: ${model.getDimension} ${nodes.length} ${nodes.mkString("\n")}")
+        }
+        case Right(stats) => {
+          log.info(s"${family}, ${name}: ${stats.count} ${stats.min} ${stats.max}")
+        }
       }
     }
   }
 
   def buildFeatures(sc: SparkContext, config : Config):
-      Array[((String, String), Any)] = {
+      Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val cfg = config.getConfig("make_feature_map")
     val inputPattern: String = cfg.getString("input")
     log.info(s"Training data: ${inputPattern}")
@@ -69,62 +70,55 @@ object NDTreePipeline {
       maxTreeDepth = cfg.getInt("max_tree_depth"),
       minLeafCount = cfg.getInt("min_leaf_count"))
 
-    val result: Array[((String, String), Any)] = getFeatures(
+    val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = getFeatures(
       sc, input, minCount, sample, linearFeatureFamilies, options)
     result
   }
 
   def getFeatures(sc: SparkContext, input: RDD[Example], minCount: Int, sample: Double,
                   linearFeatureFamilies: util.List[String],
-                  options: NDTreeBuildOptions): Array[((String, String), Any)] = {
+                  options: NDTreeBuildOptions):
+                  Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
     val optionsBC = sc.broadcast(options)
-    val tree: Array[((String, String), Any)] = input.sample(true, sample).mapPartitions(partition => {
+    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] = input.sample(true, sample).mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
-      a match {
-        case x: ArrayBuffer[Array[Double]] => {
-          b.asInstanceOf[ArrayBuffer[Array[Double]]].++=(x)
+      val result = a match {
+        case Left(x) => {
+          x.++=(b.left.get)
+          a
         }
-        case y: FeatureStats => {
-          val bs = b.asInstanceOf[FeatureStats]
-          FeatureStats(y.count + bs.count,
+        case Right(y) => {
+          val bs = b.right.get
+          Right(FeatureStats(y.count + bs.count,
             scala.math.min(y.min, bs.min),
-            scala.math.max(y.max, bs.max))
-        }
-        case _ => {
-          log.error(s"reduceByKey unknow ${a}")
+            scala.math.max(y.max, bs.max)))
         }
       }
+      result
     }).filter(x => {
       val a = x._2
       a match {
-        case x: ArrayBuffer[Array[Double]] => {
+        case Left(x) => {
           x.size >= minCount
         }
-        case y: FeatureStats => {
+        case Right(y) => {
           y.count >= minCount
-        }
-        case _ => {
-          log.error(s"filter unknown ${a}")
-          false
         }
       }
     }).map(x => {
       val a = x._2
-      a match {
-        case y: ArrayBuffer[Array[Double]] => {
+      val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
+        case Left(y) => {
           // build tree
-          ((x._1._1, x._1._2), NDTree(optionsBC.value, y.toArray).model)
+          ((x._1._1, x._1._2), Left(NDTree(optionsBC.value, y.toArray).model))
         }
-        case z: FeatureStats => {
-          x
-        }
-        case _ => {
-          log.error(s"map unknown ${a}")
-          x
+        case Right(z) => {
+          ((x._1._1, x._1._2), Right(z))
         }
       }
+      result
     }).collect
     linearFeatureFamiliesBC.unpersist()
     optionsBC.unpersist()
@@ -134,8 +128,8 @@ object NDTreePipeline {
 
   def flattenExample(partition: Iterator[Example],
                      linearFeatureFamilies: java.util.List[String])
-                  : Iterator[((String, String), Any)] = {
-    val map = mutable.Map[(String, String), Any]()
+                  : Iterator[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] = {
+    val map = mutable.Map[(String, String), Either[ArrayBuffer[Array[Double]], FeatureStats]]()
     partition.foreach(examples => {
       examplesToFloatFeatureArray(examples, linearFeatureFamilies, map)
       examplesToDenseFeatureArray(examples, map)
@@ -144,25 +138,26 @@ object NDTreePipeline {
     map.iterator
   }
 
-  def examplesToStringFeatureArray(example: Example, map: mutable.Map[(String, String), Any]): Unit = {
+  def examplesToStringFeatureArray(example: Example, map: mutable.Map[(String, String),
+      Either[ArrayBuffer[Array[Double]], FeatureStats]]): Unit = {
     for (i <- 0 until example.getExample.size()) {
       val featureVector = example.getExample.get(i)
       val stringFeatures = Util.safeMap(featureVector.stringFeatures).asScala
       stringFeatures.foreach(familyMap => {
         val family = familyMap._1
-
         familyMap._2.foreach(feature => {
           val key = (family, feature)
-          val stats: FeatureStats =  map.getOrElseUpdate(key,
-            FeatureStats(0, 1, 1)).asInstanceOf[FeatureStats]
-          map.put(key, FeatureStats(stats.count + 1, 1, 1))
+          val stats =  map.getOrElseUpdate(key,
+            Right(FeatureStats(0, 1, 1))).right.get
+          map.put(key, Right(FeatureStats(stats.count + 1, 1, 1)))
         })
       })
     }
   }
 
   def examplesToFloatFeatureArray(example: Example, linearFeatureFamilies:java.util.List[String],
-                                  map: mutable.Map[(String, String), Any]): Unit = {
+                                  map: mutable.Map[(String, String),
+                                    Either[ArrayBuffer[Array[Double]], FeatureStats]]): Unit = {
     for (i <- 0 until example.getExample.size()) {
       val featureVector = example.getExample.get(i)
       val floatFeatures = Util.safeMap(featureVector.floatFeatures).asScala
@@ -171,18 +166,18 @@ object NDTreePipeline {
         if (linearFeatureFamilies.contains(family)) {
           familyMap._2.foreach(feature => {
             val key = (family, feature._1)
-            val stats: FeatureStats =  map.getOrElseUpdate(key,
-              FeatureStats(0, Double.MaxValue, Double.MinValue)).asInstanceOf[FeatureStats]
+            val stats =  map.getOrElseUpdate(key,
+              Right(FeatureStats(0, Double.MaxValue, Double.MinValue))).right.get
             val v = feature._2
-            map.put(key, FeatureStats(stats.count + 1,
+            map.put(key, Right(FeatureStats(stats.count + 1,
               scala.math.min(stats.min, v),
-              scala.math.max(stats.max, v)))
+              scala.math.max(stats.max, v))))
           })
         } else if (family.compare(GenericPipeline.LABEL) != 0) {
           familyMap._2.foreach(feature => {
             // dense feature should not be same family and feature name as float
             val values:ArrayBuffer[Array[Double]] = map.getOrElseUpdate((family, feature._1),
-              ArrayBuffer[Array[Double]]()).asInstanceOf[ArrayBuffer[Array[Double]]]
+              Left(ArrayBuffer[Array[Double]]())).left.get
             values += Array[Double](feature._2.doubleValue())
           })
         }
@@ -191,7 +186,8 @@ object NDTreePipeline {
   }
 
   def examplesToDenseFeatureArray(example: Example,
-                                  map: mutable.Map[(String, String), Any]): Unit = {
+                                  map: mutable.Map[(String, String),
+                                    Either[ArrayBuffer[Array[Double]], FeatureStats]]): Unit = {
     for (i <- 0 until example.getExample.size()) {
       val featureVector = example.getExample.get(i)
       val denseFeatures = Util.safeMap(featureVector.denseFeatures).asScala
@@ -199,7 +195,7 @@ object NDTreePipeline {
         val name = feature._1
         val values:ArrayBuffer[Array[Double]] =
           map.getOrElseUpdate((AdditiveModel.DENSE_FAMILY, name),
-            ArrayBuffer[Array[Double]]()).asInstanceOf[ArrayBuffer[Array[Double]]]
+            Left(ArrayBuffer[Array[Double]]())).left.get
         values += feature._2.asScala.toArray.map(_.doubleValue)
       })
     }

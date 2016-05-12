@@ -343,18 +343,18 @@ object AdditiveModelTrainer {
                         overwrite: Boolean) = {
     if (params.nDTreeBuildOptions != null) {
       val linearFeatureFamilies = params.linearFeatureFamilies
-      val result: Array[((String, String), Any)] = NDTreePipeline.getFeatures(
+      val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
         sc, input, params.minCount, params.subsample,
         linearFeatureFamilies, params.nDTreeBuildOptions)
       for (((family, name), feature) <- result) {
-        // save to disk.
-        if (feature.isInstanceOf[FeatureStats]) {
-          val stats = feature.asInstanceOf[FeatureStats]
-          model.addFunction(family, name,
-            new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
-        } else {
-          val ndTreeModel = feature.asInstanceOf[NDTreeModel]
-          model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
+        feature match {
+          case Left(ndTreeModel) => {
+            model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
+          }
+          case Right(stats) => {
+            model.addFunction(family, name,
+              new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+          }
         }
       }
     } else {
