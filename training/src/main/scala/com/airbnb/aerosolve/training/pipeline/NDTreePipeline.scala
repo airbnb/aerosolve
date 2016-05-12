@@ -81,7 +81,8 @@ object NDTreePipeline {
                   Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
     val optionsBC = sc.broadcast(options)
-    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] = input.sample(true, sample).mapPartitions(partition => {
+    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
+        input.sample(true, sample).mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
       val result = a match {
