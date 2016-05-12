@@ -71,18 +71,18 @@ object NDTreePipeline {
       minLeafCount = cfg.getInt("min_leaf_count"))
 
     val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = getFeatures(
-      sc, input, minCount, sample, linearFeatureFamilies, options)
+      sc, input.sample(false, sample), minCount, linearFeatureFamilies, options)
     result
   }
 
-  def getFeatures(sc: SparkContext, input: RDD[Example], minCount: Int, sample: Double,
+  def getFeatures(sc: SparkContext, input: RDD[Example], minCount: Int,
                   linearFeatureFamilies: util.List[String],
                   options: NDTreeBuildOptions):
                   Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
     val optionsBC = sc.broadcast(options)
     val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
-        input.sample(true, sample).mapPartitions(partition => {
+      input.mapPartitions(partition => {
       flattenExample(partition, linearFeatureFamiliesBC.value)
     }).reduceByKey((a, b) => {
       val result = a match {
