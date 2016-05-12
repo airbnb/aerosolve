@@ -345,22 +345,26 @@ object AdditiveModelTrainer {
                         model: AdditiveModel,
                         overwrite: Boolean) = {
     val linearFeatureFamilies = params.linearFeatureFamilies
-    val minMax = TrainingUtils
-      .getFeatureStatistics(minCount, examples)
-      .filter(x => x._1._1 != params.rankKey)
-    log.info("Num features = %d".format(minMax.length))
-    val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
-    val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
-    // add splines
-    for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
-      model.addFunction(featureFamily, featureName, spline, overwrite)
-    }
-    // add linear
-    for (((featureFamily, featureName), stats) <- minMaxLinear) {
-      // set default linear function as f(x) = 0
-      model.addFunction(featureFamily, featureName,
-        new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+    if (params.dynamicBuckets) {
+      //
+    } else {
+      val minMax = TrainingUtils
+        .getFeatureStatistics(minCount, examples)
+        .filter(x => x._1._1 != params.rankKey)
+      log.info("Num features = %d".format(minMax.length))
+      val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
+      val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
+      // add splines
+      for (((featureFamily, featureName), stats) <- minMaxSpline) {
+        val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
+        model.addFunction(featureFamily, featureName, spline, overwrite)
+      }
+      // add linear
+      for (((featureFamily, featureName), stats) <- minMaxLinear) {
+        // set default linear function as f(x) = 0
+        model.addFunction(featureFamily, featureName,
+          new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+      }
     }
   }
 
