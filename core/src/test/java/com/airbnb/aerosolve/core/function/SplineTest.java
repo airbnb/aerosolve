@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -193,5 +194,16 @@ public class SplineTest {
     assertEquals(5.0f * scale, spline2.getWeights()[0], 0.01f);
     assertEquals(10.0f * scale, spline2.getWeights()[1], 0.01f);
     assertEquals(-20.0f * scale, spline2.getWeights()[2], 0.01f);
+  }
+
+  @Test
+  public void testSplineClone() throws CloneNotSupportedException {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    Spline spline = new Spline(1.0f, 3.0f, weights);
+    Spline splineCopy = spline.clone();
+    splineCopy.resample(2);
+    assertArrayEquals(spline.weights, weights, 0);
+    splineCopy.minVal = 0f;
+    assertEquals(spline.minVal, 1f, 0);
   }
 }

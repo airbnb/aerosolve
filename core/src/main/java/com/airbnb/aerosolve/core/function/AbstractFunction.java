@@ -55,4 +55,9 @@ public abstract class AbstractFunction implements Function {
     }
     throw new RuntimeException("no such function " + funcForm.name());
   }
+
+  @Override
+  public AbstractFunction clone() throws CloneNotSupportedException {
+    return (AbstractFunction) super.clone();
+  }
 }

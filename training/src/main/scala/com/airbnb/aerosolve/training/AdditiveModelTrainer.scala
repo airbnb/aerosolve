@@ -137,7 +137,7 @@ object AdditiveModelTrainer {
                    partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
                    paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
-    val workingModel = modelBC.value
+    val workingModel = modelBC.value.clone()
     val params = paramsBC.value
     val multiscale = params.multiscale
 
