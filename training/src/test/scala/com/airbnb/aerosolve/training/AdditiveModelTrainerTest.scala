@@ -56,7 +56,7 @@ class AdditiveModelTrainerTest {
       |  rank_threshold : 0.0
       |  learning_rate : 0.1
       |  num_bins : 16
-      |  iterations : 10
+      |  iterations : 20
       |  smoothing_tolerance : 0.1
       |  linfinity_threshold : 0.01
       |  linfinity_cap : 10.0
