@@ -76,6 +76,7 @@ public class MultiDimensionSpline implements Function {
   @Override
   public float evaluate(float ... coordinates) {
     List<MultiDimensionPoint> list = getNearbyPoints(coordinates);
+
     double[] distance = new double[list.size()];
     double sum = 0;
     for (int i = 0; i < list.size(); i++) {
@@ -100,12 +101,18 @@ public class MultiDimensionSpline implements Function {
   }
 
   private static float score(List<MultiDimensionPoint> list, double[] distance, double sum) {
-    float score = 0;
-    for (int i = 0; i < list.size(); i++) {
-      MultiDimensionPoint point = list.get(i);
-      score += point.getWeight() * (distance[i]/sum);
+    if (sum == 0) {
+      // only one point and input is at the point
+      assert (list.size() == 1);
+      return (float) list.get(0).getWeight();
+    } else {
+      float score = 0;
+      for (int i = 0; i < list.size(); i++) {
+        MultiDimensionPoint point = list.get(i);
+        score += point.getWeight() * (distance[i] / sum);
+      }
+      return score;
     }
-    return score;
   }
 
   @Override
@@ -135,9 +142,15 @@ public class MultiDimensionSpline implements Function {
   }
 
   private static void update(float delta, List<MultiDimensionPoint> list, double[] distance, double sum) {
-    for (int i = 0; i < list.size(); i++) {
-      MultiDimensionPoint point = list.get(i);
-      point.updateWeight(delta * (distance[i]/sum));
+    if (sum == 0) {
+      // only one point and input is at the point
+      assert (list.size() == 1);
+      list.get(0).updateWeight(delta);
+    } else {
+      for (int i = 0; i < list.size(); i++) {
+        MultiDimensionPoint point = list.get(i);
+        point.updateWeight(delta * (distance[i] / sum));
+      }
     }
   }
 

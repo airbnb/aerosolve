@@ -4,10 +4,7 @@ import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /*
   represent a point in multi dimension space for Function
@@ -55,7 +52,7 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
   }
 
   public static List<List<Float>> getCombination(List<Double> min, List<Double> max) {
-    List<List<Float>> keys = new ArrayList<>();
+    Set<List<Float>> set = new HashSet<>();
     assert (min.size() == max.size());
     int coordinateSize = min.size();
     int keySize = 1 << coordinateSize;
@@ -71,9 +68,9 @@ public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
         }
         k >>= 1;
       }
-      keys.add(r);
+      set.add(r);
     }
-    return keys;
+    return new ArrayList<>(set);
   }
 
   @Override
