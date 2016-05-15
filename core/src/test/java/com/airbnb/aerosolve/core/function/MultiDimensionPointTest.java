@@ -1,6 +1,7 @@
 package com.airbnb.aerosolve.core.function;
 
 import com.airbnb.aerosolve.core.util.Util;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -10,6 +11,7 @@ import java.util.Map;
 
 import static org.junit.Assert.*;
 
+@Slf4j
 public class MultiDimensionPointTest {
   @Test
   public void testEquals() throws Exception {
@@ -60,6 +62,31 @@ public class MultiDimensionPointTest {
     assertEquals(x, y);
     assertTrue(x == y);
     assertEquals(0.5, y.getWeight(), 0.1);
+  }
+
+  @Test
+  public void getCombinationWithSameMinMax() throws Exception {
+    List<Double> min = Arrays.asList(3.0);
+    List<Double> max = Arrays.asList(3.0);
+    List<List<Float>> keys = MultiDimensionPoint.getCombination(min, max);
+    assertEquals(1, keys.size());
+    assertEquals(3, keys.get(0).get(0), 0);
+
+    min = Arrays.asList(3.0, 4.0);
+    max = Arrays.asList(3.0, 4.0);
+    keys = MultiDimensionPoint.getCombination(min, max);
+    assertEquals(1, keys.size());
+    assertEquals(3, keys.get(0).get(0), 0);
+    assertEquals(4, keys.get(0).get(1), 0);
+
+    min = Arrays.asList(3.0, 3.0);
+    max = Arrays.asList(3.0, 4.0);
+    keys = MultiDimensionPoint.getCombination(min, max);
+    assertEquals(2, keys.size());
+    assertEquals(3, keys.get(0).get(0), 0);
+    assertEquals(3, keys.get(0).get(1), 0);
+    assertEquals(3, keys.get(1).get(0), 0);
+    assertEquals(4, keys.get(1).get(1), 0);
   }
 
   @Test

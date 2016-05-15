@@ -30,6 +30,45 @@ public class MultiDimensionSplineTest {
   }
 
   @Test
+  public void evaluate1DWithSameMinMax() throws Exception {
+    NDTreeModel tree = NDTreeModelTest.getNDTreeModel1DWithSameMinMax();
+    MultiDimensionSpline spline = new MultiDimensionSpline(tree);
+
+    spline.update(0.5f, 1.0f);
+    log.debug("s {}", spline.evaluate(1.0f));
+    assertEquals(0.5f, spline.evaluate(1.0f), 0);
+
+    spline.update(0.5f, 2.0f);
+    log.info("s {}", spline.evaluate(2.0f));
+    assertEquals(0.5f, spline.evaluate(2.0f), 0);
+
+    spline.update(-0.5f, 1.0f);
+    log.info("s {}", spline.evaluate(1.0f));
+    assertEquals(0, spline.evaluate(1.0f), 0);
+
+    spline.update(0.5f, 1.0f);
+    log.info("s {}", spline.evaluate(0.5f));
+    assertEquals(0.5f, spline.evaluate(0.5f), 0);
+  }
+
+  @Test
+  public void evaluate2DWithSameMinMax() throws Exception {
+    NDTreeModel tree = NDTreeModelTest.getNDTreeModel2DWithSameMinMax();
+    MultiDimensionSpline spline = new MultiDimensionSpline(tree);
+
+    spline.update(0.5f, 0.0f, 2.0f);
+    assertEquals(0.25f, spline.evaluate(0.0f, 1.0f), 0);
+    assertEquals(0.25f, spline.evaluate(0.5f, 1.0f), 0);
+
+    spline.update(0.5f, 2.0f, 1.0f);
+    assertEquals(0.13133647, spline.evaluate(2.0f, 1.0f), 0.0001);
+
+    spline.update(-0.5f, 4.0f, 4.0f);
+    assertEquals(-0.5, spline.evaluate(4.0f, 4.0f), 0);
+
+  }
+
+  @Test
   public void evaluate1D() throws Exception {
     MultiDimensionSpline spline = getMultiDimensionSpline1D();
     eval1D(spline);

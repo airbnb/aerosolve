@@ -12,6 +12,36 @@ class NDTreeTest {
   val log = LoggerFactory.getLogger("NDTreeTest")
 
   @Test
+  def buildTreeUsingMedianTestWithLimitedValues: Unit = {
+    val points = ArrayBuffer[Array[Double]]()
+
+    for (x <- 1 to 100) {
+      for (y <- 1 to 3) {
+          points.append(Array[Double](y.toDouble))
+        }
+    }
+
+    val dimensions = points.head.length
+
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 16,
+      minLeafCount = 0,
+      splitType = SplitType.Median)
+
+    val tree = NDTree(options, points.toArray)
+    val nodes = tree.nodes
+
+    log.info(s"nodes = ${nodes.mkString("\n")}")
+    assertEquals(5, nodes.length)
+    assertEquals(2.0, nodes(0).splitValue, 0)
+    assertEquals(2.5, nodes(2).splitValue, 0)
+    assertEquals(1.0, nodes(1).min.get(0))
+    assertEquals(1.0, nodes(1).max.get(0))
+    assertEquals(3.0, nodes(4).min.get(0))
+    assertEquals(3.0, nodes(4).max.get(0))
+  }
+
+  @Test
   def buildTreeUsingMedianTest: Unit = {
     val points = ArrayBuffer[Array[Double]]()
 

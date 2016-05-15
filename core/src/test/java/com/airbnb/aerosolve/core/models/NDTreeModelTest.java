@@ -50,6 +50,71 @@ public class NDTreeModelTest {
     return new NDTreeModel(arr);
   }
 
+  public static NDTreeModel getNDTreeModel2DWithSameMinMax() {
+    NDTreeNode parent = new NDTreeNode();
+    parent.setAxisIndex(0);
+    parent.setSplitValue(1.0);
+    parent.setLeftChild(1);
+    parent.setRightChild(2);
+
+    NDTreeNode one = new NDTreeNode();
+    one.setAxisIndex(LEAF);
+    one.setMin(Arrays.asList(0.0,0.0));
+    one.setMax(Arrays.asList(0.0,4.0));
+
+    NDTreeNode two = new NDTreeNode();
+    two.setAxisIndex(1);
+    two.setSplitValue(2.0);
+    two.setLeftChild(3);
+    two.setRightChild(4);
+
+    NDTreeNode three = new NDTreeNode();
+    three.setAxisIndex(LEAF);
+    three.setMin(Arrays.asList(1.0,0.0));
+    three.setMax(Arrays.asList(4.0,2.0));
+
+    NDTreeNode four = new NDTreeNode();
+    four.setAxisIndex(LEAF);
+    four.setMin(Arrays.asList(4.0,4.0));
+    four.setMax(Arrays.asList(4.0,4.0));
+
+    NDTreeNode[] arr = {parent, one, two, three, four};
+    return new NDTreeModel(arr);
+  }
+
+
+  public static NDTreeModel getNDTreeModel1DWithSameMinMax() {
+    NDTreeNode parent = new NDTreeNode();
+    parent.setAxisIndex(0);
+    parent.setSplitValue(2.0);
+    parent.setLeftChild(1);
+    parent.setRightChild(2);
+
+    NDTreeNode one = new NDTreeNode();
+    one.setAxisIndex(LEAF);
+    one.setMin(Arrays.asList(1.0));
+    one.setMax(Arrays.asList(1.0));
+
+    NDTreeNode two = new NDTreeNode();
+    two.setAxisIndex(0);
+    two.setSplitValue(2.5);
+    two.setLeftChild(3);
+    two.setRightChild(4);
+
+    NDTreeNode three = new NDTreeNode();
+    three.setAxisIndex(LEAF);
+    three.setMin(Arrays.asList(2.0));
+    three.setMax(Arrays.asList(2.0));
+
+    NDTreeNode four = new NDTreeNode();
+    four.setAxisIndex(LEAF);
+    four.setMin(Arrays.asList(3.0));
+    four.setMax(Arrays.asList(3.0));
+
+    NDTreeNode[] arr = {parent, one, two, three, four};
+    return new NDTreeModel(arr);
+  }
+
   public static NDTreeModel getNDTreeModel1D() {
     NDTreeNode parent = new NDTreeNode();
     parent.setAxisIndex(0);
