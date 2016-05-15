@@ -120,6 +120,19 @@ public class Features {
     }
   }
 
+  // string feature is concatenated by : the prefix before : is feature name
+  // RAW feature has no : so just return the RAW
+  // this is used in StringCrossFloatTransform so that
+  // we can cross Raw feature as well as other string features
+  public static String getStringFeatureName(String feature) {
+    String[] tokens =  feature.split(":");
+    if (tokens.length == 1) {
+      return RAW;
+    } else {
+      return tokens[0];
+    }
+  }
+
   @VisibleForTesting
   static void addMultiClassLabel(String str, Map<String, Map<String, Double>> floatFeatures) {
     String[] labels =  str.split(",");
