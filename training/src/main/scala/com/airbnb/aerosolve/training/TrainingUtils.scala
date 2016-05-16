@@ -31,7 +31,7 @@ object TrainingUtils {
     val sample = input.mapPartitions( examples => {
       val rnd = new java.util.Random()
       examples.flatMap { e =>
-        val label = getLabel(e, loss, rankKey, threshold)
+        val label = getLabel(e, loss, rankKey, threshold).toInt
         if (downsample.contains(label)) {
           val w = downsample(label)
           if (rnd.nextDouble() <= w) {
@@ -203,12 +203,12 @@ object TrainingUtils {
     }
   }
 
-  def getLabel(example: Example, loss: String, rankKey: String, threshold: Double): Int = {
+  def getLabel(example: Example, loss: String, rankKey: String, threshold: Double): Double = {
     val fv = example.getExample.get(0)
-    val label: Int = if (loss == "regression") {
+    val label: Double = if (loss == "regression") {
       TrainingUtils.getLabel(fv, rankKey)
     } else {
-      TrainingUtils.getLabel(fv, rankKey, threshold).toInt
+      TrainingUtils.getLabel(fv, rankKey, threshold)
     }
     label
   }
