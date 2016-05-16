@@ -22,7 +22,7 @@ public class Features {
   private final static char FAMILY_SEPARATOR = '_';
   private final static char TRUE_FEATURE = 'T';
   private final static char FALSE_FEATURE = 'F';
-
+  private final static String STRING_FEATURE_SEPARATOR= ":";
   public final String[] names;
   public final Object[] values;
 
@@ -105,7 +105,7 @@ public class Features {
     Set<String> feature = Util.getOrCreateStringFeature(featurePair.getLeft(), stringFeatures);
     String featureName = featurePair.getRight();
     char str = (b.booleanValue()) ? TRUE_FEATURE : FALSE_FEATURE;
-    feature.add(featureName + ':' + str);
+    feature.add(featureName + STRING_FEATURE_SEPARATOR + str);
   }
 
   @VisibleForTesting
@@ -116,7 +116,20 @@ public class Features {
     if (featureName.equals(RAW)) {
       feature.add(str);
     } else {
-      feature.add(featureName + ":" + str);
+      feature.add(featureName + STRING_FEATURE_SEPARATOR + str);
+    }
+  }
+
+  // string feature is concatenated by : the prefix before : is feature name
+  // RAW feature has no : so just return the RAW
+  // this is used in StringCrossFloatTransform so that
+  // we can cross Raw feature as well as other string features
+  public static String getStringFeatureName(String feature) {
+    String[] tokens =  feature.split(STRING_FEATURE_SEPARATOR);
+    if (tokens.length == 1) {
+      return RAW;
+    } else {
+      return tokens[0];
     }
   }
 
