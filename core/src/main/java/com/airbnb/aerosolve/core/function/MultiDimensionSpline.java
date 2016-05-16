@@ -247,10 +247,9 @@ public class MultiDimensionSpline implements Function {
     }
   }
 
-  // TODO: this is a shallow copy. implement deep copy if need immutability
   @Override
   public MultiDimensionSpline clone() throws CloneNotSupportedException {
-    return (MultiDimensionSpline) super.clone();
+    return new MultiDimensionSpline(this.ndTreeModel);
   }
 
   private boolean canDoSmooth() {
