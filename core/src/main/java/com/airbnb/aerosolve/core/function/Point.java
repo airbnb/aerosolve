@@ -28,24 +28,27 @@ public class Point implements Function {
     return new Point(aggWeight);
   }
 
+  /*
+    for string feature, aerosolve assume x[0] == 1
+   */
   @Override
   public float evaluate(float... x) {
-    return weight;
+    return weight * x[0];
   }
 
   @Override
   public float evaluate(List<Double> values) {
-    return weight;
+    return weight * values.get(0).floatValue();
   }
 
   @Override
   public void update(float delta, float... values) {
-    weight += delta;
+    weight += delta * values[0];
   }
 
   @Override
   public void update(float delta, List<Double> values) {
-    weight += delta;
+    weight += delta * values.get(0);
   }
 
   @Override
