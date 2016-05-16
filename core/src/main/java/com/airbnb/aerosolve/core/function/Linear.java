@@ -120,4 +120,11 @@ public class Linear extends AbstractFunction {
   @Override
   public void smooth(double tolerance) {
   }
+
+  @Override
+  public Linear clone() throws CloneNotSupportedException {
+    Linear copy = (Linear) super.clone();
+    copy.weights = weights.clone();
+    return copy;
+  }
 }

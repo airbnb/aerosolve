@@ -23,7 +23,7 @@ import static com.airbnb.aerosolve.core.function.FunctionUtil.toFloat;
 // A generalized additive model with a parametric function per feature.
 // See http://en.wikipedia.org/wiki/Generalized_additive_model
 @Slf4j
-public class AdditiveModel extends AbstractModel {
+public class AdditiveModel extends AbstractModel implements Cloneable {
   public static final String DENSE_FAMILY = "dense";
   @Getter @Setter
   private Map<String, Map<String, Function>> weights = new HashMap<>();
@@ -293,5 +293,34 @@ public class AdditiveModel extends AbstractModel {
         func.LInfinityCap(cap);
       }
     }
+  }
+
+  @Override
+  public AdditiveModel clone() throws CloneNotSupportedException {
+    AdditiveModel copy = (AdditiveModel) super.clone();
+
+    // deep copy weights
+    Map<String, Map<String, Function>> newWeights = new HashMap<>();
+    weights.forEach((k, v) -> newWeights.put(k, copyFeatures(v)));
+    copy.weights = newWeights;
+
+    copy.denseWeights = copyFeatures(denseWeights);
+
+    return copy;
+  }
+
+  private Map<String, Function> copyFeatures(Map<String, Function> featureMap) {
+    if(featureMap == null) return null;
+
+    Map<String, Function> newFeatureMap = new HashMap<>();
+    featureMap.forEach((feature, function) -> {
+      try {
+        newFeatureMap.put(feature, function.clone());
+      } catch (CloneNotSupportedException e) {
+        // Java8 stream does not handle checked exception properly and requires explicit handling
+        e.printStackTrace();
+      }
+    });
+    return newFeatureMap;
   }
 }

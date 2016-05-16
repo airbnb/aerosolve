@@ -196,4 +196,11 @@ public class Spline extends AbstractFunction {
   public void smooth(double tolerance) {
     FunctionUtil.smooth(tolerance, weights);
   }
+
+  @Override
+  public Spline clone() throws CloneNotSupportedException {
+    Spline copy = (Spline) super.clone();
+    copy.weights = weights.clone();
+    return copy;
+  }
 }

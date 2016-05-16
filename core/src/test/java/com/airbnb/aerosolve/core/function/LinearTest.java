@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -14,14 +15,13 @@ import static org.junit.Assert.assertEquals;
  */
 
 public class LinearTest {
-  float func(float x) {
+  private float func(float x) {
     return 0.2f + 1.5f * (x + 6.0f) / 11.0f;
   }
 
-  Linear createLinearTestExample() {
+  private Linear createLinearTestExample() {
     float [] weights = {0.2f, 1.5f};
-    Linear linearFunc = new Linear(-6.0f, 5.0f, weights);
-    return linearFunc;
+    return new Linear(-6.0f, 5.0f, weights);
   }
 
   @Test
@@ -35,7 +35,7 @@ public class LinearTest {
     ModelRecord record = new ModelRecord();
     record.setFeatureFamily("TEST");
     record.setFeatureName("a");
-    List<Double> weightVec = new ArrayList<Double>();
+    List<Double> weightVec = new ArrayList<>();
     weightVec.add(0.2);
     weightVec.add(1.5);
     record.setWeightVector(weightVec);
@@ -72,7 +72,17 @@ public class LinearTest {
     testLinear(linearFunc);
   }
 
-  void testLinear(Linear linearFunc) {
+  @Test
+  public void testLinearClone() throws CloneNotSupportedException {
+    Linear linearFunc = new Linear(-6.0f, 5.0f, new float[2]);
+    Linear linearCopy = linearFunc.clone();
+    linearCopy.setWeights(new float[]{1.0f, 2.0f, 3.0f});
+    assertArrayEquals(linearFunc.weights, new float[2], 0);
+    linearCopy.minVal = 0f;
+    assertEquals(linearFunc.minVal, -6f, 0);
+  }
+
+  private void testLinear(Linear linearFunc) {
     assertEquals(0.2f + 1.5f * 6.0f / 11.0f, linearFunc.evaluate(0.0f), 0.01f);
     assertEquals(0.2f + 1.5f * 7.0f / 11.0f, linearFunc.evaluate(1.0f), 0.01f);
     assertEquals(0.2f + 1.5f * 5.0f / 11.0f, linearFunc.evaluate(-1.0f), 0.01f);

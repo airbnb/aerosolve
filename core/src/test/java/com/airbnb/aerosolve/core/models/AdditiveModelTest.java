@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 /**
@@ -235,5 +236,17 @@ public class AdditiveModelTest {
         }
       }
     }
+  }
+
+  @Test
+  public void testModelClone() throws CloneNotSupportedException {
+    float[] weights = {5.0f, 10.0f, -20.0f};
+    AdditiveModel model = makeAdditiveModel();
+    model.addFunction("spline_float", "aaa", new Spline(2.0f, 10.0f, weights), false);
+
+    AdditiveModel modelClone = model.clone();
+    modelClone.getWeights().get("spline_float").get("aaa").resample(2);
+
+    assertArrayEquals(((Spline)model.getWeights().get("spline_float").get("aaa")).getWeights(), weights, 0);
   }
 }

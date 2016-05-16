@@ -5,7 +5,7 @@ import com.airbnb.aerosolve.core.ModelRecord;
 import java.io.Serializable;
 import java.util.List;
 
-public interface Function extends Serializable {
+public interface Function extends Serializable, Cloneable {
   // TODO rename numBins to something else, since it's a Spline specific thing
   Function aggregate(Iterable<Function> functions, float scale, int numBins);
 
@@ -27,4 +27,6 @@ public interface Function extends Serializable {
   void resample(int newBins);
 
   void smooth(double tolerance);
+
+  Function clone() throws CloneNotSupportedException;
 }
