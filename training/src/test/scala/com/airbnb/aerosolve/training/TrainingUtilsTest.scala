@@ -1,6 +1,5 @@
 package com.airbnb.aerosolve.training
 
-import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
 import org.junit.Test
 import org.apache.spark.SparkContext
@@ -10,6 +9,26 @@ import com.airbnb.aerosolve.core.util.Util
 
 class TrainingUtilsTest {
   val log = LoggerFactory.getLogger("TrainingUtilsTest")
+
+  @Test
+  def testDownSample(): Unit = {
+    var sc = new SparkContext("local", "TrainingUtilsTest")
+    try {
+      val results = TrainingTestHelper.makeClassificationExamples
+      val examples = sc.parallelize(results._1)
+      val n = examples.count()
+      val downsample: Map[Int, Float] = Map(-1 -> 0.1f)
+      val sampledInput = TrainingUtils.downsample(examples, "regression", "LABEL", 0.0, downsample)
+      val size = sampledInput.count()
+      assertTrue(size < n / 2)
+    } finally {
+      sc.stop()
+      sc = null
+      // To avoid Akka rebinding to the same port,
+      // since it doesn't unbind immediately on shutdown
+      System.clearProperty("spark.master.port")
+    }
+  }
 
   @Test
   def testFeatureStatistics(): Unit = {

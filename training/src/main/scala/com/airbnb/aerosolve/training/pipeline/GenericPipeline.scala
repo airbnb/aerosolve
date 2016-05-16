@@ -18,7 +18,9 @@ import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types._
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.math.{ceil, max, pow}
 import scala.util.{Random, Try}
 
@@ -83,7 +85,29 @@ object GenericPipeline {
 
     val filteredInput = input.sample(false, subsample)
 
-    TrainingUtils.trainAndSaveToFile(sc, filteredInput, config, modelConfig)
+    val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
+    val sampledInput: RDD[Example] = if (isMulticlass) {
+      filteredInput
+    } else {
+      val downsample: mutable.Map[Int, Float] = mutable.Map()
+      Try (
+        cfg.getStringList("downsample").toList.toArray
+      ).getOrElse(Array[String]())
+        .foreach( weight => {
+          val str = weight.split(":")
+          val cls = str(0).toInt
+          val w = str(1).toFloat
+          downsample += (cls -> w)
+        })
+      val trainConfig = config.getConfig(modelConfig)
+      val loss = trainConfig.getString("loss")
+      val rankKey = trainConfig.getString("rank_key")
+      val threshold = trainConfig.getDouble("rank_threshold")
+      val sampledInput = TrainingUtils.downsample(filteredInput, loss, rankKey, threshold, downsample.toMap)
+      sampledInput
+    }
+
+    TrainingUtils.trainAndSaveToFile(sc, sampledInput, config, modelConfig)
   }
 
   def getModelAndTransform(

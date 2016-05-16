@@ -52,7 +52,9 @@ object AdditiveModelTrainer {
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
-                                   nDTreeBuildOptions: NDTreeBuildOptions)
+                                   nDTreeBuildOptions: NDTreeBuildOptions,
+                                   classWeights: Map[Int, Float])
+
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
     train(sc, (frac: Double) => input.sample(false, frac), config, key)
 
@@ -63,6 +65,7 @@ object AdditiveModelTrainer {
     val trainConfig = config.getConfig(key)
     val iterations: Int = trainConfig.getInt("iterations")
     val params = loadTrainingParameters(trainConfig)
+
     // sample before we transform as it can be very expensive especially for crossing
     // NB: this assumes we don't add/remove observations during transformation
     val transformed = (frac: Double) => transformExamples(input(frac), config, key, params)
@@ -244,6 +247,7 @@ object AdditiveModelTrainer {
                      fv: FeatureVector,
                      label: Double,
                      params: AdditiveTrainerParams): Double = {
+    val classWeights = params.classWeights
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -255,7 +259,7 @@ object AdditiveModelTrainer {
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat
+    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
     model.update(gradWithLearningRate,
       params.linfinityCap.toFloat,
       flatFeatures)
@@ -269,6 +273,7 @@ object AdditiveModelTrainer {
                   fv: FeatureVector,
                   label: Double,
                   params: AdditiveTrainerParams): Double = {
+    val classWeights = params.classWeights
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -277,7 +282,7 @@ object AdditiveModelTrainer {
       (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat
+      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
       model.update(gradWithLearningRate,
         params.linfinityCap.toFloat,
         flatFeatures)
@@ -481,6 +486,16 @@ object AdditiveModelTrainer {
       null
     }
 
+    val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
+    Try(config.getStringList("class_weights").toList.toArray)
+      .getOrElse(Array[String]())
+      .foreach( weight => {
+        val str = weight.split(":")
+        val cls = str(0).toInt
+        val w = str(1).toFloat
+        classWeights += (cls -> w)
+      })
+
     AdditiveTrainerParams(
       numBins,
       numBags,
@@ -501,7 +516,8 @@ object AdditiveModelTrainer {
       initModelPath,
       linearFeatureFamilies,
       priors,
-      options)
+      options,
+      classWeights.toMap)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
