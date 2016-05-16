@@ -98,6 +98,7 @@ public class Linear extends AbstractFunction {
 
   @Override
   public float LInfinityNorm() {
+    // return max contribution
     float f0 = weights[0];
     float f1 = weights[0] + weights[1];
     return Math.max(Math.abs(f0), Math.abs(f1));
