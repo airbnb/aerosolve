@@ -23,6 +23,30 @@ object TrainingUtils {
   val log: Logger = LoggerFactory.getLogger("TrainingUtils")
   val hadoopConfiguration = new Configuration()
 
+  def downsample(input: RDD[Example],
+                 loss: String,
+                 rankKey: String,
+                 threshold: Double,
+                 downsample: Map[Int, Float]): RDD[Example] = {
+    val sample = input.mapPartitions( examples => {
+      val rnd = new java.util.Random()
+      examples.flatMap { e =>
+        val label = getLabel(e, loss, rankKey, threshold).toInt
+        if (downsample.contains(label)) {
+          val w = downsample(label)
+          if (rnd.nextDouble() <= w) {
+            Some(e)
+          } else {
+            None
+          }
+        } else {
+          Some(e)
+        }
+      }
+    })
+    sample
+  }
+
   def existsDir(dir: String) = {
     val path = new Path(dir)
     val hdfs = FileSystem.get(
@@ -177,6 +201,16 @@ object TrainingUtils {
       case "low_rank_linear" => LowRankLinearTrainer.trainAndSaveToFile(sc, input, config, key)
       case "mlp" => MlpModelTrainer.trainAndSaveToFile(sc, input, config, key)
     }
+  }
+
+  def getLabel(example: Example, loss: String, rankKey: String, threshold: Double): Double = {
+    val fv = example.getExample.get(0)
+    val label: Double = if (loss == "regression") {
+      TrainingUtils.getLabel(fv, rankKey)
+    } else {
+      TrainingUtils.getLabel(fv, rankKey, threshold)
+    }
+    label
   }
 
   def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
