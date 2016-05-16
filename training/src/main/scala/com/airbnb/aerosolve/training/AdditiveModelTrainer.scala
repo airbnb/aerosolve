@@ -1,7 +1,7 @@
 package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
-import com.airbnb.aerosolve.core.function.{Function, Linear, MultiDimensionSpline, Spline}
+import com.airbnb.aerosolve.core.function._
 import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
@@ -354,8 +354,12 @@ object AdditiveModelTrainer {
             model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
           }
           case Right(stats) => {
-            model.addFunction(family, name,
-              new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+            if (stats.min == stats.max) {
+              model.addFunction(family, name, new Point(stats.min.toFloat), overwrite)
+            } else {
+              model.addFunction(family, name,
+                new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+            }
           }
         }
       }
@@ -384,8 +388,12 @@ object AdditiveModelTrainer {
     // add linear
     for (((featureFamily, featureName), stats) <- minMaxLinear) {
       // set default linear function as f(x) = 0
-      model.addFunction(featureFamily, featureName,
-        new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+      if (stats.min == stats.max) {
+        model.addFunction(featureFamily, featureName, new Point(stats.min.toFloat), overwrite)
+      } else {
+        model.addFunction(featureFamily, featureName,
+          new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
+      }
     }
   }
 
@@ -519,7 +527,6 @@ object AdditiveModelTrainer {
     *
     * @note Care should be taken when caching dataset as the order of cache and sample call will determine the proportion
     * of dataset be cached and whether each reference will result in a new set of sample.
-    *
     * @param sampleInput a function takes sampling fraction and returns sampled dataset
     */
   def trainAndSaveToFileEarlySample(sc: SparkContext,

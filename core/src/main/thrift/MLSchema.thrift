@@ -18,7 +18,8 @@ enum FunctionForm {
   RELU,
   TANH,
   IDENTITY,
-  MultiDimensionSpline
+  MultiDimensionSpline,
+  Point
 }
 
 struct FeatureVector {
@@ -54,7 +55,7 @@ struct Example {
 struct DictionaryEntry {
   1: optional i32 index;
   2: optional double mean;
-  3: optional double scale; 
+  3: optional double scale;
 }
 
 struct DictionaryRecord {

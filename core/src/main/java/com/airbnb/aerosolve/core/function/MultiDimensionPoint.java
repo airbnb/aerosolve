@@ -4,12 +4,14 @@ import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
 import java.util.*;
 
 /*
   represent a point in multi dimension space for Function
  */
-public class MultiDimensionPoint implements Comparable<MultiDimensionPoint> {
+public class MultiDimensionPoint implements Comparable<MultiDimensionPoint>, Serializable {
+  private static final long serialVersionUID = 2166347177557769302L;
   @Getter // TODO change FloatVector to List<T> and use FloatVector here.
   private List<Float> coordinates;
   @Getter @Setter

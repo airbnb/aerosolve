@@ -7,7 +7,6 @@ import com.airbnb.aerosolve.core.ModelRecord;
 import com.airbnb.aerosolve.core.function.AbstractFunction;
 import com.airbnb.aerosolve.core.function.Function;
 import com.airbnb.aerosolve.core.function.FunctionUtil;
-import com.airbnb.aerosolve.core.function.MultiDimensionSpline;
 import com.airbnb.aerosolve.core.util.Util;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,10 +34,6 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
   private Map<String, Function> getOrCreateDenseWeights() {
     if (denseWeights == null) {
       denseWeights = weights.get(DENSE_FAMILY);
-      if (denseWeights == null) {
-        denseWeights = new HashMap<>();
-        weights.put(DENSE_FAMILY, denseWeights);
-      }
     }
     return denseWeights;
   }
@@ -238,7 +233,7 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
   public Map<String, Function> getOrCreateFeatureFamily(String featureFamily) {
     Map<String, Function> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
-      featFamily = new HashMap<String, Function>();
+      featFamily = new HashMap<>();
       weights.put(featureFamily, featFamily);
     }
     return featFamily;
@@ -253,12 +248,6 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
     if (overwrite || !featFamily.containsKey(featureName)) {
       featFamily.put(featureName, function);
     }
-  }
-
-  public void addDenseFunction(String featureName, NDTreeModel ndtreeModel) {
-    MultiDimensionSpline spline = new MultiDimensionSpline(ndtreeModel);
-    Map<String, Function> dense = getOrCreateDenseWeights();
-    dense.put(featureName, spline);
   }
 
   // Update weights based on gradient and learning rate
@@ -284,13 +273,16 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
                           Map<String, List<Double>> denseFeatures) {
     // update with lInfinite cap
     if (denseFeatures != null && !denseFeatures.isEmpty()) {
-      assert (denseWeights != null);
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function func = denseWeights.get(featureName);
-        float[] val = FunctionUtil.toFloat(feature.getValue());
-        func.update(-gradWithLearningRate, val);
-        func.LInfinityCap(cap);
+      Map<String, Function> denseWeights = getOrCreateDenseWeights();
+      if (denseWeights != null) {
+        for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+          String featureName = feature.getKey();
+          Function func = denseWeights.get(featureName);
+          if (func == null) continue;
+          float[] val = FunctionUtil.toFloat(feature.getValue());
+          func.update(-gradWithLearningRate, val);
+          func.LInfinityCap(cap);
+        }
       }
     }
   }

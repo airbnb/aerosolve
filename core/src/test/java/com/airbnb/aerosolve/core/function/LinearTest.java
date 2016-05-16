@@ -76,7 +76,7 @@ public class LinearTest {
   public void testLinearClone() throws CloneNotSupportedException {
     Linear linearFunc = new Linear(-6.0f, 5.0f, new float[2]);
     Linear linearCopy = linearFunc.clone();
-    linearCopy.setWeights(new float[]{1.0f, 2.0f, 3.0f});
+    linearCopy.weights = new float[]{1.0f, 2.0f, 3.0f};
     assertArrayEquals(linearFunc.weights, new float[2], 0);
     linearCopy.minVal = 0f;
     assertEquals(linearFunc.minVal, -6f, 0);
