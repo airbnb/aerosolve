@@ -55,9 +55,9 @@ public class StringCrossFloatTransformTest {
     return "test_cross {\n" +
         " transform : string_cross_float\n" +
         " field1 : strFeature1\n" +
-        " prefix : [\"RAW\", \"b\"]\n" +
+        " keys1 : [\"RAW\", \"b\"]\n" +
         " field2 : loc\n" +
-        " keys : [\"lat\"]\n" +
+        " keys2 : [\"lat\"]\n" +
         " output : out\n" +
         "}";
   }

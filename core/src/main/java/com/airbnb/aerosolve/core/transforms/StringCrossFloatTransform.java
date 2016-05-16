@@ -8,17 +8,18 @@ import com.typesafe.config.Config;
 import java.util.*;
 
 /*
-  if no prefix/keys provided, then cross whole family.
-  prefix used in string, and keys used in float.
-  to cross RAW features, use Features.RAW
+  if no keys1/keys2 provided, then cross whole family.
+  otherwise cross features.
+  keys1 is string features, and keys2 is float features.
+  to cross RAW string features, put Features.RAW in keys1
  */
 public class StringCrossFloatTransform implements Transform {
   private String fieldName1;
   // optional
-  private Set<String> prefix;
+  private Set<String> keys1;
   private String fieldName2;
   // optional
-  private Set<String> keys;
+  private Set<String> keys2;
   private String outputName;
 
   @Override
@@ -26,11 +27,11 @@ public class StringCrossFloatTransform implements Transform {
     fieldName1 = config.getString(key + ".field1");
     fieldName2 = config.getString(key + ".field2");
     outputName = config.getString(key + ".output");
-    if (config.hasPath(key + ".prefix")) {
-      prefix = new HashSet<>(config.getStringList(key + ".prefix"));
+    if (config.hasPath(key + ".keys1")) {
+      keys1 = new HashSet<>(config.getStringList(key + ".keys1"));
     }
-    if (config.hasPath(key + ".keys")) {
-      keys = new HashSet<>(config.getStringList(key + ".keys"));
+    if (config.hasPath(key + ".keys2")) {
+      keys2 = new HashSet<>(config.getStringList(key + ".keys2"));
     }
   }
 
@@ -46,11 +47,11 @@ public class StringCrossFloatTransform implements Transform {
     Map<String, Double> list2 = floatFeatures.get(fieldName2);
     if (list2 == null || list2.isEmpty()) return;
 
-    if (prefix != null) {
+    if (keys1 != null) {
       Set<String> joint = new HashSet<>();
       for (String s1 : list1) {
         String p = Features.getStringFeatureName(s1);
-        if (prefix.contains(p)) {
+        if (keys1.contains(p)) {
           joint.add(s1);
         }
       }
@@ -58,10 +59,10 @@ public class StringCrossFloatTransform implements Transform {
       list1 = joint;
     }
 
-    if (keys != null) {
+    if (keys2 != null) {
       Map<String, Double> joint = new HashMap<>();
       for (Map.Entry<String, Double> s2 : list2.entrySet()) {
-        if (keys.contains(s2.getKey())) {
+        if (keys2.contains(s2.getKey())) {
           joint.put(s2.getKey(), s2.getValue());
         }
       }
