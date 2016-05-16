@@ -68,7 +68,7 @@ object AdditiveModelTrainer {
 
     // sample before we transform as it can be very expensive especially for crossing
     // NB: this assumes we don't add/remove observations during transformation
-    val transformed = (frac: Double) => transformExamples(input(frac), config, key, params)
+    val transformed = (frac: Double) => LinearRankerUtils.makePointwiseFloat(input(frac), config, key)
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
 
@@ -317,13 +317,6 @@ object AdditiveModelTrainer {
         params.linfinityCap.toFloat, denseFeatures)
     }
     loss
-  }
-
-  private def transformExamples(input: RDD[Example],
-                                config: Config,
-                                key: String,
-                                params: AdditiveTrainerParams): RDD[Example] = {
-    LinearRankerUtils.makePointwiseFloat(input, config, key)
   }
 
   private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
