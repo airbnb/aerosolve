@@ -13,6 +13,9 @@ class TrainingUtilsTest {
   @Test
   def testDownSample(): Unit = {
     var sc = new SparkContext("local", "TrainingUtilsTest")
+    val loss = "hinge"
+    val rank = "$rank"
+    val threshold = 0.0
     try {
       val results = TrainingTestHelper.makeClassificationExamples
       val examples = sc.parallelize(results._1)
@@ -20,10 +23,10 @@ class TrainingUtilsTest {
       val numPos = results._3
       val numNeg = n - numPos
       val downsample: Map[Int, Float] = Map(-1 -> 0.1f)
-      val sampledInput = TrainingUtils.downsample(examples, "regression", "LABEL", 0.0, downsample)
+      val sampledInput = TrainingUtils.downsample(examples, loss, rank, threshold, downsample)
       val size = sampledInput.count().toInt
       val numSampledPos = sampledInput
-        .filter(e => TrainingUtils.getLabel(e, "regression", "LABEL", 0.0) == 1)
+        .filter(e => TrainingUtils.getLabel(e, loss, rank, threshold) == 1)
         .count()
         .toInt
       val numSampledNeg = size - numSampledPos
