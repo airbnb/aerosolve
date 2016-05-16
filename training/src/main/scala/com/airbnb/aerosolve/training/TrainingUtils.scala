@@ -206,7 +206,7 @@ object TrainingUtils {
   def getLabel(example: Example, loss: String, rankKey: String, threshold: Double): Int = {
     val fv = example.getExample.get(0)
     val label: Int = if (loss == "regression") {
-      TrainingUtils.getLabel(fv, rankKey).toInt
+      TrainingUtils.getLabel(fv, rankKey)
     } else {
       TrainingUtils.getLabel(fv, rankKey, threshold).toInt
     }
