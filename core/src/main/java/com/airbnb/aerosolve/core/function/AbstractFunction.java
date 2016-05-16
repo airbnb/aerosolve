@@ -3,7 +3,6 @@ package com.airbnb.aerosolve.core.function;
 import com.airbnb.aerosolve.core.FunctionForm;
 import com.airbnb.aerosolve.core.ModelRecord;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
@@ -14,7 +13,6 @@ import java.util.List;
  */
 public abstract class AbstractFunction implements Function {
   @Getter
-  @Setter
   protected float[] weights;
   @Getter
   protected float minVal;
