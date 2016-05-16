@@ -85,4 +85,9 @@ public class Point implements Function {
   public void smooth(double tolerance) {
 
   }
+
+  @Override
+  public Function clone() throws CloneNotSupportedException {
+    return new Point(weight);
+  }
 }
