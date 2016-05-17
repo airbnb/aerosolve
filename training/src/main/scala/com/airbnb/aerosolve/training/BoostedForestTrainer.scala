@@ -27,13 +27,24 @@ object BoostedForestTrainer {
   private final val log: Logger = LoggerFactory.getLogger("BoostedForestTrainer")
 
   /**
-    * Training parameters for boosted forest model
+    * Training parameters for boosted forest model:
+    *
     * samplingStrategy: There are three sample strategies - "first", "uniform", "early_sample".
     * It is used to determine how to select samples for building candidate tree in each iteration of the training.
     * If "first" or "uniform" is selected, the trainer take "candidateSize" samples to build the tree;
     * "first" is much faster than "uniform" and "subsample_tree_candidates" should be either unspecified or 1.0.
     * If "early_sample" is selected, the trainer sample "subsample_tree_candidates" percentage of samples to build the tree
     * and in this case "candidateSize" is not used.
+    *
+    * subsample: percentage of training samples to be used for each iteration in the boosting step.
+    *
+    * max_depth, split_criteria, num_tries, min_leaf_items: parameters for building decision trees.
+    *
+    * multiclass: true if the model is for multi-class classification
+    *
+    * num_trees: number of trees in the forest
+    *
+    * iterations: number of iterations to run in each boosting step
     */
   case class BoostedForestTrainerParams(candidateSize: Int,
                                         rankKey: String,
