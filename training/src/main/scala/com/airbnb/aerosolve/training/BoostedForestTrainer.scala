@@ -25,24 +25,47 @@ import scala.collection.JavaConverters._
 // https://en.wikipedia.org/wiki/Gradient_boosting
 object BoostedForestTrainer {
   private final val log: Logger = LoggerFactory.getLogger("BoostedForestTrainer")
-  
-  case class BoostedForestTrainerParams(candidateSize : Int,
-                                         rankKey : String,
-                                         rankThreshold : Double,
-                                         maxDepth : Int,
-                                         minLeafCount : Int,
-                                         numTries : Int,
-                                         splitCriteria : String,
-                                         numTrees :Int,
-                                         subsample : Double,
-                                         iterations : Int,
-                                         learningRate : Double,
-                                         samplingStrategy : String,
-                                         multiclass : Boolean,
-                                         loss : String,
-                                         margin : Double)
+
+  /**
+    * Training parameters for boosted forest model:
+    *
+    * samplingStrategy: There are three sample strategies - "first", "uniform", "early_sample".
+    * It is used to determine how to select samples for building candidate tree in each iteration of the training.
+    * If "first" or "uniform" is selected, the trainer take "candidateSize" samples to build the tree;
+    * "first" is much faster than "uniform" and "subsample_tree_candidates" should be either unspecified or 1.0.
+    * If "early_sample" is selected, the trainer sample "subsample_tree_candidates" percentage of samples to build the tree
+    * and in this case "candidateSize" is not used.
+    *
+    * subsample: percentage of training samples to be used for each iteration in the boosting step.
+    *
+    * max_depth, split_criteria, num_tries, min_leaf_items: parameters for building decision trees.
+    *
+    * multiclass: true if the model is for multi-class classification
+    *
+    * num_trees: number of trees in the forest
+    *
+    * iterations: number of iterations to run in each boosting step
+    */
+  case class BoostedForestTrainerParams(candidateSize: Int,
+                                        rankKey: String,
+                                        rankThreshold: Double,
+                                        maxDepth: Int,
+                                        minLeafCount: Int,
+                                        numTries: Int,
+                                        splitCriteria: String,
+                                        numTrees: Int,
+                                        subsample: Double,
+                                        subsampleTreeCandidates: Double,
+                                        iterations: Int,
+                                        learningRate: Double,
+                                        samplingStrategy: String,
+                                        multiclass: Boolean,
+                                        loss: String,
+                                        margin: Double)
+
   // A container class that returns the tree and leaf a feature vector ends up in
   case class ForestResponse(tree : Int, leaf : Int)
+
   // The sum of all responses to a feature vector of an entire forest.
   case class ForestResult(label : Double,
                           labels : Map[String, Double],
@@ -50,11 +73,7 @@ object BoostedForestTrainer {
                           sumResponses : scala.collection.mutable.HashMap[String,Double],
                           response : Array[ForestResponse])
 
-  def train(sc : SparkContext,
-            input : RDD[Example],
-            config : Config,
-            key : String) : ForestModel = {
-    val taskConfig = config.getConfig(key)
+  private def loadTrainingParameters(taskConfig: Config): BoostedForestTrainerParams = {
     val candidateSize : Int = taskConfig.getInt("num_candidates")
     val rankKey : String = taskConfig.getString("rank_key")
     val rankThreshold : Double = taskConfig.getDouble("rank_threshold")
@@ -62,7 +81,7 @@ object BoostedForestTrainer {
     val minLeafCount : Int = taskConfig.getInt("min_leaf_items")
     val numTries : Int = taskConfig.getInt("num_tries")
     val splitCriteria : String = Try(taskConfig.getString("split_criteria")).getOrElse("gini")
-    
+
     val iterations : Int = taskConfig.getInt("iterations")
     val subsample : Double = taskConfig.getDouble("subsample")
     val learningRate : Double = taskConfig.getDouble("learning_rate")
@@ -70,50 +89,50 @@ object BoostedForestTrainer {
     val samplingStrategy : String = taskConfig.getString("sampling_strategy")
     val loss : String = Try{taskConfig.getString("loss")}.getOrElse("logistic")
     val margin: Double = Try{taskConfig.getDouble("margin")}.getOrElse(1.0)
-    val cache: String = Try{taskConfig.getString("cache")}.getOrElse("")
-    
+    // Note this is only used for 'early_sample' option
+    val subsampleTreeCandidates: Double = Try{taskConfig.getDouble("subsample_tree_candidates")}.getOrElse(1.0)
+
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
-          rankKey = rankKey,
-          rankThreshold = rankThreshold,
-          maxDepth = maxDepth,
-          minLeafCount = minLeafCount,
-          numTries = numTries,
-          splitCriteria = splitCriteria,
-          numTrees = numTrees,
-          subsample = subsample,
-          iterations = iterations,
-          learningRate = learningRate,
-          samplingStrategy = samplingStrategy,
-          multiclass = splitCriteria.contains("multiclass"),
-          loss = loss,
-          margin = margin
-        )
-    
+      rankKey = rankKey,
+      rankThreshold = rankThreshold,
+      maxDepth = maxDepth,
+      minLeafCount = minLeafCount,
+      numTries = numTries,
+      splitCriteria = splitCriteria,
+      numTrees = numTrees,
+      subsample = subsample,
+      subsampleTreeCandidates = subsampleTreeCandidates,
+      iterations = iterations,
+      learningRate = learningRate,
+      samplingStrategy = samplingStrategy,
+      multiclass = splitCriteria.contains("multiclass"),
+      loss = loss,
+      margin = margin
+    )
+    params
+  }
+
+  def train(sc : SparkContext,
+            input: Double => RDD[Example],
+            config : Config,
+            key : String) : ForestModel = {
+    val taskConfig = config.getConfig(key)
+    val params = loadTrainingParameters(taskConfig)
     val forest = new ForestModel()
     forest.setTrees(new java.util.ArrayList[DecisionTreeModel]())
 
-    val raw = LinearRankerUtils.makePointwiseFloat(input, config, key)
+    val transformed = (frac: Double) => LinearRankerUtils.makePointwiseFloat(input(frac), config, key)
 
-    val examples = cache match {
-      case "memory" => raw.cache()
-      case _ : String => raw
-    }
-
-    for (i <- 0 until numTrees) {
+    for (i <- 0 until params.numTrees) {
       log.info("Iteration %d".format(i))
-      addNewTree(sc, forest, input, config, key, params)
+      addNewTree(sc, forest, transformed, config, key, params)
       if (params.multiclass) {
-        boostForestMulticlass(sc, forest, examples, config, key, params)
+        boostForestMulticlass(sc, forest, transformed, config, key, params)
       } else {
-        boostForest(sc, forest, examples, config, key, params)
+        boostForest(sc, forest, transformed, config, key, params)
       }
     }
 
-    cache match {
-      case "memory" => examples.unpersist()
-      case _ : String =>
-    }
-    
     forest
   }
   
@@ -160,13 +179,13 @@ object BoostedForestTrainer {
 
   def getSample(sc : SparkContext,
       forest: ForestModel,
-      input : RDD[Example],
+      input : Double => RDD[Example],
       config : Config,
       key : String,
       params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
     val paramsBC = sc.broadcast(params)
-    val examples = input
+    val examples = input(params.subsampleTreeCandidates)
               .map(x => optionalExample(x, forestBC.value, paramsBC.value))
               .filter(x => x.isDefined)
               .map(x => Util.flattenFeature(x.get))
@@ -178,12 +197,13 @@ object BoostedForestTrainer {
        }
        // Picks uniformly. Better for small data sets.
        case "uniform" => examples.takeSample(false, params.candidateSize)
+       case "early_sample" => examples.collect
      }
   }
 
   def addNewTree(sc : SparkContext,
       forest: ForestModel,
-      input : RDD[Example],
+      input: Double => RDD[Example],
       config : Config,
       key : String,
       params : BoostedForestTrainerParams) = {
@@ -233,7 +253,7 @@ object BoostedForestTrainer {
   
   def boostForest(sc : SparkContext,
                   forest: ForestModel,
-                  input : RDD[Example],
+                  input: Double => RDD[Example],
                   config : Config,
                   key : String,
                   params : BoostedForestTrainerParams) = {
@@ -242,9 +262,8 @@ object BoostedForestTrainer {
        val forestBC = sc.broadcast(forest)
        val paramsBC = sc.broadcast(params)
        // Get forest responses
-       val labelSumResponse = input
-              .sample(false, params.subsample)
-              .map(x => getForestResponse(forestBC.value, x, params))
+       val labelSumResponse = input(params.subsample)
+         .map(x => getForestResponse(forestBC.value, x, params))
        // Get forest batch gradient
        val countAndGradient = labelSumResponse.mapPartitions(part => {
          val gradientMap = scala.collection.mutable.HashMap[(Int, Int), (Double, Double)]()
@@ -291,7 +310,7 @@ object BoostedForestTrainer {
   def boostForestMulticlass(
                   sc : SparkContext,
                   forest: ForestModel,
-                  input : RDD[Example],
+                  input : Double => RDD[Example],
                   config : Config,
                   key : String,
                   params : BoostedForestTrainerParams) = {
@@ -299,8 +318,7 @@ object BoostedForestTrainer {
       log.info("Running boost iteration %d".format(i))
       val forestBC = sc.broadcast(forest)
       // Get forest responses
-      val labelSumResponse = input
-        .sample(false, params.subsample)
+      val labelSumResponse = input(params.subsample)
         .map(x => getForestResponse(forestBC.value, x, params))
       // Get forest batch gradient
       val countAndGradient = labelSumResponse.mapPartitions(part => {
@@ -362,9 +380,9 @@ object BoostedForestTrainer {
     val sumResponses = scala.collection.mutable.HashMap[String, Double]()
     for (i <- 0 until trees.size) {
       val tree = trees(i)
-      val leaf = trees(i).getLeafIndex(floatFeatures);
+      val leaf = trees(i).getLeafIndex(floatFeatures)
       if (leaf >= 0) {
-        val stump = tree.getStumps().get(leaf);
+        val stump = tree.getStumps().get(leaf)
         val weight = stump.featureWeight
         sum = sum + weight
         if (params.multiclass && stump.labelDistribution != null) {
@@ -387,7 +405,24 @@ object BoostedForestTrainer {
                          input : RDD[Example],
                          config : Config,
                          key : String) = {
-    val model = train(sc, input, config, key)
+   trainAndSaveToFileEarlySample(sc, (frac: Double) => input.sample(false, frac), config, key)
+  }
+
+  /**
+    * Entry point to train and persist model on disk
+    *
+    * This version allows sample to be pushed down in the Example loading process.
+    * One use case is to avoid deserialization when examples are discarded by sampling.
+    *
+    * @note Care should be taken when caching dataset as the order of cache and sample call will determine the proportion
+    * of dataset be cached and whether each reference will result in a new set of sample.
+    * @param sampleInput a function takes sampling fraction and returns sampled dataset
+    */
+  def trainAndSaveToFileEarlySample(sc: SparkContext,
+                                    sampleInput: Double => RDD[Example],
+                                    config: Config,
+                                    key: String) = {
+    val model = train(sc, sampleInput, config, key)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 }

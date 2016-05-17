@@ -127,7 +127,7 @@ object ForestTrainerTestHelper {
     try {
       val input = sc.parallelize(examples)
       val model = if (boost) {
-        BoostedForestTrainer.train(sc, input, config, "model_config")
+        BoostedForestTrainer.train(sc, (frac: Double) => input.sample(false, frac), config, "model_config")
       } else {
         ForestTrainer.train(sc, input, config, "model_config")
       }
@@ -154,8 +154,8 @@ object ForestTrainerTestHelper {
                    .format(numCorrect, fracCorrect))
         assertTrue(fracCorrect > expectedCorrect)
       } else {
-        var numCorrect : Int = 0;
-        var i : Int = 0;
+        var numCorrect : Int = 0
+        var i : Int = 0
         val labelArr = label.toArray
         for (ex <- examples) {
           val score = model.scoreItem(ex.example.get(0))
@@ -170,9 +170,9 @@ object ForestTrainerTestHelper {
         assertTrue(fracCorrect > expectedCorrect)
       }
 
-      val swriter = new StringWriter();
-      val writer = new BufferedWriter(swriter);
-      model.save(writer);
+      val swriter = new StringWriter()
+      val writer = new BufferedWriter(swriter)
+      model.save(writer)
       writer.close()
       val str = swriter.toString()
       val sreader = new StringReader(str)
