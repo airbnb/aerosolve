@@ -24,6 +24,7 @@ object NDTreePipeline {
   case class NDTreePipelineParams(sample: Double,
                                   minCount: Int,
                                   linearFeatureFamilies: util.List[String],
+                                  checkPointDir: String,
                                   options: NDTreeBuildOptions)
 
   case class FeatureStats(count: Double, min: Double, max: Double)
@@ -40,6 +41,10 @@ object NDTreePipeline {
       min_leaf_count: 200
       // feature families in linear_feature should use linear
       linear_feature: ["L", "T", "L_x_T"]
+      // if your job failed, try to set check_point to avoid rerun
+      // and set("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
+      // clean checkpoint files if the reference is out of scope.
+      check_point_dir: "hdfs://airfs-silver/pricing/edgar/tmp"
     }
     TODO add rankKey: LABEL (default to GenericPipeline.LABEL)
   */
@@ -62,6 +67,7 @@ object NDTreePipeline {
   def getNDTreePipelineParams(cfg: Config): NDTreePipelineParams = {
     val linearFeatureFamilies: java.util.List[String] = Try(cfg.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
+    val checkPointDir = Try(cfg.getString("check_point_dir")).getOrElse("")
     val options = NDTreeBuildOptions(
       maxTreeDepth = cfg.getInt("max_tree_depth"),
       minLeafCount = cfg.getInt("min_leaf_count"))
@@ -69,6 +75,7 @@ object NDTreePipeline {
       cfg.getDouble("sample"),
       cfg.getInt("min_count"),
       linearFeatureFamilies,
+      checkPointDir,
       options
     )
   }
@@ -116,7 +123,11 @@ object NDTreePipeline {
             y.count >= paramsBC.value.minCount
           }
         }
-      }).cache()
+      })
+    if (!paramsBC.value.checkPointDir.isEmpty) {
+      sc.setCheckpointDir(paramsBC.value.checkPointDir)
+      featureRDD.checkpoint()
+    }
 
     // featureRDD cached so that we don't rerun the previous steps
     val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
@@ -133,8 +144,8 @@ object NDTreePipeline {
         }
         result
     }).collect
-    featureRDD.unpersist()
     paramsBC.unpersist()
+
     log.info(s"tree ${tree}")
     tree
   }
