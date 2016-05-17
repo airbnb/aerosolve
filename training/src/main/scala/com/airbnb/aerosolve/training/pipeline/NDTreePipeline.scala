@@ -44,7 +44,7 @@ object NDTreePipeline {
       // if your job failed, try to set check_point to avoid rerun
       // and set("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
       // clean checkpoint files if the reference is out of scope.
-      check_point_dir: "hdfs://airfs-silver/pricing/edgar/tmp"
+      check_point_dir: "hdfs://server/team/project/tmp"
     }
     TODO add rankKey: LABEL (default to GenericPipeline.LABEL)
   */
