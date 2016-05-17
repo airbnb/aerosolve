@@ -24,6 +24,7 @@ object NDTreePipeline {
   case class NDTreePipelineParams(sample: Double,
                                   minCount: Int,
                                   linearFeatureFamilies: util.List[String],
+                                  checkPointDir: String,
                                   options: NDTreeBuildOptions)
 
   case class FeatureStats(count: Double, min: Double, max: Double)
@@ -40,6 +41,10 @@ object NDTreePipeline {
       min_leaf_count: 200
       // feature families in linear_feature should use linear
       linear_feature: ["L", "T", "L_x_T"]
+      // if your job failed, try to set check_point to avoid rerun
+      // and set("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
+      // clean checkpoint files if the reference is out of scope.
+      check_point_dir: "hdfs://server/team/project/tmp"
     }
     TODO add rankKey: LABEL (default to GenericPipeline.LABEL)
   */
@@ -62,6 +67,7 @@ object NDTreePipeline {
   def getNDTreePipelineParams(cfg: Config): NDTreePipelineParams = {
     val linearFeatureFamilies: java.util.List[String] = Try(cfg.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
+    val checkPointDir = Try(cfg.getString("check_point_dir")).getOrElse("")
     val options = NDTreeBuildOptions(
       maxTreeDepth = cfg.getInt("max_tree_depth"),
       minLeafCount = cfg.getInt("min_leaf_count"))
@@ -69,6 +75,7 @@ object NDTreePipeline {
       cfg.getDouble("sample"),
       cfg.getInt("min_count"),
       linearFeatureFamilies,
+      checkPointDir,
       options
     )
   }
@@ -89,47 +96,56 @@ object NDTreePipeline {
   def getFeatures(sc: SparkContext, input: RDD[Example], params: NDTreePipelineParams):
                   Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val paramsBC = sc.broadcast(params)
-    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
+    val featureRDD: RDD[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] =
       input.mapPartitions(partition => {
-      flattenExample(partition, paramsBC.value.linearFeatureFamilies)
+        flattenExample(partition, paramsBC.value.linearFeatureFamilies)
     }).reduceByKey((a, b) => {
-      val result = a match {
-        case Left(x) => {
-          x.++=(b.left.get)
-          a
+        val result = a match {
+          case Left(x) => {
+            x.++=(b.left.get)
+            a
+          }
+          case Right(y) => {
+            val bs = b.right.get
+            Right(FeatureStats(y.count + bs.count,
+              scala.math.min(y.min, bs.min),
+              scala.math.max(y.max, bs.max)))
+          }
         }
-        case Right(y) => {
-          val bs = b.right.get
-          Right(FeatureStats(y.count + bs.count,
-            scala.math.min(y.min, bs.min),
-            scala.math.max(y.max, bs.max)))
+        result
+      }).filter(x => {
+        val a = x._2
+        a match {
+          case Left(x) => {
+            x.size >= paramsBC.value.minCount
+          }
+          case Right(y) => {
+            y.count >= paramsBC.value.minCount
+          }
         }
-      }
-      result
-    }).filter(x => {
-      val a = x._2
-      a match {
-        case Left(x) => {
-          x.size >= paramsBC.value.minCount
+      })
+    if (!paramsBC.value.checkPointDir.isEmpty) {
+      sc.setCheckpointDir(paramsBC.value.checkPointDir)
+      featureRDD.checkpoint()
+    }
+
+    // featureRDD cached so that we don't rerun the previous steps
+    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
+      featureRDD.map(x => {
+        val a = x._2
+        val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
+          case Left(y) => {
+            // build tree
+            ((x._1._1, x._1._2), Left(NDTree(paramsBC.value.options, y.toArray).model))
+          }
+          case Right(z) => {
+            ((x._1._1, x._1._2), Right(z))
+          }
         }
-        case Right(y) => {
-          y.count >= paramsBC.value.minCount
-        }
-      }
-    }).map(x => {
-      val a = x._2
-      val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
-        case Left(y) => {
-          // build tree
-          ((x._1._1, x._1._2), Left(NDTree(paramsBC.value.options, y.toArray).model))
-        }
-        case Right(z) => {
-          ((x._1._1, x._1._2), Right(z))
-        }
-      }
-      result
+        result
     }).collect
     paramsBC.unpersist()
+
     log.info(s"tree ${tree}")
     tree
   }
