@@ -71,6 +71,7 @@ object BoostedForestTrainer {
     val samplingStrategy : String = taskConfig.getString("sampling_strategy")
     val loss : String = Try{taskConfig.getString("loss")}.getOrElse("logistic")
     val margin: Double = Try{taskConfig.getDouble("margin")}.getOrElse(1.0)
+    // Note this is only used for 'early_sample' option
     val subsampleTreeCandidates: Double = Try{taskConfig.getDouble("subsample_tree_candidates")}.getOrElse(1.0)
     
     val params = BoostedForestTrainerParams(candidateSize = candidateSize,
@@ -158,7 +159,7 @@ object BoostedForestTrainer {
       params : BoostedForestTrainerParams) = {
     val forestBC = sc.broadcast(forest)
     val paramsBC = sc.broadcast(params)
-    val examples = input(params.subsample)
+    val examples = input(params.subsampleTreeCandidates)
               .map(x => optionalExample(x, forestBC.value, paramsBC.value))
               .filter(x => x.isDefined)
               .map(x => Util.flattenFeature(x.get))

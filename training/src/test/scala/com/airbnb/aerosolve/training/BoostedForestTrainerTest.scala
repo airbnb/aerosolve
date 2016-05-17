@@ -38,7 +38,7 @@ class BoostedForestTrainerTest {
       |  iterations : 3
       |  learning_rate : 0.1
       |  subsample : 0.5
-      |  cache: "memory"
+      |  subsample_tree_candidates: 0.5
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
@@ -78,6 +78,12 @@ class BoostedForestTrainerTest {
   }
 
   @Test
+  def testBoostedForestTrainerGiniEarlySample() = {
+    val config = ConfigFactory.parseString(makeConfig("gini", "early_sample", "logistic"))
+    ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
+  }
+
+  @Test
   def testBoostedForestTrainerMulticlassGiniNonlinear() = {
     val config = ConfigFactory.parseString(makeConfig("multiclass_gini", "uniform", "logistic"))
     ForestTrainerTestHelper.testForestTrainerMulticlassNonlinear(config, true, 0.7)
@@ -92,6 +98,12 @@ class BoostedForestTrainerTest {
   @Test
   def testBoostedForestTrainerInformationGainHingeLoss() = {
     val config = ConfigFactory.parseString(makeConfig("information_gain", "uniform", "hinge"))
+    ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
+  }
+
+  @Test
+  def testBoostedForestTrainerInformationGainHingeLossEarlySample() = {
+    val config = ConfigFactory.parseString(makeConfig("information_gain", "early_sample", "hinge"))
     ForestTrainerTestHelper.testForestTrainer(config, true, 0.8)
   }
 }
