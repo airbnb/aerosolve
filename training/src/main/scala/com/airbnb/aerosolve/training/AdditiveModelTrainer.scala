@@ -4,9 +4,8 @@ import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function._
 import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline
-import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.FeatureStats
+import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.{FeatureStats, NDTreePipelineParams}
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
@@ -52,7 +51,7 @@ object AdditiveModelTrainer {
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
-                                   nDTreeBuildOptions: NDTreeBuildOptions,
+                                   nDTreePipelineParams: NDTreePipelineParams,
                                    classWeights: Map[Int, Float])
 
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
@@ -342,10 +341,10 @@ object AdditiveModelTrainer {
                         input: RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
-    if (params.nDTreeBuildOptions != null) {
+    if (params.nDTreePipelineParams != null) {
       val linearFeatureFamilies = params.linearFeatureFamilies
       val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
-        sc, input, params.minCount, linearFeatureFamilies, params.nDTreeBuildOptions)
+        sc, input, params.nDTreePipelineParams)
       for (((family, name), feature) <- result) {
         feature match {
           case Left(ndTreeModel) => {
@@ -480,9 +479,7 @@ object AdditiveModelTrainer {
     val dynamicBucketsConfig = Try(Some(config.getConfig("dynamic_buckets"))).getOrElse(None)
     val options = if (dynamicBucketsConfig.nonEmpty) {
       val cfg = dynamicBucketsConfig.get
-      NDTreeBuildOptions(
-        maxTreeDepth = cfg.getInt("max_tree_depth"),
-        minLeafCount = cfg.getInt("min_leaf_count"))
+      NDTreePipeline.getNDTreePipelineParams(cfg)
     } else {
       null
     }
