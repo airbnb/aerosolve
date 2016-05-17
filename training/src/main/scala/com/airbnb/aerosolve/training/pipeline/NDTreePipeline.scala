@@ -21,6 +21,11 @@ import scala.util.Try
 object NDTreePipeline {
   val log: Logger = LoggerFactory.getLogger("NDTreePipeline")
 
+  case class NDTreePipelineParams(sample: Double,
+                                  minCount: Int,
+                                  linearFeatureFamilies: util.List[String],
+                                  options: NDTreeBuildOptions)
+
   case class FeatureStats(count: Double, min: Double, max: Double)
   /*
     build NDTree from examples, each float/dense feature generates a NDTree
@@ -41,7 +46,7 @@ object NDTreePipeline {
   def buildFeatureMapRun(sc: SparkContext, config : Config) = {
     val features = buildFeatures(sc, config)
     for (((family, name), feature) <- features) {
-      // save to disk.
+      // TODO save to disk.
       feature match {
         case Left(model) => {
           val nodes = model.getNodes
@@ -54,36 +59,39 @@ object NDTreePipeline {
     }
   }
 
+  def getNDTreePipelineParams(cfg: Config): NDTreePipelineParams = {
+    val linearFeatureFamilies: java.util.List[String] = Try(cfg.getStringList("linear_feature"))
+      .getOrElse[java.util.List[String]](List.empty.asJava)
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = cfg.getInt("max_tree_depth"),
+      minLeafCount = cfg.getInt("min_leaf_count"))
+    NDTreePipelineParams(
+      cfg.getDouble("sample"),
+      cfg.getInt("min_count"),
+      linearFeatureFamilies,
+      options
+    )
+  }
+
   def buildFeatures(sc: SparkContext, config : Config):
       Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
     val cfg = config.getConfig("make_feature_map")
     val inputPattern: String = cfg.getString("input")
-    log.info(s"Training data: ${inputPattern}")
-    val sample: Double = cfg.getDouble("sample")
-    val minCount: Int = cfg.getInt("min_count")
-    // minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
-    val linearFeatureFamilies: java.util.List[String] = Try(config.getStringList("linear_feature"))
-      .getOrElse[java.util.List[String]](List.empty.asJava)
-
     val input = GenericPipeline.getExamples(sc, inputPattern)
-    val options = NDTreeBuildOptions(
-      maxTreeDepth = cfg.getInt("max_tree_depth"),
-      minLeafCount = cfg.getInt("min_leaf_count"))
+    log.info(s"Training data: ${inputPattern}")
+    val params: NDTreePipelineParams = getNDTreePipelineParams(cfg)
 
     val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = getFeatures(
-      sc, input.sample(false, sample), minCount, linearFeatureFamilies, options)
+      sc, input.sample(false, params.sample), params)
     result
   }
 
-  def getFeatures(sc: SparkContext, input: RDD[Example], minCount: Int,
-                  linearFeatureFamilies: util.List[String],
-                  options: NDTreeBuildOptions):
+  def getFeatures(sc: SparkContext, input: RDD[Example], params: NDTreePipelineParams):
                   Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
-    val linearFeatureFamiliesBC = sc.broadcast(linearFeatureFamilies)
-    val optionsBC = sc.broadcast(options)
+    val paramsBC = sc.broadcast(params)
     val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
       input.mapPartitions(partition => {
-      flattenExample(partition, linearFeatureFamiliesBC.value)
+      flattenExample(partition, paramsBC.value.linearFeatureFamilies)
     }).reduceByKey((a, b) => {
       val result = a match {
         case Left(x) => {
@@ -102,10 +110,10 @@ object NDTreePipeline {
       val a = x._2
       a match {
         case Left(x) => {
-          x.size >= minCount
+          x.size >= paramsBC.value.minCount
         }
         case Right(y) => {
-          y.count >= minCount
+          y.count >= paramsBC.value.minCount
         }
       }
     }).map(x => {
@@ -113,7 +121,7 @@ object NDTreePipeline {
       val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
         case Left(y) => {
           // build tree
-          ((x._1._1, x._1._2), Left(NDTree(optionsBC.value, y.toArray).model))
+          ((x._1._1, x._1._2), Left(NDTree(paramsBC.value.options, y.toArray).model))
         }
         case Right(z) => {
           ((x._1._1, x._1._2), Right(z))
@@ -121,8 +129,7 @@ object NDTreePipeline {
       }
       result
     }).collect
-    linearFeatureFamiliesBC.unpersist()
-    optionsBC.unpersist()
+    paramsBC.unpersist()
     log.info(s"tree ${tree}")
     tree
   }
