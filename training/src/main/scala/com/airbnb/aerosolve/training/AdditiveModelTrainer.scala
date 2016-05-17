@@ -460,7 +460,9 @@ object AdditiveModelTrainer {
     val epsilon: Double = Try {
       config.getDouble("epsilon")
     }.getOrElse(0.0)
-    val minCount: Int = config.getInt("min_count")
+    // if use dynamic_buckets, this is not used
+    val minCount: Int = Try {config.getInt("min_count")}.getOrElse(0)
+    // if use dynamic_buckets, this is not used
     val linearFeatureFamilies: java.util.List[String] = Try(
       config.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
