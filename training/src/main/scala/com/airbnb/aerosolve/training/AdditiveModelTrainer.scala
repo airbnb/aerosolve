@@ -321,16 +321,15 @@ object AdditiveModelTrainer {
   private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
                                   params: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
-    val initExamples = input(params.subsample)
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, params, initExamples, newModel, true)
+      initModel(sc, params, input, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, params, initExamples, newModel, false)
+      initModel(sc, params, input, newModel, false)
       newModel
     }
   }
@@ -338,13 +337,14 @@ object AdditiveModelTrainer {
   // Initializes the model
   private def initModel(sc: SparkContext,
                         params: AdditiveTrainerParams,
-                        input: RDD[Example],
+                        input: Double => RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
     if (params.nDTreePipelineParams != null) {
+      val initExamples = input(params.nDTreePipelineParams.sample)
       val linearFeatureFamilies = params.linearFeatureFamilies
       val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
-        sc, input, params.nDTreePipelineParams)
+        sc, initExamples, params.nDTreePipelineParams)
       for (((family, name), feature) <- result) {
         feature match {
           case Left(ndTreeModel) => {
@@ -361,7 +361,8 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      initWithoutDynamicBucketModel(params, input, model, overwrite)
+      val initExamples = input(params.subsample)
+      initWithoutDynamicBucketModel(params, initExamples, model, overwrite)
     }
   }
 
