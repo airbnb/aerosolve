@@ -50,6 +50,7 @@ object AdditiveModelTrainer {
                                    linfinityCap: Double,
                                    threshold: Double,
                                    lossMod: Int,
+                                   minLoss: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
@@ -76,8 +77,9 @@ object AdditiveModelTrainer {
 
     val paramsBC = sc.broadcast(params)
     var model = modelInitialization(sc, transformed, params)
-
-    for (i <- 1 to iterations) {
+    var loss = Double.MaxValue
+    for (i <- 1 to iterations
+         if loss >= params.minLoss) {
       log.info(s"Iteration $i")
       val sgdParams = SgdParams(
         paramsBC,
@@ -87,8 +89,8 @@ object AdditiveModelTrainer {
       model = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
       TrainingUtils.saveModel(model, output)
-      val loss = sgdParams.loss.value/sgdParams.exampleCount.value
-      log.info(s"Loss = ${loss}")
+      loss = sgdParams.loss.value/sgdParams.exampleCount.value
+      log.info(s"LossSum = ${sgdParams.loss.value} count = ${sgdParams.exampleCount.value} Loss = ${loss} ")
     }
     model
   }
@@ -207,7 +209,6 @@ object AdditiveModelTrainer {
       lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
         log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
-        lossSum = 0.0
       }
     })
     val output = mutable.HashMap[(String, String), Function]()
@@ -498,6 +499,8 @@ object AdditiveModelTrainer {
       null
     }
 
+    val minLoss: Double = Try(config.getDouble("min_loss")).getOrElse(0)
+
     val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
     Try(config.getStringList("class_weights").toList.toArray)
       .getOrElse(Array[String]())
@@ -524,6 +527,7 @@ object AdditiveModelTrainer {
       linfinityCap,
       threshold,
       lossMod,
+      minLoss,
       epsilon,
       initModelPath,
       linearFeatureFamilies,
