@@ -7,7 +7,7 @@ import com.airbnb.aerosolve.core.util.Util
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.{FeatureStats, NDTreePipelineParams}
 import com.typesafe.config.Config
-import org.apache.spark.SparkContext
+import org.apache.spark.{Accumulator, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.slf4j.{Logger, LoggerFactory}
@@ -32,11 +32,20 @@ import scala.util.Try
 object AdditiveModelTrainer {
   private final val log: Logger = LoggerFactory.getLogger("AdditiveModelTrainer")
 
+  case class SgdParams(paramsBC: Broadcast[AdditiveTrainerParams],
+                       exampleCount: Accumulator[Long],
+                       loss: Accumulator[Double])
+
+  case class LossParams(function: String,
+                        lossMod: Int,
+                        useBestLoss: Boolean,
+                        minLoss: Double)
+
   case class AdditiveTrainerParams(numBins: Int,
                                    numBags: Int,
                                    rankKey: String,
-                                   loss: String,
                                    minCount: Int,
+                                   loss: LossParams,
                                    learningRate: Double,
                                    dropout: Double,
                                    subsample: Double,
@@ -46,7 +55,6 @@ object AdditiveModelTrainer {
                                    linfinityThreshold: Double,
                                    linfinityCap: Double,
                                    threshold: Double,
-                                   lossMod: Int,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
@@ -73,13 +81,32 @@ object AdditiveModelTrainer {
 
     val paramsBC = sc.broadcast(params)
     var model = modelInitialization(sc, transformed, params)
-    for (i <- 1 to iterations) {
+    var loss = Double.MaxValue
+    for (i <- 1 to iterations
+         if loss >= params.loss.minLoss) {
       log.info(s"Iteration $i")
+      val sgdParams = SgdParams(
+        paramsBC,
+        sc.accumulator(0),
+        sc.accumulator(0))
       val modelBC = sc.broadcast(model)
-      model = sgdTrain(transformed, paramsBC, modelBC)
+      val newModel = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
-
-      TrainingUtils.saveModel(model, output)
+      val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
+      if (params.loss.useBestLoss) {
+         if (newLoss < loss) {
+           TrainingUtils.saveModel(model, output)
+           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
+           loss = newLoss
+           model = newModel
+         } else {
+           log.info(s"iterations $i loss $newLoss < best lost $loss count = $sgdParams.exampleCount.value")
+         }
+      } else {
+        model = newModel
+        TrainingUtils.saveModel(model, output)
+        log.info(s"iterations $i Loss = $newLoss count = $sgdParams.exampleCount.value")
+      }
     }
     model
   }
@@ -93,25 +120,25 @@ object AdditiveModelTrainer {
     * 4. We then average fitted weights for each feature and return them as updated model
     *
     * @param input    takes a sample fraction and returns collection of examples to be trained in sgd iteration
-    * @param paramsBC broadcasted model params
+    * @param sgdParams: SgdParams for training
     * @param modelBC  broadcasted current model (weights)
     * @return
     */
   def sgdTrain(input: Double => RDD[Example],
-               paramsBC: Broadcast[AdditiveTrainerParams],
+               sgdParams: SgdParams,
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
-    val params = paramsBC.value
+    val params = sgdParams.paramsBC.value
 
     input(params.subsample)
       .coalesce(params.numBags, true)
-      .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, paramsBC))
+      .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
       .groupByKey()
       // Average the feature functions
       // Average the weights
       .mapValues(x => {
-      val scale = 1.0f / paramsBC.value.numBags.toFloat
-      aggregateFuncWeights(x, scale, paramsBC.value.numBins, paramsBC.value.smoothingTolerance.toFloat)
+      val scale = 1.0f / params.numBags.toFloat
+      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
     })
       .collect()
       .foreach(entry => {
@@ -132,16 +159,15 @@ object AdditiveModelTrainer {
     * @param index     partition index (for multiscale distribution)
     * @param partition list of examples in this partition
     * @param modelBC   broadcasted model weights
-    * @param paramsBC  broadcasted model params
+    * @param sgdParams: SgdParams for training
     * @return
     */
   def sgdPartition(index: Int,
                    partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
-                   paramsBC: Broadcast[AdditiveTrainerParams]): Iterator[((String, String), Function)] = {
+                   sgdParams: SgdParams): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value.clone()
-    val params = paramsBC.value
-    val multiscale = params.multiscale
+    val multiscale = sgdParams.paramsBC.value.multiscale
 
     if (multiscale.nonEmpty) {
       val newBins = multiscale(index % multiscale.length)
@@ -154,7 +180,7 @@ object AdditiveModelTrainer {
       }
     }
 
-    val output = sgdPartitionInternal(partition, workingModel, params)
+    val output = sgdPartitionInternal(partition, workingModel, sgdParams)
     output.iterator
   }
 
@@ -185,19 +211,23 @@ object AdditiveModelTrainer {
     *
     * @param partition    list of examples
     * @param workingModel model to be updated
-    * @param params       model parameters
+    * @param sgdParams: SgdParams for training
     * @return
     */
   private def sgdPartitionInternal(partition: Iterator[Example],
                                    workingModel: AdditiveModel,
-                                   params: AdditiveTrainerParams): mutable.HashMap[(String, String), Function] = {
+                                   sgdParams: SgdParams): mutable.HashMap[(String, String), Function] = {
+    var lossTotal: Double = 0.0
     var lossSum: Double = 0.0
     var lossCount: Int = 0
+    val params = sgdParams.paramsBC.value
     partition.foreach(example => {
-      lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+      val lossValue = pointwiseLoss(example.example.get(0), workingModel, params.loss.function, params)
+      lossSum += lossValue
+      lossTotal += lossValue
       lossCount = lossCount + 1
-      if (lossCount % params.lossMod == 0) {
-        log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
+      if (lossCount % params.loss.lossMod == 0) {
+        log.info(s"Loss = ${lossSum / params.loss.lossMod.toDouble}, samples = $lossCount")
         lossSum = 0.0
       }
     })
@@ -210,6 +240,8 @@ object AdditiveModelTrainer {
           output.put((family._1, feature._1), feature._2)
         })
       })
+    sgdParams.exampleCount += lossCount
+    sgdParams.loss += lossTotal
     output
   }
 
@@ -487,6 +519,9 @@ object AdditiveModelTrainer {
       null
     }
 
+    val minLoss: Double = Try(config.getDouble("min_loss")).getOrElse(0)
+    val useBestLoss: Boolean = Try(config.getBoolean("use_best_loss")).getOrElse(false)
+
     val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
     Try(config.getStringList("class_weights").toList.toArray)
       .getOrElse(Array[String]())
@@ -497,12 +532,14 @@ object AdditiveModelTrainer {
         classWeights += (cls -> w)
       })
 
+    val lossParams = LossParams(loss, lossMod, useBestLoss, minLoss)
+
     AdditiveTrainerParams(
       numBins,
       numBags,
       rankKey,
-      loss,
       minCount,
+      lossParams,
       learningRate,
       dropout,
       subsample,
@@ -512,7 +549,6 @@ object AdditiveModelTrainer {
       linfinityThreshold,
       linfinityCap,
       threshold,
-      lossMod,
       epsilon,
       initModelPath,
       linearFeatureFamilies,
