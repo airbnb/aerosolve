@@ -201,14 +201,18 @@ object AdditiveModelTrainer {
   private def sgdPartitionInternal(partition: Iterator[Example],
                                    workingModel: AdditiveModel,
                                    sgdParams: SgdParams): mutable.HashMap[(String, String), Function] = {
+    var lossTotal: Double = 0.0
     var lossSum: Double = 0.0
     var lossCount: Int = 0
     val params = sgdParams.paramsBC.value
     partition.foreach(example => {
-      lossSum += pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+      val lossValue = pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+      lossSum += lossValue
+      lossTotal += lossValue
       lossCount = lossCount + 1
       if (lossCount % params.lossMod == 0) {
         log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
+        lossSum = 0.0
       }
     })
     val output = mutable.HashMap[(String, String), Function]()
@@ -221,7 +225,7 @@ object AdditiveModelTrainer {
         })
       })
     sgdParams.exampleCount.+=(lossCount)
-    sgdParams.loss.+=(lossSum)
+    sgdParams.loss.+=(lossTotal)
     output
   }
 
