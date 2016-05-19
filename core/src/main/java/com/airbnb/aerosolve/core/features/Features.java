@@ -17,6 +17,12 @@ public class Features {
   public final static String LABEL = "LABEL";
   public final static String LABEL_FEATURE_NAME = "";
   public final static String MISS = "MISS";
+
+  // for string feature without family name
+  public final static String DEFAULT_STRING_FAMILY = "DEFAULT_STRING";
+  // for float feature without family name
+  public final static String DEFAULT_FLOAT_FAMILY = "DEFAULT_FLOAT";
+
   // In RAW case, don't append feature name
   public final static String RAW = "RAW";
   private final static char FAMILY_SEPARATOR = '_';
@@ -95,14 +101,26 @@ public class Features {
   @VisibleForTesting
   static void addNumberFeature(
       Number value, Pair<String, String> featurePair, Map<String, Map<String, Double>> floatFeatures) {
-    Map<String, Double> feature = Util.getOrCreateFloatFeature(featurePair.getLeft(), floatFeatures);
+    String family = getFloatFamily(featurePair);
+    Map<String, Double> feature = Util.getOrCreateFloatFeature(family, floatFeatures);
     feature.put(featurePair.getRight(), value.doubleValue());
+  }
+
+  static String getFloatFamily(Pair<String, String> featurePair) {
+    String left = featurePair.getLeft();
+    return left.isEmpty()? DEFAULT_FLOAT_FAMILY :left;
+  }
+
+  static String getStringFamily(Pair<String, String> featurePair) {
+    String left = featurePair.getLeft();
+    return left.isEmpty()? DEFAULT_STRING_FAMILY :left;
   }
 
   @VisibleForTesting
   static void addBoolFeature(
       Boolean b, Pair<String, String> featurePair, Map<String, Set<String>> stringFeatures) {
-    Set<String> feature = Util.getOrCreateStringFeature(featurePair.getLeft(), stringFeatures);
+    String family = getStringFamily(featurePair);
+    Set<String> feature = Util.getOrCreateStringFeature(family, stringFeatures);
     String featureName = featurePair.getRight();
     char str = (b.booleanValue()) ? TRUE_FEATURE : FALSE_FEATURE;
     feature.add(featureName + STRING_FEATURE_SEPARATOR + str);
@@ -111,7 +129,8 @@ public class Features {
   @VisibleForTesting
   static void addStringFeature(
       String str, Pair<String, String> featurePair, Map<String, Set<String>> stringFeatures) {
-    Set<String> feature = Util.getOrCreateStringFeature(featurePair.getLeft(), stringFeatures);
+    String family = getStringFamily(featurePair);
+    Set<String> feature = Util.getOrCreateStringFeature(family, stringFeatures);
     String featureName = featurePair.getRight();
     if (featureName.equals(RAW)) {
       feature.add(str);
@@ -157,8 +176,10 @@ public class Features {
     if (pos == -1) {
       if (name.compareTo(LABEL) == 0) {
         return new ImmutablePair<>(LABEL, LABEL_FEATURE_NAME) ;
+      } else if (!name.isEmpty()){
+        return new ImmutablePair<>("", name) ;
       } else {
-        throw new RuntimeException("Column name not in FAMILY_NAME format or is not LABEL! " + name);
+        throw new RuntimeException("Column name empty");
       }
     } else if (pos == 0) {
       throw new RuntimeException("Column name can't prefix with _! " + name);

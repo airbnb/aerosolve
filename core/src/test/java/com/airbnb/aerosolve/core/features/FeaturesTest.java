@@ -167,9 +167,18 @@ public class FeaturesTest {
     Pair<String, String> p = Features.getFamily("");
   }
 
-  @Test(expected = RuntimeException.class)
-  public void getFamilyNotLABEL() throws Exception {
+  @Test
+  public void getDefaultStringFamily() throws Exception {
     Pair<String, String> p = Features.getFamily("LABE");
+    assertEquals("", p.getLeft());
+    assertEquals(Features.DEFAULT_STRING_FAMILY, Features.getStringFamily(p));
+  }
+
+  @Test
+  public void getDefaultFloatFamily() throws Exception {
+    Pair<String, String> p = Features.getFamily("LABE");
+    assertEquals("", p.getLeft());
+    assertEquals(Features.DEFAULT_FLOAT_FAMILY, Features.getFloatFamily(p));
   }
 
   @Test(expected = RuntimeException.class)
