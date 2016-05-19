@@ -31,15 +31,21 @@ import scala.util.Try
 
 object AdditiveModelTrainer {
   private final val log: Logger = LoggerFactory.getLogger("AdditiveModelTrainer")
+
   case class SgdParams(paramsBC: Broadcast[AdditiveTrainerParams],
                       exampleCount: Accumulator[Long],
                       loss: Accumulator[Double])
 
+  case class LossParams(function: String,
+                        lossMod: Int,
+                        useBestLoss: Boolean,
+                        minLoss: Double)
+
   case class AdditiveTrainerParams(numBins: Int,
                                    numBags: Int,
                                    rankKey: String,
-                                   loss: String,
                                    minCount: Int,
+                                   loss: LossParams,
                                    learningRate: Double,
                                    dropout: Double,
                                    subsample: Double,
@@ -49,8 +55,6 @@ object AdditiveModelTrainer {
                                    linfinityThreshold: Double,
                                    linfinityCap: Double,
                                    threshold: Double,
-                                   lossMod: Int,
-                                   minLoss: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
                                    linearFeatureFamilies: java.util.List[String],
@@ -79,7 +83,7 @@ object AdditiveModelTrainer {
     var model = modelInitialization(sc, transformed, params)
     var loss = Double.MaxValue
     for (i <- 1 to iterations
-         if loss >= params.minLoss) {
+         if loss >= params.loss.minLoss) {
       log.info(s"Iteration $i")
       val sgdParams = SgdParams(
         paramsBC,
@@ -89,12 +93,12 @@ object AdditiveModelTrainer {
       model = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value/sgdParams.exampleCount.value
-      if (newLoss < loss) {
+      if (params.loss.useBestLoss && newLoss < loss) {
         TrainingUtils.saveModel(model, output)
-        log.info(s"use iterations $i FinalLoss = $newLoss count = $sgdParams.exampleCount.value")
+        log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
         loss = newLoss
       } else {
-        log.info(s"abort iterations $i FinalLoss = $newLoss count = $sgdParams.exampleCount.value")
+        log.info(s"iterations $i ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
       }
     }
     model
@@ -211,12 +215,12 @@ object AdditiveModelTrainer {
     var lossCount: Int = 0
     val params = sgdParams.paramsBC.value
     partition.foreach(example => {
-      val lossValue = pointwiseLoss(example.example.get(0), workingModel, params.loss, params)
+      val lossValue = pointwiseLoss(example.example.get(0), workingModel, params.loss.function, params)
       lossSum += lossValue
       lossTotal += lossValue
       lossCount = lossCount + 1
-      if (lossCount % params.lossMod == 0) {
-        log.info(s"Loss = ${lossSum / params.lossMod.toDouble}, samples = $lossCount")
+      if (lossCount % params.loss.lossMod == 0) {
+        log.info(s"Loss = ${lossSum / params.loss.lossMod.toDouble}, samples = $lossCount")
         lossSum = 0.0
       }
     })
@@ -509,6 +513,7 @@ object AdditiveModelTrainer {
     }
 
     val minLoss: Double = Try(config.getDouble("min_loss")).getOrElse(0)
+    val useBestLoss: Boolean = Try(config.getBoolean("use_best_loss")).getOrElse(false)
 
     val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
     Try(config.getStringList("class_weights").toList.toArray)
@@ -520,12 +525,14 @@ object AdditiveModelTrainer {
         classWeights += (cls -> w)
       })
 
+    val lossParams = LossParams(loss, lossMod, useBestLoss, minLoss)
+
     AdditiveTrainerParams(
       numBins,
       numBags,
       rankKey,
-      loss,
       minCount,
+      lossParams,
       learningRate,
       dropout,
       subsample,
@@ -535,8 +542,6 @@ object AdditiveModelTrainer {
       linfinityThreshold,
       linfinityCap,
       threshold,
-      lossMod,
-      minLoss,
       epsilon,
       initModelPath,
       linearFeatureFamilies,
