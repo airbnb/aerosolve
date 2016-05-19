@@ -93,12 +93,17 @@ object AdditiveModelTrainer {
       model = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value/sgdParams.exampleCount.value
-      if (params.loss.useBestLoss && newLoss < loss) {
-        TrainingUtils.saveModel(model, output)
-        log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
-        loss = newLoss
+      if (params.loss.useBestLoss) {
+         if (newLoss < loss) {
+           TrainingUtils.saveModel(model, output)
+           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
+           loss = newLoss
+         } else {
+           log.info(s"iterations $i loss $newLoss < best lost $loss count = $sgdParams.exampleCount.value")
+         }
       } else {
-        log.info(s"iterations $i ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
+        TrainingUtils.saveModel(model, output)
+        log.info(s"iterations $i Loss = $newLoss count = $sgdParams.exampleCount.value")
       }
     }
     model
