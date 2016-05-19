@@ -169,14 +169,14 @@ public class FeaturesTest {
 
   @Test
   public void getDefaultStringFamily() throws Exception {
-    Pair<String, String> p = Features.getFamily("LABE");
+    Pair<String, String> p = Features.getFamily("string");
     assertEquals("", p.getLeft());
     assertEquals(Features.DEFAULT_STRING_FAMILY, Features.getStringFamily(p));
   }
 
   @Test
   public void getDefaultFloatFamily() throws Exception {
-    Pair<String, String> p = Features.getFamily("LABE");
+    Pair<String, String> p = Features.getFamily("float");
     assertEquals("", p.getLeft());
     assertEquals(Features.DEFAULT_FLOAT_FAMILY, Features.getFloatFamily(p));
   }
