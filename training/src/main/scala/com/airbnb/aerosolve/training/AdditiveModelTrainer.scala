@@ -88,9 +88,14 @@ object AdditiveModelTrainer {
       val modelBC = sc.broadcast(model)
       model = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
-      TrainingUtils.saveModel(model, output)
-      loss = sgdParams.loss.value/sgdParams.exampleCount.value
-      log.info(s"LossSum = ${sgdParams.loss.value} count = ${sgdParams.exampleCount.value} Loss = ${loss} ")
+      val newLoss = sgdParams.loss.value/sgdParams.exampleCount.value
+      if (newLoss < loss) {
+        TrainingUtils.saveModel(model, output)
+        log.info(s"use iterations $i FinalLoss = $newLoss count = $sgdParams.exampleCount.value")
+        loss = newLoss
+      } else {
+        log.info(s"abort iterations $i FinalLoss = $newLoss count = $sgdParams.exampleCount.value")
+      }
     }
     model
   }
