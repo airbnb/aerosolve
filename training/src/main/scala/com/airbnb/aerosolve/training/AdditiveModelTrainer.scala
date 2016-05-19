@@ -33,8 +33,8 @@ object AdditiveModelTrainer {
   private final val log: Logger = LoggerFactory.getLogger("AdditiveModelTrainer")
 
   case class SgdParams(paramsBC: Broadcast[AdditiveTrainerParams],
-                      exampleCount: Accumulator[Long],
-                      loss: Accumulator[Double])
+                       exampleCount: Accumulator[Long],
+                       loss: Accumulator[Double])
 
   case class LossParams(function: String,
                         lossMod: Int,
@@ -90,18 +90,20 @@ object AdditiveModelTrainer {
         sc.accumulator(0),
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
-      model = sgdTrain(transformed, sgdParams, modelBC)
+      val newModel = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
-      val newLoss = sgdParams.loss.value/sgdParams.exampleCount.value
+      val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       if (params.loss.useBestLoss) {
          if (newLoss < loss) {
            TrainingUtils.saveModel(model, output)
            log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
            loss = newLoss
+           model = newModel
          } else {
            log.info(s"iterations $i loss $newLoss < best lost $loss count = $sgdParams.exampleCount.value")
          }
       } else {
+        model = newModel
         TrainingUtils.saveModel(model, output)
         log.info(s"iterations $i Loss = $newLoss count = $sgdParams.exampleCount.value")
       }
@@ -238,8 +240,8 @@ object AdditiveModelTrainer {
           output.put((family._1, feature._1), feature._2)
         })
       })
-    sgdParams.exampleCount.+=(lossCount)
-    sgdParams.loss.+=(lossTotal)
+    sgdParams.exampleCount += lossCount
+    sgdParams.loss += lossTotal
     output
   }
 
