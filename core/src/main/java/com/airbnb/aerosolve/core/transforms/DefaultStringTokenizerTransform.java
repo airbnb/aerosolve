@@ -2,11 +2,10 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.util.Util;
+import com.typesafe.config.Config;
 
 import java.util.Map;
 import java.util.Set;
-
-import com.typesafe.config.Config;
 
 /**
  * Tokenizes and counts strings using a regex and optionally generates bigrams from the tokens
@@ -15,8 +14,6 @@ import com.typesafe.config.Config;
  * "generateBigrams" specifies whether bigrams should also be generated
  */
 public class DefaultStringTokenizerTransform implements Transform {
-  public static final String BIGRAM_SEPARATOR = " ";
-
   private String fieldName1;
   private String regex;
   private String outputName;
@@ -54,42 +51,13 @@ public class DefaultStringTokenizerTransform implements Transform {
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
     Map<String, Double> output = Util.getOrCreateFloatFeature(outputName, floatFeatures);
     Map<String, Double> bigramOutput = null;
+
+    NgramTransform.generateOutputTokens(feature1, regex, output, 1, 1);
+
     if (generateBigrams) {
       bigramOutput = Util.getOrCreateFloatFeature(bigramsOutputName, floatFeatures);
-    }
 
-    for (String rawString : feature1) {
-      if (rawString == null) continue;
-      String[] tokenizedString = rawString.split(regex);
-      for (String token : tokenizedString) {
-        if (token.length() == 0) continue;
-        incrementOutput(token, output);
-      }
-      if (generateBigrams) {
-        String previousToken = null;
-        for (String token : tokenizedString) {
-          if (token.length() == 0) continue;
-          if (previousToken == null) {
-            previousToken = token;
-          } else {
-            String bigram = previousToken + BIGRAM_SEPARATOR + token;
-            incrementOutput(bigram, bigramOutput);
-            previousToken = token;
-          }
-        }
-      }
-    }
-  }
-
-  private static void incrementOutput(String key, Map<String, Double> output) {
-    if (key == null || output == null) {
-      return;
-    }
-    if (output.containsKey(key)) {
-      double count = output.get(key);
-      output.put(key, (count + 1.0));
-    } else {
-      output.put(key, 1.0);
+      NgramTransform.generateOutputTokens(feature1, regex, bigramOutput, 2, 2);
     }
   }
 }
