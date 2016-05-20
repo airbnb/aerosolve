@@ -66,6 +66,8 @@ public class Features {
 
     final Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
     featureVector.setFloatFeatures(floatFeatures);
+    // create LABEL family
+    floatFeatures.put(LABEL, new HashMap<>());
 
     final Set<String> bias = new HashSet<>();
     final Set<String> missing = new HashSet<>();
