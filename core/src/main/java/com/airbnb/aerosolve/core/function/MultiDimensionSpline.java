@@ -159,8 +159,15 @@ public class MultiDimensionSpline implements Function {
     ModelRecord record = new ModelRecord();
     record.setFunctionForm(FunctionForm.MultiDimensionSpline);
     record.setFeatureFamily(featureFamily);
+    record.setFeatureName(featureName);
+
     record.setWeightVector(getWeightsFromList());
     record.setNdtreeModel(Arrays.asList(ndTreeModel.getNodes()));
+
+    // Use first coordinates as x for now
+    record.setMinVal(points.get(0).getCoordinates().get(0));
+    record.setMaxVal(points.get(points.size()-1).getCoordinates().get(0));
+
     return record;
   }
 
