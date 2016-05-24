@@ -200,13 +200,14 @@ object NDTree {
       Split(axisIndex, splitValue, leftIndices, rightIndices)
     } else {
       // if leftIndices empty, find next
+      // median happens to be the min element
       val nextSplitValue = nextGreaterElement(points, rightIndices, axisIndex, splitValue)
       if (nextSplitValue.nonEmpty) {
         val splitValue = nextSplitValue.get
         val (left, right) = filterBySplit(points, indices, axisIndex, splitValue)
         Split(axisIndex, splitValue, left, right)
       } else {
-        // no next greater element, so all points into one leaf node.
+        // no next greater element, so median happens to equal to both mix and max
         Split(0, 0.0, Array(), Array())
       }
     }
