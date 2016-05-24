@@ -40,11 +40,16 @@ object AdditiveModelTrainer {
                         lossMod: Int,
                         useBestLoss: Boolean,
                         minLoss: Double)
+  case class InitParams(initModelPath: String,
+                        onlyUseInitModelFunctions: Boolean,
+                        linearFeatureFamilies: java.util.List[String],
+                        priors: Array[String],
+                        minCount: Int,
+                        nDTreePipelineParams: NDTreePipelineParams)
 
   case class AdditiveTrainerParams(numBins: Int,
                                    numBags: Int,
                                    rankKey: String,
-                                   minCount: Int,
                                    loss: LossParams,
                                    learningRate: Double,
                                    dropout: Double,
@@ -56,11 +61,7 @@ object AdditiveModelTrainer {
                                    linfinityCap: Double,
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
-                                   initModelPath: String,
-                                   onlyUseInitModelFunctions: Boolean,
-                                   linearFeatureFamilies: java.util.List[String],
-                                   priors: Array[String],
-                                   nDTreePipelineParams: NDTreePipelineParams,
+                                   init: InitParams,
                                    classWeights: Map[Int, Float],
                                    checkPointDir: String)
 
@@ -358,18 +359,19 @@ object AdditiveModelTrainer {
   }
 
   private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
-                                  params: AdditiveTrainerParams): AdditiveModel = {
+                                  additiveTrainerParams: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
+    val params = additiveTrainerParams.init
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, params, input, newModel, true)
+      initModel(sc, additiveTrainerParams, input, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
       if (!params.onlyUseInitModelFunctions) {
-        initModel(sc, params, input, newModel, false)
+        initModel(sc, additiveTrainerParams, input, newModel, false)
       }
       newModel
     }
@@ -377,10 +379,11 @@ object AdditiveModelTrainer {
 
   // Initializes the model
   private def initModel(sc: SparkContext,
-                        params: AdditiveTrainerParams,
+                        additiveTrainerParams: AdditiveTrainerParams,
                         input: Double => RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
+    val params = additiveTrainerParams.init
     if (params.nDTreePipelineParams != null) {
       val initExamples = input(params.nDTreePipelineParams.sample)
       val linearFeatureFamilies = params.linearFeatureFamilies
@@ -402,26 +405,28 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      val initExamples = input(params.subsample)
-      initWithoutDynamicBucketModel(params, initExamples, model, overwrite)
+      val initExamples = input(additiveTrainerParams.subsample)
+      initWithoutDynamicBucketModel(additiveTrainerParams, initExamples, model, overwrite)
     }
   }
 
   // init spline and linear
-  private def initWithoutDynamicBucketModel(params: AdditiveTrainerParams,
-                        initExamples: RDD[Example],
-                        model: AdditiveModel,
-                        overwrite: Boolean) = {
+  private def initWithoutDynamicBucketModel(
+      additiveTrainerParams: AdditiveTrainerParams,
+      initExamples: RDD[Example],
+      model: AdditiveModel,
+      overwrite: Boolean) = {
+    val params = additiveTrainerParams.init
     val linearFeatureFamilies = params.linearFeatureFamilies
     val minMax = TrainingUtils
       .getFeatureStatistics(params.minCount, initExamples)
-      .filter(x => x._1._1 != params.rankKey)
+      .filter(x => x._1._1 != additiveTrainerParams.rankKey)
     log.info("Num features = %d".format(minMax.length))
     val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
     val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
     // add splines
     for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
+      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, additiveTrainerParams.numBins)
       model.addFunction(featureFamily, featureName, spline, overwrite)
     }
     // add linear
@@ -552,7 +557,6 @@ object AdditiveModelTrainer {
       numBins,
       numBags,
       rankKey,
-      minCount,
       lossParams,
       learningRate,
       dropout,
@@ -564,11 +568,8 @@ object AdditiveModelTrainer {
       linfinityCap,
       threshold,
       epsilon,
-      initModelPath,
-      onlyUseInitModelFunctions,
-      linearFeatureFamilies,
-      priors,
-      options,
+      InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies,
+        priors, minCount, options),
       classWeights.toMap,
       checkPointDir)
   }
