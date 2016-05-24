@@ -60,7 +60,8 @@ object AdditiveModelTrainer {
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
                                    nDTreePipelineParams: NDTreePipelineParams,
-                                   classWeights: Map[Int, Float])
+                                   classWeights: Map[Int, Float],
+                                   checkPointDir: String)
 
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
     train(sc, (frac: Double) => input.sample(false, frac), config, key)
@@ -90,7 +91,7 @@ object AdditiveModelTrainer {
         sc.accumulator(0),
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
-      val newModel = sgdTrain(transformed, sgdParams, modelBC)
+      val newModel = sgdTrain(sc, transformed, sgdParams, modelBC)
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       if (params.loss.useBestLoss) {
@@ -124,15 +125,21 @@ object AdditiveModelTrainer {
     * @param modelBC  broadcasted current model (weights)
     * @return
     */
-  def sgdTrain(input: Double => RDD[Example],
+  def sgdTrain(sc: SparkContext,
+               input: Double => RDD[Example],
                sgdParams: SgdParams,
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
     val params = sgdParams.paramsBC.value
-
-    input(params.subsample)
+    val data = input(params.subsample)
       .coalesce(params.numBags, true)
-      .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
+
+    if (!params.checkPointDir.isEmpty) {
+      sc.setCheckpointDir(params.checkPointDir)
+      data.checkpoint()
+    }
+
+    data.mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
       .groupByKey()
       // Average the feature functions
       // Average the weights
@@ -534,6 +541,7 @@ object AdditiveModelTrainer {
       })
 
     val lossParams = LossParams(loss, lossMod, useBestLoss, minLoss)
+    val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
 
     AdditiveTrainerParams(
       numBins,
@@ -555,7 +563,8 @@ object AdditiveModelTrainer {
       linearFeatureFamilies,
       priors,
       options,
-      classWeights.toMap)
+      classWeights.toMap,
+      checkPointDir)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
