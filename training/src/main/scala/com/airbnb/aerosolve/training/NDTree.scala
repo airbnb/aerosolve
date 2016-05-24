@@ -206,6 +206,7 @@ object NDTree {
       axisIndex: Int): Double = {
     // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
     // performance instead of O(nln(n)) performance
+    // TODO use https://github.com/scalanlp/breeze/blob/master/math/src/test/scala/breeze/util/SelectTest.scala
     val sortedPoints = indices.map(i => points(i)(axisIndex)).sorted
     val length = sortedPoints.length
 
