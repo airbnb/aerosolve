@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
@@ -17,6 +18,7 @@ object SplitType extends Enumeration {
  * Companion object to NDTree.
  */
 object NDTree {
+  val log = LoggerFactory.getLogger("NDTree")
   val splitUsingSurfaceAreaMaxCount = 10
 
   val defaultOneDimensionalSplitType = SplitType.Median
@@ -88,6 +90,9 @@ object NDTree {
     if ((depth >= options.maxTreeDepth) ||
         (indices.length <= options.minLeafCount) ||
         areBoundsOverlapping(bounds)) {
+      log.debug(s"d ${depth} len ${indices.length}")
+      log.debug(s"minima ${bounds.minima.mkString(",")}")
+      log.debug(s"maxima ${bounds.maxima.mkString(",")}")
       makeLeaf = true
     }
 
@@ -105,8 +110,9 @@ object NDTree {
           getSplitUsingSurfaceArea(points, indices, bounds, axisIndex)
       }
 
-      if (split.leftIndices.length <= options.minLeafCount ||
+      if (split.leftIndices.length <= options.minLeafCount &&
           split.rightIndices.length <= options.minLeafCount) {
+        log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
         makeLeaf = true
       } else {
         node.setAxisIndex(split.axisIndex)
@@ -158,26 +164,52 @@ object NDTree {
     })
   }
 
-  private def getSplitUsingMedian(
-      points: Array[Array[Double]],
-      indices: Array[Int],
-      axisIndex: Int): Split = {
-    val splitValue = getMedian(points, indices, axisIndex)
+  def nextGreaterElement(
+      points: Array[Array[Double]], indices: Array[Int], axisIndex: Int, elem: Double): Option[Double] = {
+    val data = indices.map(i => points(i)(axisIndex)).filter(i => i > elem)
+    if (data.length > 0) {
+      Some(data.min)
+    } else {
+      None
+    }
+  }
 
+  private def filterBySplit(points: Array[Array[Double]],
+                            indices: Array[Int],
+                            axisIndex: Int,
+                            splitValue: Double):(Array[Int], Array[Int]) ={
     val leftIndices = indices.filter((index: Int) => {
       points(index)(axisIndex) < splitValue
     })
     val rightIndices = indices.filter((index: Int) => {
       points(index)(axisIndex) >= splitValue
     })
+    (leftIndices, rightIndices)
+  }
 
-    val split = if ((leftIndices.length > 0) && (rightIndices.length > 0)) {
+  private def getSplitUsingMedian(
+      points: Array[Array[Double]],
+      indices: Array[Int],
+      axisIndex: Int): Split = {
+    val splitValue = getMedian(points, indices, axisIndex)
+    val (leftIndices, rightIndices) = filterBySplit(points, indices, axisIndex, splitValue)
+
+    log.debug(s"getSplitUsingMedian ${splitValue} ${leftIndices.length} ${rightIndices.length}")
+    if (leftIndices.length > 0) {
+      // since rightIndices >= splitValue, rightIndices must have value unless points/indices empty
       Split(axisIndex, splitValue, leftIndices, rightIndices)
     } else {
-      Split(0, 0.0, Array(), Array())
+      // if leftIndices empty, find next
+      val nextSplitValue = nextGreaterElement(points, rightIndices, axisIndex, splitValue)
+      if (nextSplitValue.nonEmpty) {
+        val splitValue = nextSplitValue.get
+        val (left, right) = filterBySplit(points, indices, axisIndex, splitValue)
+        Split(axisIndex, splitValue, left, right)
+      } else {
+        // no next greater element, so all points into one leaf node.
+        Split(0, 0.0, Array(), Array())
+      }
     }
-
-    split
   }
 
   private def getMedian(
