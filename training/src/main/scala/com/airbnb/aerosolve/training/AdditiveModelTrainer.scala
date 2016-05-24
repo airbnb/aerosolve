@@ -57,6 +57,7 @@ object AdditiveModelTrainer {
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    initModelPath: String,
+                                   onlyUseInitModelFunctions: Boolean,
                                    linearFeatureFamilies: java.util.List[String],
                                    priors: Array[String],
                                    nDTreePipelineParams: NDTreePipelineParams,
@@ -368,7 +369,9 @@ object AdditiveModelTrainer {
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, params, input, newModel, false)
+      if (!params.onlyUseInitModelFunctions) {
+        initModel(sc, params, input, newModel, false)
+      }
       newModel
     }
   }
@@ -497,6 +500,9 @@ object AdditiveModelTrainer {
     val initModelPath: String = Try {
       config.getString("init_model")
     }.getOrElse("")
+    val onlyUseInitModelFunctions: Boolean =
+      Try(config.getBoolean("only_use_init_model_functions")).getOrElse(false)
+
     val threshold: Double = config.getDouble("rank_threshold")
     val epsilon: Double = Try {
       config.getDouble("epsilon")
@@ -560,6 +566,7 @@ object AdditiveModelTrainer {
       threshold,
       epsilon,
       initModelPath,
+      onlyUseInitModelFunctions,
       linearFeatureFamilies,
       priors,
       options,
