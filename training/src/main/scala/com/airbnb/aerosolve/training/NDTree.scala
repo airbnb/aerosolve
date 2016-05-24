@@ -164,7 +164,7 @@ object NDTree {
     })
   }
 
-  def nextGreaterElement(
+  private def nextGreaterElement(
       points: Array[Array[Double]], indices: Array[Int], axisIndex: Int, elem: Double): Option[Double] = {
     val data = indices.map(i => points(i)(axisIndex)).filter(i => i > elem)
     if (data.length > 0) {
@@ -174,25 +174,12 @@ object NDTree {
     }
   }
 
-  private def filterBySplit(points: Array[Array[Double]],
-                            indices: Array[Int],
-                            axisIndex: Int,
-                            splitValue: Double):(Array[Int], Array[Int]) ={
-    val leftIndices = indices.filter((index: Int) => {
-      points(index)(axisIndex) < splitValue
-    })
-    val rightIndices = indices.filter((index: Int) => {
-      points(index)(axisIndex) >= splitValue
-    })
-    (leftIndices, rightIndices)
-  }
-
   private def getSplitUsingMedian(
       points: Array[Array[Double]],
       indices: Array[Int],
       axisIndex: Int): Split = {
     val splitValue = getMedian(points, indices, axisIndex)
-    val (leftIndices, rightIndices) = filterBySplit(points, indices, axisIndex, splitValue)
+    val (leftIndices, rightIndices) = indices.partition(index => points(index)(axisIndex) < splitValue)
 
     log.debug(s"getSplitUsingMedian ${splitValue} ${leftIndices.length} ${rightIndices.length}")
     if (leftIndices.length > 0) {
@@ -204,7 +191,7 @@ object NDTree {
       val nextSplitValue = nextGreaterElement(points, rightIndices, axisIndex, splitValue)
       if (nextSplitValue.nonEmpty) {
         val splitValue = nextSplitValue.get
-        val (left, right) = filterBySplit(points, indices, axisIndex, splitValue)
+        val (left, right) = indices.partition(index => points(index)(axisIndex) < splitValue)
         Split(axisIndex, splitValue, left, right)
       } else {
         // no next greater element, so median happens to equal to both mix and max
@@ -219,13 +206,13 @@ object NDTree {
       axisIndex: Int): Double = {
     // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
     // performance instead of O(nln(n)) performance
-    val sortedPoints = indices.map(i => points(i)).sortBy(_(axisIndex))
+    val sortedPoints = indices.map(i => points(i)(axisIndex)).sorted
     val length = sortedPoints.length
 
     val median = if ((length % 2) == 0) {
-      (sortedPoints(length / 2)(axisIndex) + sortedPoints((length / 2) - 1)(axisIndex)) / 2.0
+      (sortedPoints(length / 2) + sortedPoints((length / 2) - 1)) / 2.0
     } else {
-      sortedPoints(length / 2)(axisIndex)
+      sortedPoints(length / 2)
     }
 
     median
