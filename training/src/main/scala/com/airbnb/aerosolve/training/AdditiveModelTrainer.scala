@@ -40,7 +40,11 @@ object AdditiveModelTrainer {
                         lossMod: Int,
                         useBestLoss: Boolean,
                         minLoss: Double)
+
   case class InitParams(initModelPath: String,
+                        // default to false, if set to true,
+                        // it use initModelPath's model's function
+                        // without recomputing functions from data.
                         onlyUseInitModelFunctions: Boolean,
                         linearFeatureFamilies: java.util.List[String],
                         priors: Array[String],
@@ -62,7 +66,7 @@ object AdditiveModelTrainer {
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    init: InitParams,
-                                   shuffle: Boolean,
+                                   shuffle: Boolean, // default to true, if set to false, no shuffling for each iteration
                                    classWeights: Map[Int, Float],
                                    checkPointDir: String)
 
