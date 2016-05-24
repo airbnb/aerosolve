@@ -62,6 +62,7 @@ object AdditiveModelTrainer {
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    init: InitParams,
+                                   shuffle: Boolean,
                                    classWeights: Map[Int, Float],
                                    checkPointDir: String)
 
@@ -133,7 +134,7 @@ object AdditiveModelTrainer {
     val model = modelBC.value
     val params = sgdParams.paramsBC.value
     val data = input(params.subsample)
-      .coalesce(params.numBags, true)
+      .coalesce(params.numBags, params.shuffle)
 
     if (!params.checkPointDir.isEmpty) {
       data.sparkContext.setCheckpointDir(params.checkPointDir)
@@ -552,6 +553,10 @@ object AdditiveModelTrainer {
 
     val lossParams = LossParams(loss, lossMod, useBestLoss, minLoss)
     val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
+    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions,
+      linearFeatureFamilies,
+      priors, minCount, options)
+    val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
 
     AdditiveTrainerParams(
       numBins,
@@ -568,8 +573,8 @@ object AdditiveModelTrainer {
       linfinityCap,
       threshold,
       epsilon,
-      InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies,
-        priors, minCount, options),
+      initParams,
+      shuffle,
       classWeights.toMap,
       checkPointDir)
   }
