@@ -297,15 +297,47 @@ class EvaluationTest {
       try {
         val results = Evaluation.evaluateMulticlassClassification(sc.parallelize(recs)).toMap
         results.foreach(res => log.info("%s = %f".format(res._1, res._2)))
+        val expectedA1 = if (posOfLabel == 0) 1.0 else 0.0
+        val expectedA2 = if (posOfLabel <= 1) 1.0 else 0.0
+        val expectedA3 = 1.0
+
         val expectedP1 = if (posOfLabel == 0) 1.0 else 0.0
-        val expectedP2 = if (posOfLabel <= 1) 1.0 else 0.0
+        val expectedP2 = if (posOfLabel <= 1) 0.5 else 0.0
+        val expectedP3 = 1.0/3
+
+        val expectedMAP1 = if (posOfLabel == 0) 1.0 else 0.0
+        val expectedMAP2 = posOfLabel match {
+          case 0 => 1.0
+          case 1 => 0.5
+          case 2 => 0.0
+        }
+        val expectedMAP3 = posOfLabel match {
+          case 0 => 1.0
+          case 1 => 0.5
+          case 2 => 1.0/3
+        }
+
+        assertEquals(expectedA1, results.getOrElse("TRAIN_ACCURACY@1", 0.0), 0.1)
+        assertEquals(expectedA2, results.getOrElse("TRAIN_ACCURACY@2", 0.0), 0.1)
+        assertEquals(expectedA3, results.getOrElse("TRAIN_ACCURACY@3", 0.0), 0.1)
+        assertEquals(expectedA1, results.getOrElse("HOLD_ACCURACY@1", 0.0), 0.1)
+        assertEquals(expectedA2, results.getOrElse("HOLD_ACCURACY@2", 0.0), 0.1)
+        assertEquals(expectedA3, results.getOrElse("HOLD_ACCURACY@3", 0.0), 0.1)
 
         assertEquals(expectedP1, results.getOrElse("TRAIN_PRECISION@1", 0.0), 0.1)
         assertEquals(expectedP2, results.getOrElse("TRAIN_PRECISION@2", 0.0), 0.1)
-        assertEquals(1.0, results.getOrElse("TRAIN_PRECISION@3", 0.0), 0.1)
+        assertEquals(expectedP3, results.getOrElse("TRAIN_PRECISION@3", 0.0), 0.1)
         assertEquals(expectedP1, results.getOrElse("HOLD_PRECISION@1", 0.0), 0.1)
         assertEquals(expectedP2, results.getOrElse("HOLD_PRECISION@2", 0.0), 0.1)
-        assertEquals(1.0, results.getOrElse("HOLD_PRECISION@3", 0.0), 0.1)
+        assertEquals(expectedP3, results.getOrElse("HOLD_PRECISION@3", 0.0), 0.1)
+
+        assertEquals(expectedMAP1, results.getOrElse("TRAIN_MEAN_AVERAGE_PRECISION@1", 0.0), 0.1)
+        assertEquals(expectedMAP2, results.getOrElse("TRAIN_MEAN_AVERAGE_PRECISION@2", 0.0), 0.1)
+        assertEquals(expectedMAP3, results.getOrElse("TRAIN_MEAN_AVERAGE_PRECISION@3", 0.0), 0.1)
+        assertEquals(expectedMAP1, results.getOrElse("HOLD_MEAN_AVERAGE_PRECISION@1", 0.0), 0.1)
+        assertEquals(expectedMAP2, results.getOrElse("HOLD_MEAN_AVERAGE_PRECISION@2", 0.0), 0.1)
+        assertEquals(expectedMAP3, results.getOrElse("HOLD_MEAN_AVERAGE_PRECISION@3", 0.0), 0.1)
+
         assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("TRAIN_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
         assertEquals(1.0 / (posOfLabel + 1.0), results.getOrElse("HOLD_MEAN_RECIPROCAL_RANK", 0.0), 0.1)
         assertTrue(results.getOrElse("TRAIN_ALL_PAIRS_HINGE_LOSS", 0.0) > posOfLabel)

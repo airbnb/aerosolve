@@ -117,12 +117,19 @@ object Evaluation {
         }
         metrics.append((prefix + "ALL_PAIRS_HINGE_LOSS", (hingeLoss, 1.0)))
         var inTopK = false
+        var nAccurateLabel = 0.0
+        var sumPrecision = 0.0
         for (i <- 0 until sorted.size) {
           if (rec.labels.containsKey(sorted(i)._1)) {
             inTopK = true
+            nAccurateLabel += 1
+            sumPrecision += nAccurateLabel / (i + 1)
             metrics.append((prefix + "MEAN_RECIPROCAL_RANK", (1.0 / (i + 1), 1.0)))
           }
-          metrics.append((prefix + "PRECISION@" + (i + 1), (if (inTopK) 1.0 else 0.0, 1.0)))
+          metrics.append((prefix + "PRECISION@" + (i + 1), (nAccurateLabel / (i + 1), 1.0)))
+          metrics.append((prefix + "ACCURACY@" + (i + 1), (if (inTopK) 1.0 else 0.0, 1.0)))
+          val denoMAP = math.min(rec.labels.size, i + 1)
+          metrics.append((prefix + "MEAN_AVERAGE_PRECISION@" + (i + 1), (sumPrecision / denoMAP, 1.0)))
         }
       }
       metrics
