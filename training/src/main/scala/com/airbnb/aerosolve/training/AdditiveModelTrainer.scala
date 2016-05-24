@@ -68,6 +68,8 @@ object AdditiveModelTrainer {
                                    init: InitParams,
                                    shuffle: Boolean, // default to true, if set to false, no shuffling for each iteration
                                    classWeights: Map[Int, Float],
+                                   // if checkPointDir set, transformed training data will be saved
+                                   // to hdfs checkPointDir, to avoid rerun if training failed.
                                    checkPointDir: String)
 
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
