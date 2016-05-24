@@ -430,8 +430,9 @@ object AdditiveModelTrainer {
   def deleteSmallFunctions(model: AdditiveModel,
                            linfinityThreshold: Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
-
+    var totalFunction = 0;
     model.getWeights.asScala.foreach(family => {
+      totalFunction += family._2.size()
       family._2.asScala.foreach(entry => {
         val func: Function = entry._2
         if (func.LInfinityNorm() < linfinityThreshold) {
@@ -440,7 +441,7 @@ object AdditiveModelTrainer {
       })
     })
 
-    log.info("Deleting %d small functions".format(toDelete.size))
+    log.info(s"Deleting ${toDelete.size} small functions from $totalFunction")
     toDelete.foreach(entry => {
       val family = model.getWeights.get(entry._1)
       if (family != null && family.containsKey(entry._2)) {
