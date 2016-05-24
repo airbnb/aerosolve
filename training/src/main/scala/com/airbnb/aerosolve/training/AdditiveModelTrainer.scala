@@ -92,7 +92,7 @@ object AdditiveModelTrainer {
         sc.accumulator(0),
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
-      val newModel = sgdTrain(sc, transformed, sgdParams, modelBC)
+      val newModel = sgdTrain(transformed, sgdParams, modelBC)
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       if (params.loss.useBestLoss) {
@@ -126,8 +126,7 @@ object AdditiveModelTrainer {
     * @param modelBC  broadcasted current model (weights)
     * @return
     */
-  def sgdTrain(sc: SparkContext,
-               input: Double => RDD[Example],
+  def sgdTrain(input: Double => RDD[Example],
                sgdParams: SgdParams,
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
@@ -136,7 +135,7 @@ object AdditiveModelTrainer {
       .coalesce(params.numBags, true)
 
     if (!params.checkPointDir.isEmpty) {
-      sc.setCheckpointDir(params.checkPointDir)
+      data.sparkContext.setCheckpointDir(params.checkPointDir)
       data.checkpoint()
     }
 
