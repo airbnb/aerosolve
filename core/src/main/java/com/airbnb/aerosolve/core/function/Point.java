@@ -71,12 +71,16 @@ public class Point implements Function {
   @Override
   public void LInfinityCap(float cap) {
     if (cap <= 0.0f) return;
-    weight = Math.min(cap, weight);
+    float currentNorm = this.LInfinityNorm();
+    if (currentNorm > cap) {
+      float scale = cap / currentNorm;
+      weight *= scale;
+    }
   }
 
   @Override
   public float LInfinityNorm() {
-    return weight;
+    return Math.abs(weight);
   }
 
   @Override
