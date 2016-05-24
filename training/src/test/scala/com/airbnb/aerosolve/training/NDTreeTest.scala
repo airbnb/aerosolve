@@ -12,6 +12,66 @@ class NDTreeTest {
   val log = LoggerFactory.getLogger("NDTreeTest")
 
   @Test
+  def buildTree1DNotEvenlyDistributed: Unit = {
+    val points = ArrayBuffer[Array[Double]]()
+
+    for (x <- 1 to 20) {
+      for (y <- 1 to x) {
+        points.append(Array[Double](y.toDouble))
+      }
+    }
+
+    val dimensions = points.head.length
+
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 16,
+      minLeafCount = 10,
+      splitType = SplitType.Median)
+
+    val tree = NDTree(options, points.toArray)
+    val nodes = tree.nodes
+
+    log.info(s"nodes = ${nodes.mkString("\n")}")
+    assertEquals(27, nodes.length)
+    assertEquals(6.5, nodes(0).splitValue, 0)
+    assertEquals(11, nodes(2).splitValue, 0)
+    assertEquals(1.0, nodes(1).min.get(0))
+    assertEquals(6.0, nodes(1).max.get(0))
+    assertEquals(3.0, nodes(4).min.get(0))
+    assertEquals(6.0, nodes(4).max.get(0))
+  }
+
+  @Test
+  def buildTree1DNoNextGreaterElement: Unit = {
+    val points = ArrayBuffer[Array[Double]]()
+
+    for (x <- 1 to 20) {
+      for (y <- (21- x) to 20) {
+        points.append(Array[Double](y.toDouble))
+      }
+    }
+
+    val dimensions = points.head.length
+
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 16,
+      minLeafCount = 10,
+      splitType = SplitType.Median)
+
+    val tree = NDTree(options, points.toArray)
+    val nodes = tree.nodes
+
+    log.info(s"nodes = ${nodes.mkString("\n")}")
+    assertEquals(29, nodes.length)
+    assertEquals(14.5, nodes(0).splitValue, 0)
+    assertEquals(18, nodes(2).splitValue, 0)
+    assertEquals(1.0, nodes(1).min.get(0))
+    assertEquals(14.0, nodes(1).max.get(0))
+    assertEquals(10.0, nodes(4).min.get(0))
+    assertEquals(14.0, nodes(4).max.get(0))
+  }
+
+  @Test
   def buildTreeUsingMedianTestWithLimitedValues: Unit = {
     val points = ArrayBuffer[Array[Double]]()
 
@@ -76,7 +136,9 @@ class NDTreeTest {
       val res = tree.query(point)
       for (index <- res) {
         for (i <- 0 until dimensions) {
-          assert(point(i) >= nodes(index).min.get(i))
+          log.info(s"i $i p ${point(i)} min ${nodes(index).min.get(i)} ${nodes(index).max.get(i)} index $index")
+          assert(point(i) >= nodes(index).min.get(i),
+            s"i $i p ${point(i)} min ${nodes(index).min.get(i)} index $index ${res.mkString(",")}")
           assert(point(i) <= nodes(index).max.get(i))
         }
       }

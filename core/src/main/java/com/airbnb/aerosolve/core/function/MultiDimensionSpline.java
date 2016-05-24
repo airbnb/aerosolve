@@ -8,6 +8,7 @@ import com.airbnb.aerosolve.core.models.NDTreeModel;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class MultiDimensionSpline implements Function {
@@ -173,10 +174,8 @@ public class MultiDimensionSpline implements Function {
 
   private List<Double> getWeightsFromList() {
     List<Double> weights = new ArrayList<>(points.size());
-    for (MultiDimensionPoint p: points) {
-
-      weights.add(p.getWeight());
-    }
+    weights.addAll(points.stream().map(
+        MultiDimensionPoint::getWeight).collect(Collectors.toList()));
     return weights;
   }
 
