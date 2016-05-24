@@ -146,7 +146,7 @@ object NDTreePipeline {
     }).collect
     paramsBC.unpersist()
 
-    log.info(s"tree ${tree}")
+    log.info(s"tree length ${tree.length}")
     tree
   }
 

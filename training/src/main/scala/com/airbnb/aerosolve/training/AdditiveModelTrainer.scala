@@ -41,10 +41,19 @@ object AdditiveModelTrainer {
                         useBestLoss: Boolean,
                         minLoss: Double)
 
+  case class InitParams(initModelPath: String,
+                        // default to false, if set to true,
+                        // it use initModelPath's model's function
+                        // without recomputing functions from data.
+                        onlyUseInitModelFunctions: Boolean,
+                        linearFeatureFamilies: java.util.List[String],
+                        priors: Array[String],
+                        minCount: Int,
+                        nDTreePipelineParams: NDTreePipelineParams)
+
   case class AdditiveTrainerParams(numBins: Int,
                                    numBags: Int,
                                    rankKey: String,
-                                   minCount: Int,
                                    loss: LossParams,
                                    learningRate: Double,
                                    dropout: Double,
@@ -56,11 +65,12 @@ object AdditiveModelTrainer {
                                    linfinityCap: Double,
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
-                                   initModelPath: String,
-                                   linearFeatureFamilies: java.util.List[String],
-                                   priors: Array[String],
-                                   nDTreePipelineParams: NDTreePipelineParams,
-                                   classWeights: Map[Int, Float])
+                                   init: InitParams,
+                                   shuffle: Boolean, // default to true, if set to false, no shuffling for each iteration
+                                   classWeights: Map[Int, Float],
+                                   // if checkPointDir set, transformed training data will be saved
+                                   // to hdfs checkPointDir, to avoid rerun if training failed.
+                                   checkPointDir: String)
 
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
     train(sc, (frac: Double) => input.sample(false, frac), config, key)
@@ -96,16 +106,16 @@ object AdditiveModelTrainer {
       if (params.loss.useBestLoss) {
          if (newLoss < loss) {
            TrainingUtils.saveModel(model, output)
-           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
+           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = ${sgdParams.exampleCount.value}")
            loss = newLoss
            model = newModel
          } else {
-           log.info(s"iterations $i loss $newLoss < best lost $loss count = $sgdParams.exampleCount.value")
+           log.info(s"iterations $i loss $newLoss < best lost $loss count = ${sgdParams.exampleCount.value}")
          }
       } else {
         model = newModel
         TrainingUtils.saveModel(model, output)
-        log.info(s"iterations $i Loss = $newLoss count = $sgdParams.exampleCount.value")
+        log.info(s"iterations $i Loss = $newLoss count = ${sgdParams.exampleCount.value}")
       }
     }
     model
@@ -129,10 +139,15 @@ object AdditiveModelTrainer {
                modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
     val model = modelBC.value
     val params = sgdParams.paramsBC.value
+    val data = input(params.subsample)
+      .coalesce(params.numBags, params.shuffle)
 
-    input(params.subsample)
-      .coalesce(params.numBags, true)
-      .mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
+    if (!params.checkPointDir.isEmpty) {
+      data.sparkContext.setCheckpointDir(params.checkPointDir)
+      data.checkpoint()
+    }
+
+    data.mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
       .groupByKey()
       // Average the feature functions
       // Average the weights
@@ -351,27 +366,31 @@ object AdditiveModelTrainer {
   }
 
   private def modelInitialization(sc: SparkContext, input: Double => RDD[Example],
-                                  params: AdditiveTrainerParams): AdditiveModel = {
+                                  additiveTrainerParams: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
+    val params = additiveTrainerParams.init
     if (params.initModelPath == "") {
       val newModel = new AdditiveModel()
-      initModel(sc, params, input, newModel, true)
+      initModel(sc, additiveTrainerParams, input, newModel, true)
       setPrior(params.priors, newModel)
       newModel
     } else {
       val newModel = TrainingUtils.loadScoreModel(params.initModelPath)
         .get.asInstanceOf[AdditiveModel]
-      initModel(sc, params, input, newModel, false)
+      if (!params.onlyUseInitModelFunctions) {
+        initModel(sc, additiveTrainerParams, input, newModel, false)
+      }
       newModel
     }
   }
 
   // Initializes the model
   private def initModel(sc: SparkContext,
-                        params: AdditiveTrainerParams,
+                        additiveTrainerParams: AdditiveTrainerParams,
                         input: Double => RDD[Example],
                         model: AdditiveModel,
                         overwrite: Boolean) = {
+    val params = additiveTrainerParams.init
     if (params.nDTreePipelineParams != null) {
       val initExamples = input(params.nDTreePipelineParams.sample)
       val linearFeatureFamilies = params.linearFeatureFamilies
@@ -393,26 +412,28 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      val initExamples = input(params.subsample)
-      initWithoutDynamicBucketModel(params, initExamples, model, overwrite)
+      val initExamples = input(additiveTrainerParams.subsample)
+      initWithoutDynamicBucketModel(additiveTrainerParams, initExamples, model, overwrite)
     }
   }
 
   // init spline and linear
-  private def initWithoutDynamicBucketModel(params: AdditiveTrainerParams,
-                        initExamples: RDD[Example],
-                        model: AdditiveModel,
-                        overwrite: Boolean) = {
+  private def initWithoutDynamicBucketModel(
+      additiveTrainerParams: AdditiveTrainerParams,
+      initExamples: RDD[Example],
+      model: AdditiveModel,
+      overwrite: Boolean) = {
+    val params = additiveTrainerParams.init
     val linearFeatureFamilies = params.linearFeatureFamilies
     val minMax = TrainingUtils
       .getFeatureStatistics(params.minCount, initExamples)
-      .filter(x => x._1._1 != params.rankKey)
+      .filter(x => x._1._1 != additiveTrainerParams.rankKey)
     log.info("Num features = %d".format(minMax.length))
     val minMaxSpline = minMax.filter(x => !linearFeatureFamilies.contains(x._1._1))
     val minMaxLinear = minMax.filter(x => linearFeatureFamilies.contains(x._1._1))
     // add splines
     for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, params.numBins)
+      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, additiveTrainerParams.numBins)
       model.addFunction(featureFamily, featureName, spline, overwrite)
     }
     // add linear
@@ -430,8 +451,9 @@ object AdditiveModelTrainer {
   def deleteSmallFunctions(model: AdditiveModel,
                            linfinityThreshold: Double) = {
     val toDelete = scala.collection.mutable.ArrayBuffer[(String, String)]()
-
+    var totalFunction = 0;
     model.getWeights.asScala.foreach(family => {
+      totalFunction += family._2.size()
       family._2.asScala.foreach(entry => {
         val func: Function = entry._2
         if (func.LInfinityNorm() < linfinityThreshold) {
@@ -440,7 +462,7 @@ object AdditiveModelTrainer {
       })
     })
 
-    log.info("Deleting %d small functions".format(toDelete.size))
+    log.info(s"Deleting ${toDelete.size} small functions from $totalFunction")
     toDelete.foreach(entry => {
       val family = model.getWeights.get(entry._1)
       if (family != null && family.containsKey(entry._2)) {
@@ -489,6 +511,9 @@ object AdditiveModelTrainer {
     val initModelPath: String = Try {
       config.getString("init_model")
     }.getOrElse("")
+    val onlyUseInitModelFunctions: Boolean =
+      Try(config.getBoolean("only_use_init_model_functions")).getOrElse(false)
+
     val threshold: Double = config.getDouble("rank_threshold")
     val epsilon: Double = Try {
       config.getDouble("epsilon")
@@ -533,12 +558,16 @@ object AdditiveModelTrainer {
       })
 
     val lossParams = LossParams(loss, lossMod, useBestLoss, minLoss)
+    val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
+    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions,
+      linearFeatureFamilies,
+      priors, minCount, options)
+    val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
 
     AdditiveTrainerParams(
       numBins,
       numBags,
       rankKey,
-      minCount,
       lossParams,
       learningRate,
       dropout,
@@ -550,11 +579,10 @@ object AdditiveModelTrainer {
       linfinityCap,
       threshold,
       epsilon,
-      initModelPath,
-      linearFeatureFamilies,
-      priors,
-      options,
-      classWeights.toMap)
+      initParams,
+      shuffle,
+      classWeights.toMap,
+      checkPointDir)
   }
 
   def trainAndSaveToFile(sc: SparkContext,
