@@ -96,16 +96,16 @@ object AdditiveModelTrainer {
       if (params.loss.useBestLoss) {
          if (newLoss < loss) {
            TrainingUtils.saveModel(model, output)
-           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = $sgdParams.exampleCount.value")
+           log.info(s"iterations $i useBestLoss ThisRoundLoss = $newLoss count = ${sgdParams.exampleCount.value}")
            loss = newLoss
            model = newModel
          } else {
-           log.info(s"iterations $i loss $newLoss < best lost $loss count = $sgdParams.exampleCount.value")
+           log.info(s"iterations $i loss $newLoss < best lost $loss count = ${sgdParams.exampleCount.value}")
          }
       } else {
         model = newModel
         TrainingUtils.saveModel(model, output)
-        log.info(s"iterations $i Loss = $newLoss count = $sgdParams.exampleCount.value")
+        log.info(s"iterations $i Loss = $newLoss count = ${sgdParams.exampleCount.value}")
       }
     }
     model
