@@ -405,13 +405,11 @@ object AdditiveModelTrainer {
             if (stats.spline) {
               val spline = new Spline(stats.min.toFloat, stats.max.toFloat, additiveTrainerParams.numBins)
               model.addFunction(family, name, spline, overwrite)
+            } else if (stats.min == stats.max) {
+              model.addFunction(family, name, new Point(stats.min.toFloat), overwrite)
             } else {
-              if (stats.min == stats.max) {
-                model.addFunction(family, name, new Point(stats.min.toFloat), overwrite)
-              } else {
-                model.addFunction(family, name,
-                  new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
-              }
+              model.addFunction(family, name,
+                new Linear(stats.min.toFloat, stats.max.toFloat), overwrite)
             }
           }
         }
