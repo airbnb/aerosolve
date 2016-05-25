@@ -90,7 +90,7 @@ public class FunctionUtil {
  * @param  tolerance if fitted array's deviation from weights is less than tolerance
  *         use the fitted, otherwise keep original weights.
  * @param  weights the curve you want to smooth
- * @return true if weights is modified by fitted curve.
+ * @return double errAndCoeff in the weights
    */
   public static double smooth(double tolerance, float[] weights) {
     // TODO use apache math's PolynomialCurveFitter
