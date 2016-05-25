@@ -26,7 +26,7 @@ object NDTreePipeline {
                                   linearFeatureFamilies: util.List[String],
                                   checkPointDir: String,
                                   options: NDTreeBuildOptions,
-                                  maxStdDivByMinLeafNodesCount: Double)
+                                  maxMinLeafNodesDivByStd: Double)
 
   case class FeatureStats(count: Double, min: Double, max: Double,
                           spline: Boolean = false)
@@ -73,8 +73,8 @@ object NDTreePipeline {
     val options = NDTreeBuildOptions(
       maxTreeDepth = cfg.getInt("max_tree_depth"),
       minLeafCount = cfg.getInt("min_leaf_count"))
-    val maxStdDivByMinLeafNodesCount:Double =
-      Try(cfg.getDouble("max_std_div_by_min_leaf_nodes_count")).
+    val maxMinLeafNodesDivByStd:Double =
+      Try(cfg.getDouble("max_min_leaf_nodes_count_div_by_std")).
       getOrElse(0)
     NDTreePipelineParams(
       cfg.getDouble("sample"),
@@ -82,7 +82,7 @@ object NDTreePipeline {
       linearFeatureFamilies,
       checkPointDir,
       options,
-      maxStdDivByMinLeafNodesCount)
+      maxMinLeafNodesDivByStd)
   }
 
   def buildFeatures(sc: SparkContext, config : Config):
@@ -142,7 +142,7 @@ object NDTreePipeline {
           case Left(y) => {
             // build tree
             val model = NDTree(paramsBC.value.options, y.toArray).model
-            val maxValue = paramsBC.value.maxStdDivByMinLeafNodesCount
+            val maxValue = paramsBC.value.maxMinLeafNodesDivByStd
             if (maxValue > 0) {
               if (model.canReplaceBySpline(maxValue)) {
                 val node = model.getNode(0)
