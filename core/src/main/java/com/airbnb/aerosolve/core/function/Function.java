@@ -28,9 +28,7 @@ public interface Function extends Serializable, Cloneable {
 
   // for function not support smooth, just return 0
   // for function support smooth, return errAndCoeff
-  double smooth(double tolerance);
-  // for function support smooth, return errAndCoeff percentage
-  double smoothByTolerancePercentage(double tolerancePercentage);
+  double smooth(double tolerance, boolean toleranceIsPercentage);
 
   Function clone() throws CloneNotSupportedException;
 }

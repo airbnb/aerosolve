@@ -8,7 +8,6 @@ import com.airbnb.aerosolve.core.models.NDTreeModel;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -246,20 +245,10 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public double smooth(double tolerance) {
-    return smoothInternal(tolerance, (x, y) -> FunctionUtil.smooth(x, y));
- }
-
-  @Override
-  public double smoothByTolerancePercentage(double tolerancePercentage) {
-    return smoothInternal(tolerancePercentage,
-        (x, y) -> FunctionUtil.smoothByTolerancePercentage(x, y));
-  }
-
-  private double smoothInternal(double tolerance, BiFunction<Double, float[], Double> smoothFunc) {
+  public double smooth(double tolerance, boolean toleranceIsPercentage) {
     if (!canDoSmooth()) return 0;
     float[] weights = getWeights();
-    double err = smoothFunc.apply(tolerance, weights);
+    double err = FunctionUtil.smooth(tolerance, toleranceIsPercentage, weights);
 
     if (err < tolerance) {
       updateWeights(weights);
