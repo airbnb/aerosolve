@@ -27,9 +27,9 @@ public interface Function extends Serializable, Cloneable {
   void resample(int newBins);
 
   // for function not support smooth, just return 0
-  // for function support smooth, return err
+  // for function support smooth, return errAndCoeff
   float smooth(double tolerance);
-  // for function support smooth, return err percentage
+  // for function support smooth, return errAndCoeff percentage
   float smoothByTolerancePercentage(double tolerancePercentage);
 
   Function clone() throws CloneNotSupportedException;
