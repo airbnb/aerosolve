@@ -94,6 +94,11 @@ public class Point implements Function {
   }
 
   @Override
+  public void smoothByTolerancePercentage(double tolerancePercentage) {
+
+  }
+
+  @Override
   public Function clone() throws CloneNotSupportedException {
     return new Point(weight);
   }

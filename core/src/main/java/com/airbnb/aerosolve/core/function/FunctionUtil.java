@@ -102,4 +102,18 @@ public class FunctionUtil {
       return false;
     }
   }
+
+  public static boolean smoothByTolerancePercentage(
+      double tolerancePercentage, float[] weights) {
+    double tolerance = tolerancePercentage * getAbsMean(weights);
+    return smooth(tolerance, weights);
+  }
+
+  public static double getAbsMean(float[] weights) {
+    double sum = 0;
+    for (float f : weights) {
+      sum += Math.abs(f);
+    }
+    return  sum / weights.length;
+  }
 }

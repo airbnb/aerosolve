@@ -198,6 +198,12 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
+  public void smoothByTolerancePercentage(double tolerancePercentage) {
+    FunctionUtil.smoothByTolerancePercentage(tolerancePercentage, weights);
+  }
+
+
+  @Override
   public Spline clone() throws CloneNotSupportedException {
     Spline copy = (Spline) super.clone();
     copy.weights = weights.clone();

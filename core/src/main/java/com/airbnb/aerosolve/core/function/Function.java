@@ -28,5 +28,7 @@ public interface Function extends Serializable, Cloneable {
 
   void smooth(double tolerance);
 
+  void smoothByTolerancePercentage(double tolerancePercentage);
+
   Function clone() throws CloneNotSupportedException;
 }
