@@ -246,20 +246,20 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public float smooth(double tolerance) {
+  public double smooth(double tolerance) {
     return smoothInternal(tolerance, (x, y) -> FunctionUtil.smooth(x, y));
  }
 
   @Override
-  public float smoothByTolerancePercentage(double tolerancePercentage) {
+  public double smoothByTolerancePercentage(double tolerancePercentage) {
     return smoothInternal(tolerancePercentage,
         (x, y) -> FunctionUtil.smoothByTolerancePercentage(x, y));
   }
 
-  private float smoothInternal(double tolerance, BiFunction<Double, float[], Float> smoothFunc) {
+  private double smoothInternal(double tolerance, BiFunction<Double, float[], Double> smoothFunc) {
     if (!canDoSmooth()) return 0;
     float[] weights = getWeights();
-    float err = smoothFunc.apply(tolerance, weights);
+    double err = smoothFunc.apply(tolerance, weights);
 
     if (err < tolerance) {
       updateWeights(weights);

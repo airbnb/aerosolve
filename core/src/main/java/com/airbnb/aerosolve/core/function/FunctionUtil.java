@@ -92,11 +92,11 @@ public class FunctionUtil {
  * @param  weights the curve you want to smooth
  * @return true if weights is modified by fitted curve.
    */
-  public static float smooth(double tolerance, float[] weights) {
+  public static double smooth(double tolerance, float[] weights) {
     // TODO use apache math's PolynomialCurveFitter
     // compile 'org.apache.commons:commons-math3:3.6.1'
     float[] best = FunctionUtil.fitPolynomial(weights);
-    float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
+    double errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
     if (errAndCoeff < tolerance) {
       FunctionUtil.evaluatePolynomial(best, weights, true);
     } else {
@@ -106,11 +106,11 @@ public class FunctionUtil {
     return errAndCoeff;
   }
 
-  public static float smoothByTolerancePercentage(
+  public static double smoothByTolerancePercentage(
       double tolerancePercentage, float[] weights) {
     double absMean = getAbsMean(weights);
     double tolerance = tolerancePercentage * absMean;
-    return (float) (smooth(tolerance, weights) / absMean);
+    return smooth(tolerance, weights) / absMean;
   }
 
   public static double getAbsMean(float[] weights) {

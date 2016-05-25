@@ -89,12 +89,12 @@ public class Point implements Function {
   }
 
   @Override
-  public float smooth(double tolerance) {
+  public double smooth(double tolerance) {
     return 0;
   }
 
   @Override
-  public float smoothByTolerancePercentage(double tolerancePercentage) {
+  public double smoothByTolerancePercentage(double tolerancePercentage) {
     return 0;
   }
 
