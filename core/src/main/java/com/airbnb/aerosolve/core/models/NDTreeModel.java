@@ -43,7 +43,7 @@ public class NDTreeModel implements Serializable {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
   }
 
-  public double stdDivByMinFromLeafNodesCount() {
+  public double stdDivByMinLeafNodesCount() {
     // Get a DescriptiveStatistics instance
     DescriptiveStatistics stats = new DescriptiveStatistics();
 
@@ -60,9 +60,9 @@ public class NDTreeModel implements Serializable {
     NDTreeModel is close to evenly distributed and it is 1 dimension
     So we can replace it by Spline
    */
-  public boolean canReplaceBySpline(double maxStdDivByMinFromLeafNodesCount) {
+  public boolean canReplaceBySpline(double maxStdDivByMinLeafNodesCount) {
     return dimension == 1 &&
-        maxStdDivByMinFromLeafNodesCount < stdDivByMinFromLeafNodesCount();
+        maxStdDivByMinLeafNodesCount < stdDivByMinLeafNodesCount();
   }
 
   public static boolean isLeaf(NDTreeNode node) {

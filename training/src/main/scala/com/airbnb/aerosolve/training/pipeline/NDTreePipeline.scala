@@ -25,9 +25,11 @@ object NDTreePipeline {
                                   minCount: Int,
                                   linearFeatureFamilies: util.List[String],
                                   checkPointDir: String,
-                                  options: NDTreeBuildOptions)
+                                  options: NDTreeBuildOptions,
+                                  maxStdDivByMinLeafNodesCount: Double)
 
-  case class FeatureStats(count: Double, min: Double, max: Double)
+  case class FeatureStats(count: Double, min: Double, max: Double,
+                          spline: Boolean = false)
   /*
     build NDTree from examples, each float/dense feature generates a NDTree
     and save to FeatureMap
@@ -71,13 +73,16 @@ object NDTreePipeline {
     val options = NDTreeBuildOptions(
       maxTreeDepth = cfg.getInt("max_tree_depth"),
       minLeafCount = cfg.getInt("min_leaf_count"))
+    val maxStdDivByMinLeafNodesCount:Double =
+      Try(cfg.getDouble("max_std_div_by_min_leaf_nodes_count")).
+      getOrElse(0)
     NDTreePipelineParams(
       cfg.getDouble("sample"),
       cfg.getInt("min_count"),
       linearFeatureFamilies,
       checkPointDir,
-      options
-    )
+      options,
+      maxStdDivByMinLeafNodesCount)
   }
 
   def buildFeatures(sc: SparkContext, config : Config):
@@ -136,7 +141,19 @@ object NDTreePipeline {
         val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
           case Left(y) => {
             // build tree
-            ((x._1._1, x._1._2), Left(NDTree(paramsBC.value.options, y.toArray).model))
+            val model = NDTree(paramsBC.value.options, y.toArray).model
+            val maxValue = paramsBC.value.maxStdDivByMinLeafNodesCount
+            if (maxValue > 0) {
+              if (model.canReplaceBySpline(maxValue)) {
+                val node = model.getNode(0)
+                ((x._1._1, x._1._2), Right(FeatureStats(
+                  node.count, node.min.get(0), node.max.get(0), true)))
+              } else {
+                ((x._1._1, x._1._2), Left(model))
+              }
+            } else {
+              ((x._1._1, x._1._2), Left(model))
+            }
           }
           case Right(z) => {
             ((x._1._1, x._1._2), Right(z))
