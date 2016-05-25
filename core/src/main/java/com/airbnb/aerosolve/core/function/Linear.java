@@ -119,12 +119,13 @@ public class Linear extends AbstractFunction {
   }
 
   @Override
-  public void smooth(double tolerance) {
+  public boolean smooth(double tolerance) {
+    return false;
   }
 
   @Override
-  public void smoothByTolerancePercentage(double tolerancePercentage) {
-
+  public boolean smoothByTolerancePercentage(double tolerancePercentage) {
+    return false;
   }
 
   @Override

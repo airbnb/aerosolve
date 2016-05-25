@@ -193,13 +193,13 @@ public class Spline extends AbstractFunction {
   }
 
   @Override
-  public void smooth(double tolerance) {
-    FunctionUtil.smooth(tolerance, weights);
+  public boolean smooth(double tolerance) {
+    return FunctionUtil.smooth(tolerance, weights);
   }
 
   @Override
-  public void smoothByTolerancePercentage(double tolerancePercentage) {
-    FunctionUtil.smoothByTolerancePercentage(tolerancePercentage, weights);
+  public boolean smoothByTolerancePercentage(double tolerancePercentage) {
+    return FunctionUtil.smoothByTolerancePercentage(tolerancePercentage, weights);
   }
 
   @Override

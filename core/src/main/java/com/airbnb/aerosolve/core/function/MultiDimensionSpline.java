@@ -245,21 +245,25 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public void smooth(double tolerance) {
-    if (!canDoSmooth()) return;
+  public boolean smooth(double tolerance) {
+    if (!canDoSmooth()) return false;
     float[] weights = getWeights();
     if (FunctionUtil.smooth(tolerance, weights)) {
       updateWeights(weights);
+      return true;
     }
+    return false;
   }
 
   @Override
-  public void smoothByTolerancePercentage(double tolerancePercentage) {
-    if (!canDoSmooth()) return;
+  public boolean smoothByTolerancePercentage(double tolerancePercentage) {
+    if (!canDoSmooth()) return false;
     float[] weights = getWeights();
     if (FunctionUtil.smoothByTolerancePercentage(tolerancePercentage, weights)) {
       updateWeights(weights);
+      return true;
     }
+    return false;
   }
 
   private float[] getWeights() {

@@ -1,11 +1,13 @@
 package com.airbnb.aerosolve.core.function;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 public class FunctionUtil {
   public static float[] fitPolynomial(float[] data) {
     int numCoeff = 6;
@@ -99,6 +101,8 @@ public class FunctionUtil {
       FunctionUtil.evaluatePolynomial(best, weights, true);
       return true;
     } else {
+      double absMean = getAbsMean(weights);
+      log.info("errAndCoeff >= tolerance {} {} {}", errAndCoeff, absMean, errAndCoeff/absMean);
       return false;
     }
   }
