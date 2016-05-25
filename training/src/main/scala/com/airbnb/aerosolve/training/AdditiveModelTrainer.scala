@@ -215,11 +215,7 @@ object AdditiveModelTrainer {
     val head: Function = input.head
     // TODO: revisit asJava performance impact
     val output = head.aggregate(input.asJava, scale, params.numBins)
-    if (params.smoothingByPercentage) {
-      output.smoothByTolerancePercentage(params.smoothingTolerance)
-    } else {
-      output.smooth(params.smoothingTolerance)
-    }
+    output.smooth(params.smoothingTolerance, params.smoothingByPercentage)
     output
   }
 
