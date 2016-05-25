@@ -402,7 +402,10 @@ object AdditiveModelTrainer {
             model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
           }
           case Right(stats) => {
-            if (stats.min == stats.max) {
+            if (stats.spline) {
+              val spline = new Spline(stats.min.toFloat, stats.max.toFloat, additiveTrainerParams.numBins)
+              model.addFunction(family, name, spline, overwrite)
+            } else if (stats.min == stats.max) {
               model.addFunction(family, name, new Point(stats.min.toFloat), overwrite)
             } else {
               model.addFunction(family, name,

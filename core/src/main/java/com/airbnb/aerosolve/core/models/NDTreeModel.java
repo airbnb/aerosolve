@@ -5,6 +5,7 @@ import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
 import lombok.Getter;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +41,36 @@ public class NDTreeModel implements Serializable {
 
   public NDTreeModel(List<NDTreeNode> nodeList) {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
+  }
+
+  public double minLeafNodesDivByStd() {
+    // Get a DescriptiveStatistics instance
+    DescriptiveStatistics stats = new DescriptiveStatistics();
+
+    for (NDTreeNode n : nodes) {
+      if (isLeaf(n)) {
+        stats.addValue(n.count);
+      }
+    }
+    double std = stats.getStandardDeviation();
+    if (std == 0) {
+      return Double.MAX_VALUE;
+    } else {
+      return stats.getMin() / std;
+    }
+  }
+
+  /*
+    NDTreeModel is close to evenly distributed and it is 1 dimension
+    So we can replace it by Spline
+   */
+  public boolean canReplaceBySpline(double maxMinLeafNodesDivByStd) {
+    return dimension == 1 &&
+        maxMinLeafNodesDivByStd < minLeafNodesDivByStd();
+  }
+
+  public static boolean isLeaf(NDTreeNode node) {
+    return node.getAxisIndex() == NDTreeModel.LEAF;
   }
 
   public int leaf(float ... coordinates) {
@@ -92,7 +123,7 @@ public class NDTreeModel implements Serializable {
     }
     return idx;
   }
-  
+
   public static Optional<NDTreeModel> readFromGzippedStream(InputStream inputStream) {
     List<NDTreeNode> nodes = Util.readFromGzippedStream(NDTreeNode.class, inputStream);
     if (!nodes.isEmpty()) {
