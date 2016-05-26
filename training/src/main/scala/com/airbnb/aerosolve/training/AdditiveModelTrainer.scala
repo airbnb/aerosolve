@@ -4,7 +4,7 @@ import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function._
 import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.pipeline.NDTreePipeline
+import com.airbnb.aerosolve.training.pipeline.{NDTreePipeline, PipelineUtil}
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.{FeatureStats, NDTreePipelineParams}
 import com.typesafe.config.Config
 import org.apache.spark.{Accumulator, SparkContext}
@@ -368,7 +368,7 @@ object AdditiveModelTrainer {
                                   additiveTrainerParams: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
     val params = additiveTrainerParams.init
-    if (params.initModelPath == "") {
+    if (params.initModelPath == "" || !PipelineUtil.hdfsFileExists(params.initModelPath)) {
       val newModel = new AdditiveModel()
       initModel(sc, additiveTrainerParams, input, newModel, true)
       setPrior(params.priors, newModel)

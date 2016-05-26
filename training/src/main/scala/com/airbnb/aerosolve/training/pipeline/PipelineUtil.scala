@@ -28,6 +28,14 @@ object PipelineUtil {
     saveAndCommitAsTextFile(rdd, dest, 0, overwrite)
   }
 
+  def hdfsFileExists(file: String): Boolean = {
+    val hfs = FileSystem.get(
+      new java.net.URI(file), new Configuration())
+
+    val path = new Path(file)
+    hfs.exists(path)
+  }
+
   def saveAndCommitAsTextFile[U](
       rdd: RDD[U],
       dest: String,
