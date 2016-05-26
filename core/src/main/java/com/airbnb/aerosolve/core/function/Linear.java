@@ -119,7 +119,8 @@ public class Linear extends AbstractFunction {
   }
 
   @Override
-  public void smooth(double tolerance) {
+  public double smooth(double tolerance, boolean toleranceIsPercentage) {
+    return 0;
   }
 
   @Override

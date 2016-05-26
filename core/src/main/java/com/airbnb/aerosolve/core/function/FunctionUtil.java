@@ -1,11 +1,13 @@
 package com.airbnb.aerosolve.core.function;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 public class FunctionUtil {
   public static float[] fitPolynomial(float[] data) {
     int numCoeff = 6;
@@ -88,18 +90,33 @@ public class FunctionUtil {
  * @param  tolerance if fitted array's deviation from weights is less than tolerance
  *         use the fitted, otherwise keep original weights.
  * @param  weights the curve you want to smooth
- * @return true if weights is modified by fitted curve.
+ * @return double errAndCoeff in the weights
    */
-  public static boolean smooth(double tolerance, float[] weights) {
+  public static double smooth(double tolerance, boolean toleranceIsPercentage, float[] weights) {
     // TODO use apache math's PolynomialCurveFitter
-    // compile 'org.apache.commons:commons-math3:3.6.1'
     float[] best = FunctionUtil.fitPolynomial(weights);
-    float errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
+    double errAndCoeff = FunctionUtil.evaluatePolynomial(best, weights, false);
+    if (toleranceIsPercentage) {
+      double absMean = getAbsMean(weights);
+      return smoothInternal(errAndCoeff, tolerance * absMean, best, weights) / absMean;
+    } else {
+      return smoothInternal(errAndCoeff, tolerance, best, weights);
+    }
+  }
+
+  private static double smoothInternal(
+      double errAndCoeff, double tolerance, float[] best, float[] weights) {
     if (errAndCoeff < tolerance) {
       FunctionUtil.evaluatePolynomial(best, weights, true);
-      return true;
-    } else {
-      return false;
     }
+    return errAndCoeff;
+  }
+
+  public static double getAbsMean(float[] weights) {
+    double sum = 0;
+    for (float f : weights) {
+      sum += Math.abs(f);
+    }
+    return  sum / weights.length;
   }
 }

@@ -4,7 +4,7 @@ import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function._
 import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.pipeline.NDTreePipeline
+import com.airbnb.aerosolve.training.pipeline.{NDTreePipeline, PipelineUtil}
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.{FeatureStats, NDTreePipelineParams}
 import com.typesafe.config.Config
 import org.apache.spark.{Accumulator, SparkContext}
@@ -61,6 +61,7 @@ object AdditiveModelTrainer {
                                    margin: Double,
                                    multiscale: Array[Int],
                                    smoothingTolerance: Double,
+                                   smoothingByPercentage: Boolean,
                                    linfinityThreshold: Double,
                                    linfinityCap: Double,
                                    threshold: Double,
@@ -153,7 +154,7 @@ object AdditiveModelTrainer {
       // Average the weights
       .mapValues(x => {
       val scale = 1.0f / params.numBags.toFloat
-      aggregateFuncWeights(x, scale, params.numBins, params.smoothingTolerance.toFloat)
+      aggregateFuncWeights(x, scale, params)
     })
       .collect()
       .foreach(entry => {
@@ -205,18 +206,16 @@ object AdditiveModelTrainer {
     *
     * @param input              list of function weights
     * @param scale              scaling factor for aggregation
-    * @param numBins            number of bins for final weights
-    * @param smoothingTolerance smoothing tolerance for spline
+    * @param params             AdditiveTrainerParams
     * @return
     */
   private def aggregateFuncWeights(input: Iterable[Function],
                                    scale: Float,
-                                   numBins: Int,
-                                   smoothingTolerance: Float): Function = {
+                                   params: AdditiveTrainerParams): Function = {
     val head: Function = input.head
     // TODO: revisit asJava performance impact
-    val output = head.aggregate(input.asJava, scale, numBins)
-    output.smooth(smoothingTolerance)
+    val output = head.aggregate(input.asJava, scale, params.numBins)
+    output.smooth(params.smoothingTolerance, params.smoothingByPercentage)
     output
   }
 
@@ -369,7 +368,7 @@ object AdditiveModelTrainer {
                                   additiveTrainerParams: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
     val params = additiveTrainerParams.init
-    if (params.initModelPath == "") {
+    if (params.initModelPath == "" || !PipelineUtil.hdfsFileExists(params.initModelPath)) {
       val newModel = new AdditiveModel()
       initModel(sc, additiveTrainerParams, input, newModel, true)
       setPrior(params.priors, newModel)
@@ -510,6 +509,8 @@ object AdditiveModelTrainer {
     val subsample: Double = config.getDouble("subsample")
     val linfinityCap: Double = config.getDouble("linfinity_cap")
     val smoothingTolerance: Double = config.getDouble("smoothing_tolerance")
+    val smoothingByPercentage: Boolean = Try(config.getBoolean(
+      "smoothing_by_percentage")).getOrElse(false)
     val linfinityThreshold: Double = config.getDouble("linfinity_threshold")
     val initModelPath: String = Try {
       config.getString("init_model")
@@ -578,6 +579,7 @@ object AdditiveModelTrainer {
       margin,
       multiscale,
       smoothingTolerance,
+      smoothingByPercentage,
       linfinityThreshold,
       linfinityCap,
       threshold,

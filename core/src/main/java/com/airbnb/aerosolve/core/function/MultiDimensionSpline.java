@@ -187,6 +187,13 @@ public class MultiDimensionSpline implements Function {
     }
   }
 
+  private void updateWeights(float[] weights) {
+    for (int i = 0; i < points.size(); i++) {
+      MultiDimensionPoint p = points.get(i);
+      p.setWeight(weights[i]);
+    }
+  }
+
   public static List<Double> toDouble(List<Float> list) {
     List<Double> r = new ArrayList<>(list.size());
     for (Float f: list) {
@@ -238,19 +245,24 @@ public class MultiDimensionSpline implements Function {
   }
 
   @Override
-  public void smooth(double tolerance) {
-    if (!canDoSmooth()) return;
+  public double smooth(double tolerance, boolean toleranceIsPercentage) {
+    if (!canDoSmooth()) return 0;
+    float[] weights = getWeights();
+    double err = FunctionUtil.smooth(tolerance, toleranceIsPercentage, weights);
+
+    if (err < tolerance) {
+      updateWeights(weights);
+    }
+    return err;
+  }
+
+  private float[] getWeights() {
     float[] weights = new float[points.size()];
     for (int i = 0; i < points.size(); i++) {
       MultiDimensionPoint p = points.get(i);
       weights[i] = (float) p.getWeight();
     }
-    if (FunctionUtil.smooth(tolerance, weights)) {
-      for (int i = 0; i < points.size(); i++) {
-        MultiDimensionPoint p = points.get(i);
-        p.setWeight(weights[i]);
-      }
-    }
+    return weights;
   }
 
   @Override
