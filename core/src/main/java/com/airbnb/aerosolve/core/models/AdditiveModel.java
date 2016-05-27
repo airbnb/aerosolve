@@ -47,7 +47,7 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
   public float scoreDenseFeatures(Map<String, List<Double>> denseFeatures) {
     float sum = 0;
     if (denseFeatures != null && !denseFeatures.isEmpty()) {
-      assert (denseWeights != null);
+      Map<String, Function> denseWeights = getOrCreateDenseWeights();
       for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
         String featureName = feature.getKey();
         Function fun = denseWeights.get(featureName);
@@ -145,7 +145,7 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
 
     Map<String, List<Double>> denseFeatures = combinedItem.getDenseFeatures();
     if (denseFeatures != null) {
-      assert (denseWeights != null);
+      Map<String, Function> denseWeights = getOrCreateDenseWeights();
       for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
         String featureName = feature.getKey();
         Function fun = denseWeights.get(featureName);
