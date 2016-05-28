@@ -261,4 +261,38 @@ class NDTreeTest {
       }
     }
   }
+
+  @Test
+  def buildTreeUsingMedianTestFullSettings: Unit = {
+    val points = ArrayBuffer[Array[Double]]()
+
+    for (x <- -2 to 6) {
+      for (y <- 1 to 41) {
+        for (z <- 3 to 18) {
+          points.append(Array[Double](x.toDouble, y.toDouble, z.toDouble))
+        }
+      }
+    }
+
+    val dimensions = points.head.length
+
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 6,
+      minLeafCount = 30,
+      minLeafWidthPercentage = 0.05,
+      splitType = SplitType.Median)
+
+    val tree = NDTree(options, points.toArray)
+    val nodes = tree.nodes
+
+    log.info("Number of nodes = %d".format(nodes.length))
+    log.info(s"nodes = ${nodes.mkString("\n")}")
+
+    assertEquals(0, nodes(0).axisIndex)
+    assertEquals(2.0, nodes(0).splitValue, 0)
+    assertEquals(1, nodes(0).leftChild)
+    assertEquals(2, nodes(0).rightChild)
+    assertEquals(10.5, nodes(8).splitValue, 0)
+  }
+
 }

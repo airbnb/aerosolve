@@ -42,7 +42,7 @@ object NDTreePipeline {
       sample: 0.01
       min_count: 200
       // max_tree_depth = max(max_tree_depth_1_dimension, max_tree_depth_per_dimension * dimension)
-      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) )
+      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) - 1 )
       max_tree_depth_per_dimension: 4
       min_leaf_count: 200
       // feature families in linear_feature should use linear
