@@ -31,6 +31,8 @@ allprojects {
     provided
   }
 
+  idea.module.scopes.COMPILE.plus += [configurations.provided]
+
   group = 'com.airbnb.aerosolve'
   version = globalVersion
   status = version.status
