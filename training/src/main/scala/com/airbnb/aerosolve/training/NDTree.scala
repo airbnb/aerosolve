@@ -171,7 +171,7 @@ object NDTree {
 
   private def areBoundsOverlapping(bounds: Bounds): Boolean = {
     // for multi-dimension all bounds overlapping means overlapping.
-    bounds.minima.zip(bounds.maxima).exists((bound: (Double, Double)) => {
+    bounds.minima.zip(bounds.maxima).forall((bound: (Double, Double)) => {
       bound._1 >= bound._2
     })
   }
