@@ -27,6 +27,8 @@ object NDTree {
   case class NDTreeBuildOptions(
       maxTreeDepth: Int,
       minLeafCount: Int,
+      // (leaf's max - min)/(root's max - min)
+      minLeafWidthPercentage: Double,
       splitType: SplitType.Value = SplitType.Unspecified)
 
   private case class Bounds(minima: Array[Double], maxima: Array[Double])

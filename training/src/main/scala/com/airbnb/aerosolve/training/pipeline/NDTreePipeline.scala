@@ -42,7 +42,7 @@ object NDTreePipeline {
       sample: 0.01
       min_count: 200
       // max_tree_depth = max(max_tree_depth_1_dimension, max_tree_depth_per_dimension * dimension)
-      max_tree_depth_1_dimension: 7  ( max nodes could be 2^(max_tree_depth) )
+      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) )
       max_tree_depth_per_dimension: 4
       min_leaf_count: 200
       // feature families in linear_feature should use linear
@@ -148,10 +148,17 @@ object NDTreePipeline {
         val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
           case Left(y) => {
             // build tree
+            val dimension = y(0).length
+            val minLeafWidthPercentage: Double = if (dimension == 1) {
+              1/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+            } else {
+              1/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+            }
             val options = NDTreeBuildOptions(
               math.max(paramsBC.value.maxTreeDepth1Dimension,
-                paramsBC.value.maxTreeDepthPerDimension * y(0).length),
-                paramsBC.value.minLeafCount)
+                paramsBC.value.maxTreeDepthPerDimension * dimension),
+                paramsBC.value.minLeafCount,
+                minLeafWidthPercentage)
 
             val model = NDTree(options, y.toArray).model
             val maxValue = paramsBC.value.maxMinLeafNodesDivByStd
