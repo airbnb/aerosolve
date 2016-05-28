@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.training
 
+import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
 import org.junit.Assert.assertEquals
@@ -20,6 +21,22 @@ class NDTreeTest {
       }
     }
     points
+  }
+
+  @Test
+  def getNextAxis: Unit = {
+    val node = new NDTreeNode()
+    node.setMax(java.util.Arrays.asList(5.0, 8.0, 10.0))
+    node.setMin(java.util.Arrays.asList(5.0, 6.0, 1.0))
+
+    val deltas: Array[Double] = Array(0, 1, 5)
+
+    assertEquals(1, NDTree.getNextAxis(-1, deltas, node, 0))
+    assertEquals(NDTree.NOAXIS, NDTree.getNextAxis(-1, deltas, node, 0.6))
+    assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0))
+    assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0))
+    assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0))
+    assertEquals(NDTree.NOAXIS, NDTree.getNextAxis(2, Array(0), node, 0))
   }
 
   @Test
@@ -155,10 +172,10 @@ class NDTreeTest {
     val nodes = tree.nodes
 
     log.info("Number of nodes = %d".format(nodes.length))
+    log.debug(s"nodes = ${nodes.mkString("\n")}")
 
-    // Since the y dimension is largest, we expect the first node to be a split along the y axis
-    assertEquals(1, nodes(0).axisIndex)
-    assertEquals(21.0, nodes(0).splitValue, 0)
+    assertEquals(0, nodes(0).axisIndex)
+    assertEquals(2.0, nodes(0).splitValue, 0)
     assertEquals(1, nodes(0).leftChild)
     assertEquals(2, nodes(0).rightChild)
 
@@ -214,7 +231,6 @@ class NDTreeTest {
 
     log.info("Number of nodes = %d".format(nodes.length))
 
-    // Since the x dimension is largest, we expect the first node to be a split along the x axis
     assertEquals(0, nodes(0).axisIndex)
     assertEquals(-1.81, nodes(0).splitValue, 0.1)
     assertEquals(1, nodes(0).leftChild)
