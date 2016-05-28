@@ -11,8 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 class NDTreeTest {
   val log = LoggerFactory.getLogger("NDTreeTest")
 
-  @Test
-  def buildTree1DNotEvenlyDistributed: Unit = {
+  def get1DNotEvenlyDistributed(): ArrayBuffer[Array[Double]] = {
     val points = ArrayBuffer[Array[Double]]()
 
     for (x <- 1 to 20) {
@@ -20,6 +19,38 @@ class NDTreeTest {
         points.append(Array[Double](y.toDouble))
       }
     }
+    points
+  }
+
+  @Test
+  def buildTree1DNotEvenlyDistributedWithMinLeafWidthPercentage: Unit = {
+    val points:ArrayBuffer[Array[Double]] = get1DNotEvenlyDistributed()
+
+    val dimensions = points.head.length
+
+    val options = NDTreeBuildOptions(
+      maxTreeDepth = 16,
+      minLeafCount = 10,
+      minLeafWidthPercentage = 0.2,
+      splitType = SplitType.Median)
+
+    val tree = NDTree(options, points.toArray)
+    val nodes = tree.nodes
+
+    log.info(s"nodes = ${nodes.mkString("\n")}")
+    assertEquals(11, nodes.length)
+    assertEquals(6.5, nodes(0).splitValue, 0)
+    assertEquals(11, nodes(2).splitValue, 0)
+    assertEquals(1.0, nodes(1).min.get(0))
+    assertEquals(6.0, nodes(1).max.get(0))
+    assertEquals(-1, nodes(4).axisIndex)
+    assertEquals(3.0, nodes(4).min.get(0))
+    assertEquals(6.0, nodes(4).max.get(0))
+  }
+
+  @Test
+  def buildTree1DNotEvenlyDistributed: Unit = {
+    val points:ArrayBuffer[Array[Double]] = get1DNotEvenlyDistributed()
 
     val dimensions = points.head.length
 
@@ -136,7 +167,7 @@ class NDTreeTest {
       val res = tree.query(point)
       for (index <- res) {
         for (i <- 0 until dimensions) {
-          log.info(s"i $i p ${point(i)} min ${nodes(index).min.get(i)} ${nodes(index).max.get(i)} index $index")
+          log.debug(s"i $i p ${point(i)} min ${nodes(index).min.get(i)} ${nodes(index).max.get(i)} index $index")
           assert(point(i) >= nodes(index).min.get(i),
             s"i $i p ${point(i)} min ${nodes(index).min.get(i)} index $index ${res.mkString(",")}")
           assert(point(i) <= nodes(index).max.get(i))

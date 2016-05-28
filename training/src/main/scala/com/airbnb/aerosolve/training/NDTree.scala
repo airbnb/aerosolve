@@ -28,7 +28,7 @@ object NDTree {
       maxTreeDepth: Int,
       minLeafCount: Int,
       // (leaf's max - min)/(root's max - min)
-      minLeafWidthPercentage: Double,
+      minLeafWidthPercentage: Double = 0,
       splitType: SplitType.Value = SplitType.Unspecified)
 
   private case class Bounds(minima: Array[Double], maxima: Array[Double])
@@ -68,6 +68,13 @@ object NDTree {
 
     val tree = new NDTree(nodes.toArray)
     tree
+  }
+
+  private def overSize(node: NDTreeNode, axisIndex: Int,
+                       minLeafWidthPercentage: Double,
+                       width: Double):Boolean = {
+    val rootWidth = node.getMax.get(axisIndex) - node.getMin.get(axisIndex)
+    minLeafWidthPercentage * rootWidth > width
   }
 
   private def buildTreeRecursive(
@@ -116,6 +123,8 @@ object NDTree {
           split.rightIndices.length <= options.minLeafCount) {
         log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
         makeLeaf = true
+      } else if (overSize(nodes(0), axisIndex, options.minLeafWidthPercentage, deltas(axisIndex))) {
+        makeLeaf = true
       } else {
         node.setAxisIndex(split.axisIndex)
         node.setSplitValue(split.splitValue)
@@ -161,6 +170,7 @@ object NDTree {
   }
 
   private def areBoundsOverlapping(bounds: Bounds): Boolean = {
+    // for multi-dimension all bounds overlapping means overlapping.
     bounds.minima.zip(bounds.maxima).exists((bound: (Double, Double)) => {
       bound._1 >= bound._2
     })
