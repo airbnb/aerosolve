@@ -59,7 +59,7 @@ class NDTreeTest {
     assertEquals(6.5, nodes(0).splitValue, 0)
     assertEquals(11, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(6.0, nodes(1).max.get(0))
+    assertEquals(6.5, nodes(1).max.get(0))
     assertEquals(-1, nodes(4).axisIndex)
     assertEquals(3.0, nodes(4).min.get(0))
     assertEquals(6.0, nodes(4).max.get(0))
@@ -84,7 +84,7 @@ class NDTreeTest {
     assertEquals(6.5, nodes(0).splitValue, 0)
     assertEquals(11, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(6.0, nodes(1).max.get(0))
+    assertEquals(6.5, nodes(1).max.get(0))
     assertEquals(3.0, nodes(4).min.get(0))
     assertEquals(6.0, nodes(4).max.get(0))
   }
@@ -114,7 +114,7 @@ class NDTreeTest {
     assertEquals(14.5, nodes(0).splitValue, 0)
     assertEquals(18, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(14.0, nodes(1).max.get(0))
+    assertEquals(14.5, nodes(1).max.get(0))
     assertEquals(10.0, nodes(4).min.get(0))
     assertEquals(14.0, nodes(4).max.get(0))
   }
@@ -128,8 +128,6 @@ class NDTreeTest {
           points.append(Array[Double](y.toDouble))
         }
     }
-
-    val dimensions = points.head.length
 
     val options = NDTreeBuildOptions(
       maxTreeDepth = 16,

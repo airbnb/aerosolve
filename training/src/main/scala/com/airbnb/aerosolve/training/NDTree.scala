@@ -321,6 +321,7 @@ object NDTree {
 }
 
 class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
+  // TODO add option to control when to use split value
   val model = NDTreeModel.getModelWithSplitValueInChildrenNodes(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
