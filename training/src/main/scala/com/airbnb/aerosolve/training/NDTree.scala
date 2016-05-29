@@ -73,11 +73,11 @@ object NDTree {
 
   def getNextAxis(lastAxis: Int,
                   deltas: Array[Double],
-                  node: NDTreeNode,
+                  root: NDTreeNode,
                   minLeafWidthPercentage: Double):Int = {
     for(i <- 1 to deltas.length) {
       val axis = (lastAxis + i) % deltas.length
-      val rootWidth = node.getMax.get(axis) - node.getMin.get(axis)
+      val rootWidth = root.getMax.get(axis) - root.getMin.get(axis)
       val width = deltas(axis)
       if (rootWidth > 0 && width > 0 &&
           minLeafWidthPercentage * rootWidth <= width) {
@@ -121,6 +121,7 @@ object NDTree {
       val deltas = getDeltas(bounds)
 
       // TODO Choose axisIndex with largest corresponding delta as option: deltas.zipWithIndex.maxBy(_._1)._2
+      // there is no pop in buildTreeRecursive, so nodes(0) is always the root
       val axisIndex:Int = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
       if (axisIndex == NOAXIS) {
         makeLeaf = true

@@ -148,11 +148,13 @@ object NDTreePipeline {
         val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
           case Left(y) => {
             // build tree
+            // FloatToDense transform make sure all array in y are same size.
+            // so we just pick first one to get the dimension
             val dimension = y(0).length
             val minLeafWidthPercentage: Double = if (dimension == 1) {
-              1/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
             } else {
-              1/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
             }
             val options = NDTreeBuildOptions(
               math.max(paramsBC.value.maxTreeDepth1Dimension,
