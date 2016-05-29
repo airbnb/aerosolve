@@ -4,6 +4,7 @@ import com.airbnb.aerosolve.core.NDTreeNode;
 import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.base.Optional;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.slf4j.Logger;
@@ -20,10 +21,15 @@ import java.util.Stack;
 /*
   N-Dimensional KDTreeModel.
  */
+@Slf4j
 public class NDTreeModel implements Serializable {
   private static final long serialVersionUID = -2884260218927875615L;
   private static final Logger log = LoggerFactory.getLogger(NDTreeModel.class);
   public static final int LEAF = -1;
+  private static final double NOVALUE = Double.MIN_VALUE;
+  private static final int LEFT = 0;
+  private static final int RIGHT = 1;
+
   @Getter
   private final NDTreeNode[] nodes;
 
@@ -37,6 +43,40 @@ public class NDTreeModel implements Serializable {
       max = Math.max(max, node.axisIndex);
     }
     dimension = max + 1;
+  }
+
+  /*
+    if min != max, use parent's split value as left child's max
+    and right child's min so that left and right share same nodes
+   */
+  public static void updateWithSplitValue(NDTreeNode[] nodes) {
+    if (nodes == null || nodes.length <= 1) return;
+    preOrderTraversal(nodes, nodes[0], null);
+  }
+
+  private static void preOrderTraversal(
+      NDTreeNode[] nodes, NDTreeNode node, NDTreeNode parent) {
+    if (parent != null) {
+      List<Double> minList = node.getMin();
+      List<Double> maxList = node.getMax();
+      int axis = parent.axisIndex;
+      double min = minList.get(axis);
+      double max = maxList.get(axis);
+      if (min != max) {
+        if (node == nodes[parent.getLeftChild()]) {
+          maxList.set(axis, parent.splitValue);
+        } else {
+          minList.set(axis, parent.splitValue);
+        }
+      }
+    }
+    if (node.getLeftChild() > 0) {
+      preOrderTraversal(nodes, nodes[node.getLeftChild()], node);
+    }
+
+    if (node.getRightChild() > 0) {
+      preOrderTraversal(nodes, nodes[node.getRightChild()], node);
+    }
   }
 
   public NDTreeModel(List<NDTreeNode> nodeList) {
