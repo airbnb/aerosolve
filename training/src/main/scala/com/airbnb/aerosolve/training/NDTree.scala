@@ -66,8 +66,9 @@ object NDTree {
       nodes.append(node)
       buildTreeRecursive(options, points, -1, indices, nodes, node, 1, splitType)
     }
-
-    val tree = new NDTree(nodes.toArray)
+    val ndtreeNodes = nodes.toArray
+    NDTreeModel.updateWithSplitValue(ndtreeNodes)
+    val tree = new NDTree(ndtreeNodes)
     tree
   }
 
