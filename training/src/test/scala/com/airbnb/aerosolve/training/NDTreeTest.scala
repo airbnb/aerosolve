@@ -32,11 +32,11 @@ class NDTreeTest {
     val deltas: Array[Double] = Array(0, 1, 5)
 
     assertEquals(1, NDTree.getNextAxis(-1, deltas, node, 0))
-    assertEquals(NDTree.NOAXIS, NDTree.getNextAxis(-1, deltas, node, 0.6))
+    assertEquals(NDTree.NO_AXIS, NDTree.getNextAxis(-1, deltas, node, 0.6))
     assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0))
     assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0))
     assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0))
-    assertEquals(NDTree.NOAXIS, NDTree.getNextAxis(2, Array(0), node, 0))
+    assertEquals(NDTree.NO_AXIS, NDTree.getNextAxis(2, Array(0), node, 0))
   }
 
   @Test

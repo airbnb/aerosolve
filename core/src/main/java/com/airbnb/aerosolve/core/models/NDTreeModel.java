@@ -42,6 +42,10 @@ public class NDTreeModel implements Serializable {
     dimension = max + 1;
   }
 
+  public static NDTreeModel getModelWithSplitValueInChildrenNodes(NDTreeNode[] nodes) {
+    updateWithSplitValue(nodes);
+    return new NDTreeModel(nodes);
+  }
   /*
     if min != max, use parent's split value as left child's max
     and right child's min so that left and right share same nodes

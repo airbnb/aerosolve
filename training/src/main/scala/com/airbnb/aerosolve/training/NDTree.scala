@@ -20,7 +20,7 @@ object SplitType extends Enumeration {
 object NDTree {
   val log = LoggerFactory.getLogger("NDTree")
   val splitUsingSurfaceAreaMaxCount = 10
-  val NOAXIS = -1
+  val NO_AXIS = -1
 
   val defaultOneDimensionalSplitType = SplitType.Median
   val defaultMultiDimensionalSplitType = SplitType.SurfaceArea
@@ -66,9 +66,7 @@ object NDTree {
       nodes.append(node)
       buildTreeRecursive(options, points, -1, indices, nodes, node, 1, splitType)
     }
-    val ndtreeNodes = nodes.toArray
-    NDTreeModel.updateWithSplitValue(ndtreeNodes)
-    val tree = new NDTree(ndtreeNodes)
+    val tree = new NDTree(nodes.toArray)
     tree
   }
 
@@ -85,7 +83,7 @@ object NDTree {
         return axis
       }
     }
-    NOAXIS
+    NO_AXIS
   }
 
   private def buildTreeRecursive(
@@ -103,8 +101,8 @@ object NDTree {
 
     // Determine the min and max dimensions of the active set
     val bounds = getBounds(points, indices)
-    node.setMin(bounds.minima.map(java.lang.Double.valueOf).toList.asJava)
-    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toList.asJava)
+    node.setMin(bounds.minima.map(java.lang.Double.valueOf).toBuffer.asJava)
+    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toBuffer.asJava)
 
     var makeLeaf = false
 
@@ -124,7 +122,7 @@ object NDTree {
       // TODO Choose axisIndex with largest corresponding delta as option: deltas.zipWithIndex.maxBy(_._1)._2
       // there is no pop in buildTreeRecursive, so nodes(0) is always the root
       val axisIndex:Int = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
-      if (axisIndex == NOAXIS) {
+      if (axisIndex == NO_AXIS) {
         makeLeaf = true
       } else {
         val split = splitType match {
@@ -323,7 +321,7 @@ object NDTree {
 }
 
 class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
-  val model = new NDTreeModel(nodes)
+  val model = NDTreeModel.getModelWithSplitValueInChildrenNodes(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
   def query(point: Array[Double]): Array[Int] = {
