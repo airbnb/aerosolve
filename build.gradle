@@ -4,10 +4,12 @@ apply plugin: 'wrapper'
 buildscript {
   repositories {
     jcenter()
+    maven { url "https://plugins.gradle.org/m2/" }
   }
   dependencies {
     classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
     classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
+    classpath 'gradle.plugin.com.palantir.gradle.gitversion:gradle-git-version:0.5.2'
   }
 }
 
@@ -20,6 +22,7 @@ allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'com.github.johnrengelman.shadow'
+  apply plugin: 'com.palantir.git-version'
 
   repositories {
     jcenter()
@@ -32,8 +35,7 @@ allprojects {
   }
 
   group = 'com.airbnb.aerosolve'
-  version = globalVersion
-  status = version.status
+  version gitVersion()
 
   ext.publish = true
   ext.dryRun = false
