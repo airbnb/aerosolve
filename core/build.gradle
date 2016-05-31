@@ -19,7 +19,7 @@ bintray {
     repo = 'aerosolve'
     userOrg = 'airbnb'
     name = 'aerosolve-core'
-    desc = 'Aerosolve machine learning library'
+    desc = 'Aerosolve machine learning library core module'
     websiteUrl = 'https://github.com/airbnb/aerosolve'
     issueTrackerUrl = 'https://github.com/airbnb/aerosolve/issues'
     vcsUrl = 'https://github.com/airbnb/aerosolve.git'
@@ -27,10 +27,6 @@ bintray {
     labels = ['machine learning', 'spark', 'scala']
     attributes= ['plat': ['linux', 'osx']]
     publicDownloadNumbers = true
-    version {
-      name = currentVersion
-      desc = 'Aerosolve core library'
-    }
   }
 }
 
