@@ -20,7 +20,6 @@ object SplitType extends Enumeration {
 object NDTree {
   val log = LoggerFactory.getLogger("NDTree")
   val splitUsingSurfaceAreaMaxCount = 10
-  val NO_AXIS = -1
 
   val defaultOneDimensionalSplitType = SplitType.Median
   val defaultMultiDimensionalSplitType = SplitType.SurfaceArea
@@ -73,17 +72,17 @@ object NDTree {
   def getNextAxis(lastAxis: Int,
                   deltas: Array[Double],
                   root: NDTreeNode,
-                  minLeafWidthPercentage: Double):Int = {
-    for(i <- 1 to deltas.length) {
-      val axis = (lastAxis + i) % deltas.length
-      val rootWidth = root.getMax.get(axis) - root.getMin.get(axis)
-      val width = deltas(axis)
-      if (rootWidth > 0 && width > 0 &&
-          minLeafWidthPercentage * rootWidth <= width) {
-        return axis
-      }
+                  minLeafWidthPercentage: Double): Option[Int] = {
+    deltas.indices.view.map {
+      i =>
+        (lastAxis + i + 1) % deltas.length
+    }.find{
+      axis =>
+        val rootWidth = root.getMax.get(axis) - root.getMin.get(axis)
+        val width = deltas(axis)
+        (rootWidth > 0 && width > 0 &&
+          minLeafWidthPercentage * rootWidth <= width)
     }
-    NO_AXIS
   }
 
   private def buildTreeRecursive(
@@ -121,15 +120,16 @@ object NDTree {
 
       // TODO Choose axisIndex with largest corresponding delta as option: deltas.zipWithIndex.maxBy(_._1)._2
       // there is no pop in buildTreeRecursive, so nodes(0) is always the root
-      val axisIndex:Int = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
-      if (axisIndex == NO_AXIS) {
+      val axisIndex = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
+      if (axisIndex.isEmpty) {
         makeLeaf = true
       } else {
+        val axis = axisIndex.get
         val split = splitType match {
           case SplitType.Median =>
-            getSplitUsingMedian(points, indices, axisIndex)
+            getSplitUsingMedian(points, indices, axis)
           case SplitType.SurfaceArea =>
-            getSplitUsingSurfaceArea(points, indices, bounds, axisIndex)
+            getSplitUsingSurfaceArea(points, indices, bounds, axis)
         }
 
         if (split.leftIndices.length <= options.minLeafCount &&
@@ -149,9 +149,9 @@ object NDTree {
           node.setRightChild(nodes.size - 1)
 
           buildTreeRecursive(
-            options, points, axisIndex, split.leftIndices, nodes, left, depth + 1, splitType)
+            options, points, axis, split.leftIndices, nodes, left, depth + 1, splitType)
           buildTreeRecursive(
-            options, points, axisIndex, split.rightIndices, nodes, right, depth + 1, splitType)
+            options, points, axis, split.rightIndices, nodes, right, depth + 1, splitType)
         }
       }
     }

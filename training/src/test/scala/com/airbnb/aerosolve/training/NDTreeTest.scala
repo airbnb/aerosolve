@@ -3,8 +3,8 @@ package com.airbnb.aerosolve.training
 import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
-import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.Assert._
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -31,12 +31,12 @@ class NDTreeTest {
 
     val deltas: Array[Double] = Array(0, 1, 5)
 
-    assertEquals(1, NDTree.getNextAxis(-1, deltas, node, 0))
-    assertEquals(NDTree.NO_AXIS, NDTree.getNextAxis(-1, deltas, node, 0.6))
-    assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0))
-    assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0))
-    assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0))
-    assertEquals(NDTree.NO_AXIS, NDTree.getNextAxis(2, Array(0), node, 0))
+    assertEquals(1, NDTree.getNextAxis(-1, deltas, node, 0).get)
+    assertTrue(NDTree.getNextAxis(-1, deltas, node, 0.6).isEmpty)
+    assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0).get)
+    assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0).get)
+    assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0).get)
+    assertTrue(NDTree.getNextAxis(2, Array(0), node, 0).isEmpty)
   }
 
   @Test
