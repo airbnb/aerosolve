@@ -23,9 +23,6 @@ import java.util.Stack;
 public class NDTreeModel implements Serializable {
   private static final long serialVersionUID = -2884260218927875615L;
   public static final int LEAF = -1;
-  private static final double NOVALUE = Double.MIN_VALUE;
-  private static final int LEFT = 0;
-  private static final int RIGHT = 1;
 
   @Getter
   private final NDTreeNode[] nodes;
