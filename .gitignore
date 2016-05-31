@@ -38,3 +38,9 @@ out/
 # NetBeans
 .nb-gradle/
 .solano*
+
+gradle/
+metastore_db/
+derby.log
+demo/income_prediction/output
+demo/income_prediction/src/main/resources/adult.*
