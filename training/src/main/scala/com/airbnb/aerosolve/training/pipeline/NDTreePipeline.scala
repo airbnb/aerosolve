@@ -25,7 +25,9 @@ object NDTreePipeline {
                                   minCount: Int,
                                   linearFeatureFamilies: util.List[String],
                                   checkPointDir: String,
-                                  options: NDTreeBuildOptions,
+                                  maxTreeDepth1Dimension: Int,
+                                  maxTreeDepthPerDimension: Int,
+                                  minLeafCount: Int,
                                   maxMinLeafNodesDivByStd: Double)
 
   case class FeatureStats(count: Double, min: Double, max: Double,
@@ -39,7 +41,9 @@ object NDTreePipeline {
       output:  ${feature_map}
       sample: 0.01
       min_count: 200
-      max_tree_depth: 7  ( max nodes could be 2^(max_tree_depth-1) )
+      // max_tree_depth = max(max_tree_depth_1_dimension, max_tree_depth_per_dimension * dimension + 1)
+      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) - 1 )
+      max_tree_depth_per_dimension: 4
       min_leaf_count: 200
       // feature families in linear_feature should use linear
       linear_feature: ["L", "T", "L_x_T"]
@@ -70,9 +74,10 @@ object NDTreePipeline {
     val linearFeatureFamilies: java.util.List[String] = Try(cfg.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
     val checkPointDir = Try(cfg.getString("check_point_dir")).getOrElse("")
-    val options = NDTreeBuildOptions(
-      maxTreeDepth = cfg.getInt("max_tree_depth"),
-      minLeafCount = cfg.getInt("min_leaf_count"))
+    val maxTreeDepth1Dimension = cfg.getInt("max_tree_depth_1_dimension")
+    val maxTreeDepthPerDimension = cfg.getInt("max_tree_depth_per_dimension")
+    val minLeafCount = cfg.getInt("min_leaf_count")
+
     val maxMinLeafNodesDivByStd:Double =
       Try(cfg.getDouble("max_min_leaf_nodes_count_div_by_std")).
       getOrElse(0)
@@ -81,7 +86,9 @@ object NDTreePipeline {
       cfg.getInt("min_count"),
       linearFeatureFamilies,
       checkPointDir,
-      options,
+      maxTreeDepth1Dimension,
+      maxTreeDepthPerDimension,
+      minLeafCount,
       maxMinLeafNodesDivByStd)
   }
 
@@ -141,7 +148,21 @@ object NDTreePipeline {
         val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
           case Left(y) => {
             // build tree
-            val model = NDTree(paramsBC.value.options, y.toArray).model
+            // FloatToDense transform make sure all array in y are same size.
+            // so we just pick first one to get the dimension
+            val dimension = y(0).length
+            val minLeafWidthPercentage: Double = if (dimension == 1) {
+              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+            } else {
+              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+            }
+            val options = NDTreeBuildOptions(
+              math.max(paramsBC.value.maxTreeDepth1Dimension,
+                paramsBC.value.maxTreeDepthPerDimension * dimension + 1),
+                paramsBC.value.minLeafCount,
+                minLeafWidthPercentage)
+
+            val model = NDTree(options, y.toArray).model
             val maxValue = paramsBC.value.maxMinLeafNodesDivByStd
             if (maxValue > 0) {
               if (model.canReplaceBySpline(maxValue)) {

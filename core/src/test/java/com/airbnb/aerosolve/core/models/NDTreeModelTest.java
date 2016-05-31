@@ -13,12 +13,82 @@ import static org.junit.Assert.assertTrue;
 
 public class NDTreeModelTest {
   private static final Logger log = LoggerFactory.getLogger(NDTreeModelTest.class);
+
+  private static NDTreeNode[] getNDTreeNodes2DWithMinMax() {
+    NDTreeNode parent = new NDTreeNode();
+    parent.setAxisIndex(0);
+    parent.setSplitValue(2.0);
+    parent.setLeftChild(1);
+    parent.setRightChild(2);
+    parent.setMin(Arrays.asList(0.0, 0.0));
+    parent.setMax(Arrays.asList(6.0, 6.0));
+
+    NDTreeNode one = new NDTreeNode();
+    one.setAxisIndex(LEAF);
+    one.setMin(Arrays.asList(0.0,0.0));
+    one.setMax(Arrays.asList(1.0,6.0));
+
+    NDTreeNode two = new NDTreeNode();
+    two.setAxisIndex(1);
+    two.setSplitValue(2.0);
+    two.setLeftChild(3);
+    two.setRightChild(4);
+    two.setMin(Arrays.asList(2.5, 0.0));
+    two.setMax(Arrays.asList(6.0, 6.0));
+
+    NDTreeNode three = new NDTreeNode();
+    three.setAxisIndex(LEAF);
+    three.setMin(Arrays.asList(2.5,1.0));
+    three.setMax(Arrays.asList(6.0,1.0));
+
+    NDTreeNode four = new NDTreeNode();
+    four.setAxisIndex(0);
+    four.setSplitValue(4.0);
+    four.setLeftChild(5);
+    four.setRightChild(6);
+    four.setMin(Arrays.asList(2.5,3.0));
+    four.setMax(Arrays.asList(6.0,6.0));
+
+    NDTreeNode five = new NDTreeNode();
+    five.setAxisIndex(LEAF);
+    five.setMin(Arrays.asList(3.0,3.0));
+    five.setMax(Arrays.asList(3.5,3.5));
+
+    NDTreeNode six = new NDTreeNode();
+    six.setAxisIndex(LEAF);
+    six.setMin(Arrays.asList(4.5,4.0));
+    six.setMax(Arrays.asList(6.0,6.0));
+
+    return new NDTreeNode[]{parent, one, two, three, four, five, six};
+  }
+
+  @Test
+  public void updateWithSplitValue() {
+    NDTreeNode[] nodes = getNDTreeNodes2DWithMinMax();
+
+    NDTreeModel.updateWithSplitValue(nodes);
+
+    NDTreeNode[] oldNodes = getNDTreeNodes2DWithMinMax();
+
+    assertEquals(oldNodes[0].max, nodes[0].max);
+    assertEquals(nodes[0].splitValue, nodes[1].getMax().get(0), 0);
+    assertEquals(nodes[0].splitValue, nodes[2].getMin().get(0), 0);
+    assertEquals(2.5, nodes[3].getMin().get(0), 0);
+    assertEquals(1, nodes[3].getMax().get(1), 0);
+    assertEquals(1, nodes[3].getMin().get(1), 0);
+    assertEquals(nodes[2].splitValue, nodes[4].getMin().get(1), 0);
+
+    assertEquals(nodes[4].splitValue, nodes[5].getMax().get(0), 0);
+    assertEquals(nodes[4].splitValue, nodes[6].getMin().get(0), 0);
+    assertEquals(3.0, nodes[5].getMin().get(0), 0);
+  }
+
   //                    4
   //         |--------------- y = 2
   //  1      | 2       3
   //     x = 1
   // total space is from (0,0) to (4,4)
-  public static NDTreeModel getNDTreeModel() {
+  private static NDTreeNode[] getNDTreeNodes2D() {
     NDTreeNode parent = new NDTreeNode();
     parent.setAxisIndex(0);
     parent.setSplitValue(1.0);
@@ -46,8 +116,11 @@ public class NDTreeModelTest {
     four.setMin(Arrays.asList(1.0,2.0));
     four.setMax(Arrays.asList(4.0,4.0));
 
-    NDTreeNode[] arr = {parent, one, two, three, four};
-    return new NDTreeModel(arr);
+    return new NDTreeNode[]{parent, one, two, three, four};
+  }
+
+  public static NDTreeModel getNDTreeModel() {
+    return new NDTreeModel(getNDTreeNodes2D());
   }
 
   public static NDTreeModel getNDTreeModel2DWithSameMinMax() {

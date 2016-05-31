@@ -27,6 +27,8 @@ object NDTree {
   case class NDTreeBuildOptions(
       maxTreeDepth: Int,
       minLeafCount: Int,
+      // (leaf's max - min)/(root's max - min)
+      minLeafWidthPercentage: Double = 0,
       splitType: SplitType.Value = SplitType.Unspecified)
 
   private case class Bounds(minima: Array[Double], maxima: Array[Double])
@@ -61,16 +63,32 @@ object NDTree {
     if ((indices.length > 0) && (dimensions > 0) && isConstantDimension) {
       val node = new NDTreeNode()
       nodes.append(node)
-      buildTreeRecursive(options, points, indices, nodes, node, 1, splitType)
+      buildTreeRecursive(options, points, -1, indices, nodes, node, 1, splitType)
     }
-
     val tree = new NDTree(nodes.toArray)
     tree
+  }
+
+  def getNextAxis(lastAxis: Int,
+                  deltas: Array[Double],
+                  root: NDTreeNode,
+                  minLeafWidthPercentage: Double): Option[Int] = {
+    deltas.indices.view.map {
+      i =>
+        (lastAxis + i + 1) % deltas.length
+    }.find{
+      axis =>
+        val rootWidth = root.getMax.get(axis) - root.getMin.get(axis)
+        val width = deltas(axis)
+        (rootWidth > 0 && width > 0 &&
+          minLeafWidthPercentage * rootWidth <= width)
+    }
   }
 
   private def buildTreeRecursive(
       options: NDTreeBuildOptions,
       points: Array[Array[Double]],
+      lastAxis: Int,
       indices: Array[Int],
       nodes: ArrayBuffer[NDTreeNode],
       node: NDTreeNode,
@@ -82,8 +100,8 @@ object NDTree {
 
     // Determine the min and max dimensions of the active set
     val bounds = getBounds(points, indices)
-    node.setMin(bounds.minima.map(java.lang.Double.valueOf).toList.asJava)
-    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toList.asJava)
+    node.setMin(bounds.minima.map(java.lang.Double.valueOf).toBuffer.asJava)
+    node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toBuffer.asJava)
 
     var makeLeaf = false
 
@@ -100,36 +118,41 @@ object NDTree {
     if (!makeLeaf) {
       val deltas = getDeltas(bounds)
 
-      // Choose axisIndex with largest corresponding delta
-      val axisIndex = deltas.zipWithIndex.maxBy(_._1)._2
-
-      val split = splitType match {
-        case SplitType.Median =>
-          getSplitUsingMedian(points, indices, axisIndex)
-        case SplitType.SurfaceArea =>
-          getSplitUsingSurfaceArea(points, indices, bounds, axisIndex)
-      }
-
-      if (split.leftIndices.length <= options.minLeafCount &&
-          split.rightIndices.length <= options.minLeafCount) {
-        log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
+      // TODO Choose axisIndex with largest corresponding delta as option: deltas.zipWithIndex.maxBy(_._1)._2
+      // there is no pop in buildTreeRecursive, so nodes(0) is always the root
+      val axisIndex = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
+      if (axisIndex.isEmpty) {
         makeLeaf = true
       } else {
-        node.setAxisIndex(split.axisIndex)
-        node.setSplitValue(split.splitValue)
+        val axis = axisIndex.get
+        val split = splitType match {
+          case SplitType.Median =>
+            getSplitUsingMedian(points, indices, axis)
+          case SplitType.SurfaceArea =>
+            getSplitUsingSurfaceArea(points, indices, bounds, axis)
+        }
 
-        val left = new NDTreeNode()
-        nodes.append(left)
-        node.setLeftChild(nodes.size - 1)
+        if (split.leftIndices.length <= options.minLeafCount &&
+          split.rightIndices.length <= options.minLeafCount) {
+          log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
+          makeLeaf = true
+        } else {
+          node.setAxisIndex(split.axisIndex)
+          node.setSplitValue(split.splitValue)
 
-        val right = new NDTreeNode()
-        nodes.append(right)
-        node.setRightChild(nodes.size - 1)
+          val left = new NDTreeNode()
+          nodes.append(left)
+          node.setLeftChild(nodes.size - 1)
 
-        buildTreeRecursive(
-          options, points, split.leftIndices, nodes, left, depth + 1, splitType)
-        buildTreeRecursive(
-          options, points, split.rightIndices, nodes, right, depth + 1, splitType)
+          val right = new NDTreeNode()
+          nodes.append(right)
+          node.setRightChild(nodes.size - 1)
+
+          buildTreeRecursive(
+            options, points, axis, split.leftIndices, nodes, left, depth + 1, splitType)
+          buildTreeRecursive(
+            options, points, axis, split.rightIndices, nodes, right, depth + 1, splitType)
+        }
       }
     }
 
@@ -159,7 +182,8 @@ object NDTree {
   }
 
   private def areBoundsOverlapping(bounds: Bounds): Boolean = {
-    bounds.minima.zip(bounds.maxima).exists((bound: (Double, Double)) => {
+    // for multi-dimension all bounds overlapping means overlapping.
+    bounds.minima.zip(bounds.maxima).forall((bound: (Double, Double)) => {
       bound._1 >= bound._2
     })
   }
@@ -297,7 +321,8 @@ object NDTree {
 }
 
 class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
-  val model = new NDTreeModel(nodes)
+  // TODO add option to control when to use split value
+  val model = NDTreeModel.getModelWithSplitValueInChildrenNodes(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
   def query(point: Array[Double]): Array[Int] = {

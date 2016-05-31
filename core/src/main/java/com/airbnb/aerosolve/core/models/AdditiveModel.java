@@ -34,6 +34,9 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
   private Map<String, Function> getOrCreateDenseWeights() {
     if (denseWeights == null) {
       denseWeights = weights.get(DENSE_FAMILY);
+      if (denseWeights == null) {
+        denseWeights = weights.put(DENSE_FAMILY, new HashMap<>());
+      }
     }
     return denseWeights;
   }
@@ -51,6 +54,7 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
       for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
         String featureName = feature.getKey();
         Function fun = denseWeights.get(featureName);
+        if (fun == null) continue;
         sum += fun.evaluate(toFloat(feature.getValue()));
       }
     }
@@ -274,15 +278,13 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
     // update with lInfinite cap
     if (denseFeatures != null && !denseFeatures.isEmpty()) {
       Map<String, Function> denseWeights = getOrCreateDenseWeights();
-      if (denseWeights != null) {
-        for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-          String featureName = feature.getKey();
-          Function func = denseWeights.get(featureName);
-          if (func == null) continue;
-          float[] val = FunctionUtil.toFloat(feature.getValue());
-          func.update(-gradWithLearningRate, val);
-          func.LInfinityCap(cap);
-        }
+      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
+        String featureName = feature.getKey();
+        Function func = denseWeights.get(featureName);
+        if (func == null) continue;
+        float[] val = FunctionUtil.toFloat(feature.getValue());
+        func.update(-gradWithLearningRate, val);
+        func.LInfinityCap(cap);
       }
     }
   }
