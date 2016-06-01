@@ -152,12 +152,12 @@ object NDTreePipeline {
             // so we just pick first one to get the dimension
             val dimension = y(0).length
             val minLeafWidthPercentage: Double = if (dimension == 1) {
-              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+              1.0/scala.math.pow(2, paramsBC.value.maxTreeDepth1Dimension)
             } else {
-              1.0/(2 ^ paramsBC.value.maxTreeDepth1Dimension)
+              1.0/scala.math.pow(2, paramsBC.value.maxTreeDepthPerDimension)
             }
             val options = NDTreeBuildOptions(
-              math.max(paramsBC.value.maxTreeDepth1Dimension,
+              math.max(paramsBC.value.maxTreeDepth1Dimension + 1,
                 paramsBC.value.maxTreeDepthPerDimension * dimension + 1),
                 paramsBC.value.minLeafCount,
                 minLeafWidthPercentage)

@@ -33,9 +33,9 @@ class NDTreeTest {
 
     assertEquals(1, NDTree.getNextAxis(-1, deltas, node, 0).get)
     assertTrue(NDTree.getNextAxis(-1, deltas, node, 0.6).isEmpty)
-    assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0).get)
-    assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0).get)
-    assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0).get)
+    assertEquals(1, NDTree.getNextAxis(0, deltas, node, 0.4).get)
+    assertEquals(2, NDTree.getNextAxis(1, deltas, node, 0.5).get)
+    assertEquals(1, NDTree.getNextAxis(2, deltas, node, 0.4).get)
     assertTrue(NDTree.getNextAxis(2, Array(0), node, 0).isEmpty)
   }
 
@@ -44,25 +44,25 @@ class NDTreeTest {
     val points:ArrayBuffer[Array[Double]] = get1DNotEvenlyDistributed()
 
     val dimensions = points.head.length
-
+    val maxTreeDepth = 6
     val options = NDTreeBuildOptions(
-      maxTreeDepth = 16,
+      maxTreeDepth,
       minLeafCount = 10,
-      minLeafWidthPercentage = 0.2,
+      minLeafWidthPercentage = 1.0 / scala.math.pow(2, maxTreeDepth),
       splitType = SplitType.Median)
 
     val tree = NDTree(options, points.toArray)
     val nodes = tree.nodes
 
     log.info(s"nodes = ${nodes.mkString("\n")}")
-    assertEquals(11, nodes.length)
+    assertEquals(27, nodes.length)
     assertEquals(6.5, nodes(0).splitValue, 0)
     assertEquals(11, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
     assertEquals(6.5, nodes(1).max.get(0))
-    assertEquals(-1, nodes(4).axisIndex)
-    assertEquals(3.0, nodes(4).min.get(0))
-    assertEquals(6.0, nodes(4).max.get(0))
+    assertEquals(-1, nodes(5).axisIndex)
+    assertEquals(1.0, nodes(5).min.get(0))
+    assertEquals(1.0, nodes(5).max.get(0))
   }
 
   @Test
