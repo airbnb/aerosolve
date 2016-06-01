@@ -141,7 +141,7 @@ public class FloatToDenseTransformTest {
     assertNotNull(denseFeatures);
     assertEquals(1, denseFeatures.size());
 
-    List<Double> out = denseFeatures.get("dense^x^z");
+    List<Double> out = denseFeatures.get("dense^x^y:null^z");
 
     assertEquals(2, out.size());
 
@@ -161,7 +161,7 @@ public class FloatToDenseTransformTest {
 
     assertEquals(3, out.size());
 
-    assertEquals(50.0, out.get("dense^x"), 0.01);
+    assertEquals(50.0, out.get("dense^x^y:null^z:null"), 0.01);
   }
 
   @Test
@@ -176,7 +176,7 @@ public class FloatToDenseTransformTest {
 
     assertEquals(1, out.size());
 
-    assertNotNull(out.contains("dense^null"));
+    assertNotNull(out.contains("dense^x:null^y:null^z:null"));
   }
 
   public FeatureVector testTransform(FeatureVector featureVector) {
