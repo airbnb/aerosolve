@@ -6,7 +6,6 @@ import com.google.common.base.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -79,32 +78,6 @@ public class NDTreeModel implements Serializable {
 
   public NDTreeModel(List<NDTreeNode> nodeList) {
     this(nodeList.toArray(new NDTreeNode[nodeList.size()]));
-  }
-
-  public double minLeafNodesDivByStd() {
-    // Get a DescriptiveStatistics instance
-    DescriptiveStatistics stats = new DescriptiveStatistics();
-
-    for (NDTreeNode n : nodes) {
-      if (isLeaf(n)) {
-        stats.addValue(n.count);
-      }
-    }
-    double std = stats.getStandardDeviation();
-    if (std == 0) {
-      return Double.MAX_VALUE;
-    } else {
-      return stats.getMin() / std;
-    }
-  }
-
-  /*
-    NDTreeModel is close to evenly distributed and it is 1 dimension
-    So we can replace it by Spline
-   */
-  public boolean canReplaceBySpline(double maxMinLeafNodesDivByStd) {
-    return dimension == 1 &&
-        maxMinLeafNodesDivByStd < minLeafNodesDivByStd();
   }
 
   public static boolean isLeaf(NDTreeNode node) {
