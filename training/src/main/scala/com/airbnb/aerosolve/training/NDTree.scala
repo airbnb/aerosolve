@@ -39,15 +39,15 @@ object NDTree {
     leftIndices: Array[Int],
     rightIndices: Array[Int])
 
-  def apply(options: NDTreeBuildOptions, points: Array[Array[Double]]): NDTree = {
-    val nodes = ArrayBuffer[NDTreeNode]()
+  def buildTree(options: NDTreeBuildOptions, points: Array[Array[Double]]): Array[NDTreeNode] = {
 
     val indices = points.indices.toArray
 
     if (indices.isEmpty) {
-      return new NDTree(nodes.toArray)
+      return Array[NDTreeNode]()
     }
 
+    val nodes = ArrayBuffer[NDTreeNode]()
     val dimensions = points.head.length
     val isConstantDimension = points.forall(_.length == dimensions)
 
@@ -65,8 +65,14 @@ object NDTree {
       nodes.append(node)
       buildTreeRecursive(options, points, -1, indices, nodes, node, 1, splitType)
     }
-    val tree = new NDTree(nodes.toArray)
-    tree
+    val result = nodes.toArray
+    NDTreeModel.updateWithSplitValue(result)
+    result
+  }
+
+  def apply(options: NDTreeBuildOptions, points: Array[Array[Double]]): NDTree = {
+    val nodes = buildTree(options, points)
+    new NDTree(nodes)
   }
 
   def getNextAxis(lastAxis: Int,
@@ -322,7 +328,7 @@ object NDTree {
 
 class NDTree(val nodes: Array[NDTreeNode]) extends Serializable {
   // TODO add option to control when to use split value
-  val model = NDTreeModel.getModelWithSplitValueInChildrenNodes(nodes)
+  val model = new NDTreeModel(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
   def query(point: Array[Double]): Array[Int] = {
