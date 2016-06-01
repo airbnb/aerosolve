@@ -80,16 +80,9 @@ object GenericPipeline {
     val inputPattern = cfg.getString("input")
     val subsample = cfg.getDouble("subsample")
     val modelConfig = cfg.getString("model_config")
+    val isTrainingFunc = getIsTrainingFunc(config, isTrainingOpt)
 
-    val input = if (isTrainingOpt.isDefined) {
-      getExamples(sc, inputPattern)
-        .filter(isTrainingOpt.get)
-    } else {
-      val trainingFrac = Try(cfg.getDouble("training_fraction"))
-        .getOrElse(DEFAULT_TRAINING_FRACTION)
-      getExamples(sc, inputPattern)
-        .filter(isTraining(trainingFrac))
-    }
+    val input = getExamples(sc, inputPattern).filter(isTrainingFunc)
 
     val filteredInput = input.sample(false, subsample)
 
@@ -138,13 +131,10 @@ object GenericPipeline {
       sc: SparkContext,
       config : Config, cfgKey : String,
       isTrainingOpt: Option[Example => Boolean] = None): Unit = {
-    val metrics = if (isTrainingOpt.isDefined) {
-      evalCompute(sc, config, cfgKey, isTrainingOpt.get)
-    } else {
-      val trainingFrac = Try(config.getDouble("training_fraction"))
-        .getOrElse(DEFAULT_TRAINING_FRACTION)
-      evalCompute(sc, config, cfgKey, isTraining(trainingFrac))
-    }
+
+    val isTrainingFunc = getIsTrainingFunc(config, isTrainingOpt)
+
+    val metrics = evalCompute(sc, config, cfgKey, isTrainingFunc)
 
     metrics.foreach(x => log.info(x.toString))
   }
@@ -196,14 +186,10 @@ object GenericPipeline {
     // get calibration training data
     val data = getExamples(sc, input)
         .sample(false, plattsConfig.getDouble("subsample"))
+    
+    val isTrainingFunc = getIsTrainingFunc(config, isTrainingOpt)
 
-    val scoresAndLabel = if (isTrainingOpt.isDefined) {
-      PipelineUtil.scoreExamples(sc, transformer, model, data, isTrainingOpt.get, LABEL)
-    } else {
-      val trainingFrac = Try(config.getDouble("training_fraction"))
-        .getOrElse(DEFAULT_TRAINING_FRACTION)
-      PipelineUtil.scoreExamples(sc, transformer, model, data, isTraining(trainingFrac), LABEL)
-    }
+    val scoresAndLabel = PipelineUtil.scoreExamples(sc, transformer, model, data, isTrainingFunc, LABEL)
 
     // Use TRAIN data for train and HOLD data for eval
     val calibrationTraining = scoresAndLabel
@@ -653,14 +639,15 @@ object GenericPipeline {
   def trainEvalForParamSearch(
       sc: SparkContext,
       paramSet: Array[(String,Double)],
-      config: Config) : (String, Double) = {
+      config: Config,
+      isTrainingOpt: Option[Example => Boolean] = None) : (String, Double) = {
     val cfg = config.getConfig("param_search")
     val modelConfig = cfg.getString("model_config")
     val metricName: String = cfg.getString("metric_to_maximize")
     val paramStr = paramSet.map(x => s"${x._1}_${x._2}").mkString("__")
     val modelPrefix = cfg.getString("model_name_prefix")
     val modelOutput = modelPrefix.concat("__").concat(paramStr).concat(".model")
-    val trainingFrac = Try(cfg.getDouble("training_fraction")).getOrElse(DEFAULT_TRAINING_FRACTION)
+    val isTrainingFunc = getIsTrainingFunc(config, isTrainingOpt)
 
     // revise train_model.model_config, ${modelConfig}.model_output (for training)
     val baseCfg = config.withValue("train_model.model_config",
@@ -681,7 +668,7 @@ object GenericPipeline {
 
     trainingRun(sc, finalCfg)
 
-    val evalResults = evalCompute(sc, finalCfg, "eval_model", isTraining(trainingFrac))
+    val evalResults = evalCompute(sc, finalCfg, "eval_model", isTrainingFunc)
 
     (modelOutput, evalResults.find(_._1.equals(metricName)).getOrElse(("", -1d))._2)
   }
@@ -692,5 +679,15 @@ object GenericPipeline {
       isMulticlass: Boolean = false): Example = {
     val features = ExampleUtil.getFeatures(row, schema)
     features.toExample(isMulticlass)
+  }
+
+  private def getIsTrainingFunc(cfg: Config, isTrainingOpt: Option[Example => Boolean] = None): Example => Boolean = {
+    if (isTrainingOpt.isDefined) {
+      isTrainingOpt.get
+    } else {
+      val trainingFrac = Try(cfg.getDouble("training_fraction"))
+        .getOrElse(DEFAULT_TRAINING_FRACTION)
+      isTraining(trainingFrac)
+    }
   }
 }
