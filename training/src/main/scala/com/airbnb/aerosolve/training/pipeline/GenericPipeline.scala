@@ -30,6 +30,7 @@ import scala.util.{Random, Try}
 object GenericPipeline {
   val log: Logger = LoggerFactory.getLogger("GenericPipeline")
   val LABEL = "LABEL"
+  val DEFAULT_TRAINING_FRACTION = 0.9373
 
   def makeTrainingRun(sc: SparkContext, config: Config) = {
     val cfg = config.getConfig("make_training")
@@ -74,14 +75,21 @@ object GenericPipeline {
   def trainingRun(
       sc: SparkContext,
       config: Config,
-      isTraining: Example => Boolean = isTraining) = {
+      isTrainingOpt: Option[Example => Boolean] = None) = {
     val cfg = config.getConfig("train_model")
     val inputPattern = cfg.getString("input")
     val subsample = cfg.getDouble("subsample")
     val modelConfig = cfg.getString("model_config")
 
-    val input = getExamples(sc, inputPattern)
-      .filter(isTraining)
+    val input = if (isTrainingOpt.isDefined) {
+      getExamples(sc, inputPattern)
+        .filter(isTrainingOpt.get)
+    } else {
+      val trainingFrac = Try(cfg.getDouble("training_fraction"))
+        .getOrElse(DEFAULT_TRAINING_FRACTION)
+      getExamples(sc, inputPattern)
+        .filter(isTraining(trainingFrac))
+    }
 
     val filteredInput = input.sample(false, subsample)
 
@@ -129,8 +137,14 @@ object GenericPipeline {
   def evalRun(
       sc: SparkContext,
       config : Config, cfgKey : String,
-      isTraining: Example => Boolean = isTraining): Unit = {
-    val metrics = evalCompute(sc, config, cfgKey, isTraining)
+      isTrainingOpt: Option[Example => Boolean] = None): Unit = {
+    val metrics = if (isTrainingOpt.isDefined) {
+      evalCompute(sc, config, cfgKey, isTrainingOpt.get)
+    } else {
+      val trainingFrac = Try(config.getDouble("training_fraction"))
+        .getOrElse(DEFAULT_TRAINING_FRACTION)
+      evalCompute(sc, config, cfgKey, isTraining(trainingFrac))
+    }
 
     metrics.foreach(x => log.info(x.toString))
   }
@@ -172,7 +186,7 @@ object GenericPipeline {
   def calibrateRun(
       sc: SparkContext,
       config: Config,
-      isTraining: Example => Boolean = isTraining) = {
+      isTrainingOpt: Option[Example => Boolean] = None) = {
     val plattsConfig = config.getConfig("calibrate_model")
     val modelCfgName = plattsConfig.getString("model_config")
     val modelName = plattsConfig.getString("model_name")
@@ -183,7 +197,13 @@ object GenericPipeline {
     val data = getExamples(sc, input)
         .sample(false, plattsConfig.getDouble("subsample"))
 
-    val scoresAndLabel = PipelineUtil.scoreExamples(sc, transformer, model, data, isTraining, LABEL)
+    val scoresAndLabel = if (isTrainingOpt.isDefined) {
+      PipelineUtil.scoreExamples(sc, transformer, model, data, isTrainingOpt.get, LABEL)
+    } else {
+      val trainingFrac = Try(config.getDouble("training_fraction"))
+        .getOrElse(DEFAULT_TRAINING_FRACTION)
+      PipelineUtil.scoreExamples(sc, transformer, model, data, isTraining(trainingFrac), LABEL)
+    }
 
     // Use TRAIN data for train and HOLD data for eval
     val calibrationTraining = scoresAndLabel
@@ -509,14 +529,14 @@ object GenericPipeline {
       .map(x => hiveTrainingToExample(x, schema, isMulticlass))
   }
 
-  def isTraining(examples : Example) : Boolean = {
+  def isTraining(frac: Double = DEFAULT_TRAINING_FRACTION)(examples : Example) : Boolean = {
     // Take the hash code mod 255 and keep the first 16 as holdout.
-    (examples.toString.hashCode & 0xFF) > 16
+    (examples.toString.hashCode & 0xFF) > 255 - Math.floor(255 * frac)
   }
 
-  def isHoldout(examples : Example) : Boolean = {
+  def isHoldout(frac: Double = DEFAULT_TRAINING_FRACTION)(examples : Example) : Boolean = {
     // Take the hash code mod 255 and keep the first 16 as holdout.
-    (examples.toString.hashCode & 0xFF) <= 16
+    (examples.toString.hashCode & 0xFF) <= 255 - Math.floor(255 * frac)
   }
 
   def getExamples(sc : SparkContext, inputPattern : String) : RDD[Example] = {
@@ -640,6 +660,7 @@ object GenericPipeline {
     val paramStr = paramSet.map(x => s"${x._1}_${x._2}").mkString("__")
     val modelPrefix = cfg.getString("model_name_prefix")
     val modelOutput = modelPrefix.concat("__").concat(paramStr).concat(".model")
+    val trainingFrac = Try(cfg.getDouble("training_fraction")).getOrElse(DEFAULT_TRAINING_FRACTION)
 
     // revise train_model.model_config, ${modelConfig}.model_output (for training)
     val baseCfg = config.withValue("train_model.model_config",
@@ -660,7 +681,7 @@ object GenericPipeline {
 
     trainingRun(sc, finalCfg)
 
-    val evalResults = evalCompute(sc, finalCfg, "eval_model", isTraining)
+    val evalResults = evalCompute(sc, finalCfg, "eval_model", isTraining(trainingFrac))
 
     (modelOutput, evalResults.find(_._1.equals(metricName)).getOrElse(("", -1d))._2)
   }
