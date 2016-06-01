@@ -55,17 +55,18 @@ public class FloatToDenseTransform implements Transform{
       }
       String featureName = keys.get(i);
       Double feature = family.get(keys.get(i));
+      sb.append('^');
+      sb.append(featureName);
       if (feature != null) {
         output.add(feature);
-        sb.append('^');
-        sb.append(featureName);
         floatFamily = family;
+      } else {
+        sb.append(":null");
       }
     }
 
     switch (output.size()) {
       case 0: {
-        sb.append("^null");
         Util.setStringFeature(featureVector, outputStringFamily, sb.toString());
       }
       break;
