@@ -27,10 +27,6 @@ bintray {
     labels = ['machine learning', 'spark', 'scala']
     attributes= ['plat': ['linux', 'osx']]
     publicDownloadNumbers = true
-    version {
-      name = currentVersion
-      desc = 'Aerosolve training library'
-    }
   }
 }
 
