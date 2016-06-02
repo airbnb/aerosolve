@@ -148,8 +148,8 @@ object Evaluation {
   private def metricsAppend(metrics: mutable.Buffer[(String, Double)],
                             trainPR: ArrayBuffer[(Double, Double, Double)],
                             holdPR: ArrayBuffer[(Double, Double, Double)]): Unit = {
-    metrics.append(("!TRAIN_PR_AUC", getPRAUC(trainPR)))
-    metrics.append(("!HOLD_PR_AUC", getPRAUC(holdPR)))
+    metrics.append(("!TRAIN_PRECISION_RECALL_AUC", getPRAUC(trainPR)))
+    metrics.append(("!HOLD_PRECISION_RECALL_AUC", getPRAUC(holdPR)))
     for (tpr <- trainPR) {
       metrics.append(("!TRAIN_THRESHOLD=%f PRECISION=%f RECALL=%f".format(tpr._3, tpr._1, tpr._2), 0))
     }
