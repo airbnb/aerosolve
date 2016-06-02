@@ -30,7 +30,7 @@ import scala.util.{Random, Try}
 object GenericPipeline {
   val log: Logger = LoggerFactory.getLogger("GenericPipeline")
   val LABEL = "LABEL"
-  val DEFAULT_TRAINING_FRACTION = 0.9373
+  val DEFAULT_TRAINING_FRACTION = 0.9373 // 0.9373 = (255 - 16) / 255
 
   def makeTrainingRun(sc: SparkContext, config: Config) = {
     val cfg = config.getConfig("make_training")
