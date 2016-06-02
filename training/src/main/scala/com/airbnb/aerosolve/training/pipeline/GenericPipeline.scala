@@ -132,7 +132,7 @@ object GenericPipeline {
       isTraining: Example => Boolean = isTraining): Unit = {
     val metrics = evalCompute(sc, config, cfgKey, isTraining)
 
-    metrics.foreach(x => log.info(x.toString))
+    metrics.foreach(x => log.info(if (x._1 contains "THRESHOLD") x._1 else x.toString))
   }
 
   def evalCompute(

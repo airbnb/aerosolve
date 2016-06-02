@@ -24,10 +24,11 @@ object Evaluation {
     val thresholds = records.map(x => x.score).histogram(buckets)._1
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
-    val trainPR = new ArrayBuffer[(Double, Double)]()
-    val holdPR = new ArrayBuffer[(Double, Double)]()
-    trainPR.append((1.0, 0.0))
-    holdPR.append((1.0, 0.0))
+    val trainPR = new ArrayBuffer[(Double, Double, Double)]()
+    val holdPR = new ArrayBuffer[(Double, Double, Double)]()
+    trainPR.append((1.0, 0.0, thresholds.max))
+    holdPR.append((1.0, 0.0, thresholds.max))
+
     for (i <- 0 until thresholds.size - 1) {
       val threshold = thresholds(i)
       val tmp = evaluateBinaryClassificationAtThreshold(records, threshold)
@@ -37,8 +38,8 @@ object Evaluation {
         bestF1 = f1
         metrics = tmp
       }
-      trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0)))
-      holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0)))
+      trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0), threshold))
+      holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0), threshold))
     }
 
     metricsAppend(metrics, trainPR, holdPR)
@@ -59,10 +60,10 @@ object Evaluation {
     val thresholds = getThresholds(scores, buckets)
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
-    val trainPR = new ArrayBuffer[(Double, Double)]()
-    val holdPR = new ArrayBuffer[(Double, Double)]()
-    trainPR.append((1.0, 0.0))
-    holdPR.append((1.0, 0.0))
+    val trainPR = new ArrayBuffer[(Double, Double, Double)]()
+    val holdPR = new ArrayBuffer[(Double, Double, Double)]()
+    trainPR.append((1.0, 0.0, thresholds.max))
+    holdPR.append((1.0, 0.0, thresholds.max))
 
     for (i <- 0 until thresholds.length - 1) {
       val threshold = thresholds(i)
@@ -73,8 +74,8 @@ object Evaluation {
         bestF1 = f1
         metrics = tmp
       }
-      trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0)))
-      holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0)))
+      trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0), threshold))
+      holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0), threshold))
     }
 
     metricsAppend(metrics, trainPR, holdPR)
@@ -145,15 +146,15 @@ object Evaluation {
   }
 
   private def metricsAppend(metrics: mutable.Buffer[(String, Double)],
-                            trainPR: ArrayBuffer[(Double, Double)],
-                            holdPR: ArrayBuffer[(Double, Double)]): Unit = {
+                            trainPR: ArrayBuffer[(Double, Double, Double)],
+                            holdPR: ArrayBuffer[(Double, Double, Double)]): Unit = {
     metrics.append(("!TRAIN_PR_AUC", getPRAUC(trainPR)))
     metrics.append(("!HOLD_PR_AUC", getPRAUC(holdPR)))
     for (tpr <- trainPR) {
-      metrics.append(("!TRAIN_PREC@RECALL=%f".format(tpr._2), tpr._1))
+      metrics.append(("!TRAIN_THRESHOLD=%f PRECISION=%f RECALL=%f".format(tpr._3, tpr._1, tpr._2), 0))
     }
     for (hpr <- holdPR) {
-      metrics.append(("!HOLD_PREC@RECALL=%f".format(hpr._2), hpr._1))
+      metrics.append(("!HOLD_THRESHOLD=%f PRECISION=%f RECALL=%f".format(hpr._3, hpr._1, hpr._2), 0))
     }
   }
 
@@ -384,7 +385,7 @@ object Evaluation {
   }
 
   // Uses trapezium rule to compute the precision recall AUC.
-  private def getPRAUC(pr : mutable.Buffer[(Double, Double)]) : Double = {
+  private def getPRAUC(pr : mutable.Buffer[(Double, Double, Double)]) : Double = {
     val sorted = pr.sortWith((a, b) => a._2 < b._2)
     val count = sorted.size
     var sum = 0.0
