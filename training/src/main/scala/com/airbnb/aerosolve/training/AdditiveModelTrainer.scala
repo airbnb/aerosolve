@@ -2,14 +2,14 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core._
 import com.airbnb.aerosolve.core.function._
-import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
+import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.pipeline.{NDTreePipeline, PipelineUtil}
 import com.airbnb.aerosolve.training.pipeline.NDTreePipeline.{FeatureStats, NDTreePipelineParams}
+import com.airbnb.aerosolve.training.pipeline.{NDTreePipeline, PipelineUtil}
 import com.typesafe.config.Config
-import org.apache.spark.{Accumulator, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.{Accumulator, SparkContext}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -393,12 +393,12 @@ object AdditiveModelTrainer {
     if (params.nDTreePipelineParams != null) {
       val initExamples = input(params.nDTreePipelineParams.sample)
       val linearFeatureFamilies = params.linearFeatureFamilies
-      val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = NDTreePipeline.getFeatures(
+      val result: Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = NDTreePipeline.getFeatures(
         sc, initExamples, params.nDTreePipelineParams)
       for (((family, name), feature) <- result) {
         feature match {
-          case Left(ndTreeModel) => {
-            model.addFunction(family, name, new  MultiDimensionSpline(ndTreeModel), overwrite)
+          case Left(nodes) => {
+            model.addFunction(family, name, new MultiDimensionSpline(nodes), overwrite)
           }
           case Right(stats) => {
             if (stats.spline) {

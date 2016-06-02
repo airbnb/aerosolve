@@ -2,9 +2,9 @@ package com.airbnb.aerosolve.training.pipeline
 
 import java.util
 
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.models.{AdditiveModel, NDTreeModel}
+import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, NDTreeNode}
 import com.airbnb.aerosolve.training.NDTree
 import com.airbnb.aerosolve.training.NDTree.NDTreeBuildOptions
 import com.typesafe.config.Config
@@ -27,8 +27,7 @@ object NDTreePipeline {
                                   checkPointDir: String,
                                   maxTreeDepth1Dimension: Int,
                                   maxTreeDepthPerDimension: Int,
-                                  minLeafCount: Int,
-                                  maxMinLeafNodesDivByStd: Double)
+                                  minLeafCount: Int)
 
   case class FeatureStats(count: Double, min: Double, max: Double,
                           spline: Boolean = false)
@@ -59,9 +58,8 @@ object NDTreePipeline {
     for (((family, name), feature) <- features) {
       // TODO save to disk.
       feature match {
-        case Left(model) => {
-          val nodes = model.getNodes
-          log.info(s"${family}, ${name}: ${model.getDimension} ${nodes.length} ${nodes.mkString("\n")}")
+        case Left(nodes) => {
+          log.info(s"${family}, ${name}: ${nodes.length} ${nodes.mkString("\n")}")
         }
         case Right(stats) => {
           log.info(s"${family}, ${name}: ${stats.count} ${stats.min} ${stats.max}")
@@ -78,9 +76,6 @@ object NDTreePipeline {
     val maxTreeDepthPerDimension = cfg.getInt("max_tree_depth_per_dimension")
     val minLeafCount = cfg.getInt("min_leaf_count")
 
-    val maxMinLeafNodesDivByStd:Double =
-      Try(cfg.getDouble("max_min_leaf_nodes_count_div_by_std")).
-      getOrElse(0)
     NDTreePipelineParams(
       cfg.getDouble("sample"),
       cfg.getInt("min_count"),
@@ -88,25 +83,24 @@ object NDTreePipeline {
       checkPointDir,
       maxTreeDepth1Dimension,
       maxTreeDepthPerDimension,
-      minLeafCount,
-      maxMinLeafNodesDivByStd)
+      minLeafCount)
   }
 
   def buildFeatures(sc: SparkContext, config : Config):
-      Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
+      Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = {
     val cfg = config.getConfig("make_feature_map")
     val inputPattern: String = cfg.getString("input")
     val input = GenericPipeline.getExamples(sc, inputPattern)
     log.info(s"Training data: ${inputPattern}")
     val params: NDTreePipelineParams = getNDTreePipelineParams(cfg)
 
-    val result: Array[((String, String), Either[NDTreeModel, FeatureStats])] = getFeatures(
+    val result: Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = getFeatures(
       sc, input.sample(false, params.sample), params)
     result
   }
 
   def getFeatures(sc: SparkContext, input: RDD[Example], params: NDTreePipelineParams):
-                  Array[((String, String), Either[NDTreeModel, FeatureStats])] = {
+                  Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = {
     val paramsBC = sc.broadcast(params)
     val featureRDD: RDD[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] =
       input.mapPartitions(partition => {
@@ -142,10 +136,10 @@ object NDTreePipeline {
     }
 
     // featureRDD cached so that we don't rerun the previous steps
-    val tree: Array[((String, String), Either[NDTreeModel, FeatureStats])] =
+    val tree: Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] =
       featureRDD.map(x => {
         val a = x._2
-        val result: ((String, String), Either[NDTreeModel, FeatureStats]) = a match {
+        val result: ((String, String), Either[Array[NDTreeNode], FeatureStats]) = a match {
           case Left(y) => {
             // build tree
             // FloatToDense transform make sure all array in y are same size.
@@ -162,19 +156,7 @@ object NDTreePipeline {
                 paramsBC.value.minLeafCount,
                 minLeafWidthPercentage)
 
-            val model = NDTree(options, y.toArray).model
-            val maxValue = paramsBC.value.maxMinLeafNodesDivByStd
-            if (maxValue > 0) {
-              if (model.canReplaceBySpline(maxValue)) {
-                val node = model.getNode(0)
-                ((x._1._1, x._1._2), Right(FeatureStats(
-                  node.count, node.min.get(0), node.max.get(0), true)))
-              } else {
-                ((x._1._1, x._1._2), Left(model))
-              }
-            } else {
-              ((x._1._1, x._1._2), Left(model))
-            }
+              ((x._1._1, x._1._2), Left(NDTree.buildTree(options, y.toArray)))
           }
           case Right(z) => {
             ((x._1._1, x._1._2), Right(z))

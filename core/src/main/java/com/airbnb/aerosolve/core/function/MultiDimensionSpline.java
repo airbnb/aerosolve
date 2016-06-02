@@ -18,6 +18,10 @@ public class MultiDimensionSpline implements Function {
   private final Map<Integer, List<MultiDimensionPoint>> weights;
   private final List<MultiDimensionPoint> points;
 
+  public MultiDimensionSpline(NDTreeNode[] nodes) {
+    this(new NDTreeModel(nodes));
+  }
+
   public MultiDimensionSpline(NDTreeModel ndTreeModel) {
     this.ndTreeModel = ndTreeModel;
     Map<List<Float>, MultiDimensionPoint> pointsMap = new HashMap<>();
