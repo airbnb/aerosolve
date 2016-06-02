@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
+import com.airbnb.aerosolve.training.utils.Sort
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -31,7 +32,7 @@ object NDTree {
       minLeafWidthPercentage: Double = 0,
       splitType: SplitType.Value = SplitType.Unspecified)
 
-  private case class Bounds(minima: Array[Double], maxima: Array[Double])
+  case class Bounds(minima: Array[Double], maxima: Array[Double])
 
   private case class Split(
     axisIndex: Int,
@@ -167,6 +168,27 @@ object NDTree {
     }
   }
 
+  /*
+    bounds set min = bottom minLeafWidthPercentage/4 's max
+    max = top minLeafWidthPercentage/4 's min
+    so that we cap possible outliers and not affect model performance.
+   */
+  def getBoundsWithCap(points: Array[Array[Double]], minLeafWidthPercentage: Double): Bounds = {
+    val minima = points.reduceLeft((result: Array[Double], point: Array[Double]) => {
+      result.zip(point).map((axisIndexValues: (Double, Double)) => {
+        math.min(axisIndexValues._1, axisIndexValues._2)
+      })
+    })
+
+    val maxima = points.reduceLeft((result: Array[Double], point: Array[Double]) => {
+      result.zip(point).map((axisIndexValues: (Double, Double)) => {
+        math.max(axisIndexValues._1, axisIndexValues._2)
+      })
+    })
+
+    Bounds(minima, maxima)
+  }
+
   private def getBounds(
       points: Array[Array[Double]],
       indices: Array[Int]): Bounds = {
@@ -208,7 +230,7 @@ object NDTree {
       points: Array[Array[Double]],
       indices: Array[Int],
       axisIndex: Int): Split = {
-    val splitValue = getMedian(points, indices, axisIndex)
+    val splitValue = getMedianFast(points, indices, axisIndex)
     val (leftIndices, rightIndices) = indices.partition(index => points(index)(axisIndex) < splitValue)
 
     log.debug(s"getSplitUsingMedian ${splitValue} ${leftIndices.length} ${rightIndices.length}")
@@ -225,9 +247,18 @@ object NDTree {
         Split(axisIndex, splitValue, left, right)
       } else {
         // no next greater element, so median happens to equal to both mix and max
+        // this will become a leaf.
         Split(0, 0.0, Array(), Array())
       }
     }
+  }
+
+  def getMedianFast(points: Array[Array[Double]],
+      indices: Array[Int],
+      axisIndex: Int):Double = {
+    val axisPoints = indices.map(i => points(i)(axisIndex))
+    val length = axisPoints.length
+    Sort.quickSelect(axisPoints, length/2)
   }
 
   private def getMedian(

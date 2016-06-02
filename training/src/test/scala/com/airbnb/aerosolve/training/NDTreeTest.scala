@@ -56,10 +56,10 @@ class NDTreeTest {
 
     log.info(s"nodes = ${nodes.mkString("\n")}")
     assertEquals(27, nodes.length)
-    assertEquals(6.5, nodes(0).splitValue, 0)
-    assertEquals(11, nodes(2).splitValue, 0)
+    assertEquals(7.0, nodes(0).splitValue, 0)
+    assertEquals(11.0, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(6.5, nodes(1).max.get(0))
+    assertEquals(7.0, nodes(1).max.get(0))
     assertEquals(-1, nodes(5).axisIndex)
     assertEquals(1.0, nodes(5).min.get(0))
     assertEquals(1.0, nodes(5).max.get(0))
@@ -81,10 +81,10 @@ class NDTreeTest {
 
     log.info(s"nodes = ${nodes.mkString("\n")}")
     assertEquals(27, nodes.length)
-    assertEquals(6.5, nodes(0).splitValue, 0)
+    assertEquals(7.0, nodes(0).splitValue, 0)
     assertEquals(11, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(6.5, nodes(1).max.get(0))
+    assertEquals(7.0, nodes(1).max.get(0))
     assertEquals(3.0, nodes(4).min.get(0))
     assertEquals(6.0, nodes(4).max.get(0))
   }
@@ -111,10 +111,10 @@ class NDTreeTest {
 
     log.info(s"nodes = ${nodes.mkString("\n")}")
     assertEquals(29, nodes.length)
-    assertEquals(14.5, nodes(0).splitValue, 0)
+    assertEquals(15.0, nodes(0).splitValue, 0)
     assertEquals(18, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
-    assertEquals(14.5, nodes(1).max.get(0))
+    assertEquals(15.0, nodes(1).max.get(0))
     assertEquals(10.0, nodes(4).min.get(0))
     assertEquals(14.0, nodes(4).max.get(0))
   }
@@ -140,7 +140,7 @@ class NDTreeTest {
     log.info(s"nodes = ${nodes.mkString("\n")}")
     assertEquals(5, nodes.length)
     assertEquals(2.0, nodes(0).splitValue, 0)
-    assertEquals(2.5, nodes(2).splitValue, 0)
+    assertEquals(3.0, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
     assertEquals(1.0, nodes(1).max.get(0))
     assertEquals(3.0, nodes(4).min.get(0))
@@ -290,7 +290,7 @@ class NDTreeTest {
     assertEquals(2.0, nodes(0).splitValue, 0)
     assertEquals(1, nodes(0).leftChild)
     assertEquals(2, nodes(0).rightChild)
-    assertEquals(10.5, nodes(8).splitValue, 0)
+    assertEquals(11.0, nodes(8).splitValue, 0)
   }
 
 }
