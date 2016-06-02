@@ -136,7 +136,7 @@ object GenericPipeline {
 
     val metrics = evalCompute(sc, config, cfgKey, isTrainingFunc)
 
-    metrics.foreach(x => log.info(x.toString))
+    metrics.foreach(x => log.info(if (x._1 contains "THRESHOLD") x._1 else x.toString))
   }
 
   def evalCompute(
