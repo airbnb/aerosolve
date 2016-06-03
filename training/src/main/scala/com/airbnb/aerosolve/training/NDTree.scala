@@ -134,7 +134,7 @@ object NDTree {
         val axis = axisIndex.get
         val split = splitType match {
           case SplitType.Median =>
-            getSplitUsingMedian(points, indices, axis)
+            getSplitUsingMedian(points, indices, axis, options.minLeafCount)
           case SplitType.SurfaceArea =>
             getSplitUsingSurfaceArea(points, indices, bounds, axis)
         }
@@ -229,7 +229,8 @@ object NDTree {
   private def getSplitUsingMedian(
       points: Array[Array[Double]],
       indices: Array[Int],
-      axisIndex: Int): Split = {
+      axisIndex: Int,
+      minLeaf: Int): Split = {
     val splitValue = getMedianFast(points, indices, axisIndex)
     val (leftIndices, rightIndices) = indices.partition(index => points(index)(axisIndex) < splitValue)
 
@@ -244,12 +245,13 @@ object NDTree {
       if (nextSplitValue.nonEmpty) {
         val splitValue = nextSplitValue.get
         val (left, right) = indices.partition(index => points(index)(axisIndex) < splitValue)
-        Split(axisIndex, splitValue, left, right)
-      } else {
-        // no next greater element, so median happens to equal to both mix and max
-        // this will become a leaf.
-        Split(0, 0.0, Array(), Array())
+        if (left.length >= minLeaf && right.length >= minLeaf) {
+          return Split(axisIndex, splitValue, left, right)
+        }
       }
+      // no next greater element, so median happens to equal to both mix and max
+      // this will become a leaf.
+      Split(0, 0.0, Array(), Array())
     }
   }
 
