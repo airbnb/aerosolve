@@ -113,7 +113,8 @@ object NDTree {
     var makeLeaf = false
 
     if ((depth >= options.maxTreeDepth) ||
-        (indices.length <= options.minLeafCount) ||
+        // then at least one leaf is going to smaller than minLeafCount
+        (indices.length < 2 * options.minLeafCount) ||
         areBoundsOverlapping(bounds)) {
       log.debug(s"d ${depth} len ${indices.length}")
       log.debug(s"minima ${bounds.minima.mkString(",")}")
@@ -134,13 +135,13 @@ object NDTree {
         val axis = axisIndex.get
         val split = splitType match {
           case SplitType.Median =>
-            getSplitUsingMedian(points, indices, axis, options.minLeafCount)
+            getSplitUsingMedian(points, indices, axis)
           case SplitType.SurfaceArea =>
             getSplitUsingSurfaceArea(points, indices, bounds, axis)
         }
 
-        if (split.leftIndices.length <= options.minLeafCount &&
-          split.rightIndices.length <= options.minLeafCount) {
+        if (split.leftIndices.length < options.minLeafCount ||
+          split.rightIndices.length < options.minLeafCount) {
           log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
           makeLeaf = true
         } else {
@@ -229,8 +230,7 @@ object NDTree {
   private def getSplitUsingMedian(
       points: Array[Array[Double]],
       indices: Array[Int],
-      axisIndex: Int,
-      minLeaf: Int): Split = {
+      axisIndex: Int): Split = {
     val splitValue = getMedianFast(points, indices, axisIndex)
     val (leftIndices, rightIndices) = indices.partition(index => points(index)(axisIndex) < splitValue)
 
@@ -245,9 +245,7 @@ object NDTree {
       if (nextSplitValue.nonEmpty) {
         val splitValue = nextSplitValue.get
         val (left, right) = indices.partition(index => points(index)(axisIndex) < splitValue)
-        if (left.length >= minLeaf && right.length >= minLeaf) {
-          return Split(axisIndex, splitValue, left, right)
-        }
+        return Split(axisIndex, splitValue, left, right)
       }
       // no next greater element, so median happens to equal to both mix and max
       // this will become a leaf.
@@ -287,6 +285,8 @@ object NDTree {
   // This minimizes the cost of the split which is defined as
   // P(S(L) | S(P)) * N_L + P(S(R) | S(P)) * N_R
   // which is the surface area of the sides weighted by point counts
+  // the idea is  to add the plane so that the surface areas of the two child spaces,
+  // weighted by the number of points in each child, are equal.
   private def getSplitUsingSurfaceArea(
       points: Array[Array[Double]],
       indices: Array[Int],

@@ -110,7 +110,7 @@ class NDTreeTest {
     val nodes = tree.nodes
 
     log.info(s"nodes = ${nodes.mkString("\n")}")
-    assertEquals(29, nodes.length)
+    assertEquals(27, nodes.length)
     assertEquals(15.0, nodes(0).splitValue, 0)
     assertEquals(18, nodes(2).splitValue, 0)
     assertEquals(1.0, nodes(1).min.get(0))
