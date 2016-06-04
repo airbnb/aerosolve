@@ -16,6 +16,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.SQLContext
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -507,8 +508,12 @@ object GenericPipeline {
       sc: SparkContext,
       query: String,
       isMulticlass: Boolean = false): RDD[Example] = {
-    val hc = new HiveContext(sc)
-    val hiveTraining = hc.sql(query)
+    val sqlContext = new SQLContext(sc)
+
+    //val hc = new HiveContext(sc)
+    //val hiveTraining = hc.sql(query)
+    val hiveTraining = sqlContext.sql(query)
+
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
 
     hiveTraining

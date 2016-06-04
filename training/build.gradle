@@ -35,6 +35,7 @@ dependencies {
   compile 'com.fasterxml.jackson.module:jackson-module-scala_2.10:2.4.2'
   compile 'joda-time:joda-time:2.5'
   compile 'org.apache.hadoop:hadoop-client:2.2.0'
+  compile 'com.databricks:spark-csv_2.10:1.4.0'
 
   provided 'org.apache.spark:spark-core_2.10:1.5.2'
   provided 'org.apache.spark:spark-hive_2.10:1.5.2'
