@@ -169,27 +169,6 @@ object NDTree {
     }
   }
 
-  /*
-    bounds set min = bottom minLeafWidthPercentage/4 's max
-    max = top minLeafWidthPercentage/4 's min
-    so that we cap possible outliers and not affect model performance.
-   */
-  def getBoundsWithCap(points: Array[Array[Double]], minLeafWidthPercentage: Double): Bounds = {
-    val minima = points.reduceLeft((result: Array[Double], point: Array[Double]) => {
-      result.zip(point).map((axisIndexValues: (Double, Double)) => {
-        math.min(axisIndexValues._1, axisIndexValues._2)
-      })
-    })
-
-    val maxima = points.reduceLeft((result: Array[Double], point: Array[Double]) => {
-      result.zip(point).map((axisIndexValues: (Double, Double)) => {
-        math.max(axisIndexValues._1, axisIndexValues._2)
-      })
-    })
-
-    Bounds(minima, maxima)
-  }
-
   private def getBounds(
       points: Array[Array[Double]],
       indices: Array[Int]): Bounds = {
@@ -245,11 +224,12 @@ object NDTree {
       if (nextSplitValue.nonEmpty) {
         val splitValue = nextSplitValue.get
         val (left, right) = indices.partition(index => points(index)(axisIndex) < splitValue)
-        return Split(axisIndex, splitValue, left, right)
+        Split(axisIndex, splitValue, left, right)
+      } else {
+        // no next greater element, so median happens to equal to both mix and max
+        // this will become a leaf.
+        Split(0, 0.0, Array(), Array())
       }
-      // no next greater element, so median happens to equal to both mix and max
-      // this will become a leaf.
-      Split(0, 0.0, Array(), Array())
     }
   }
 
