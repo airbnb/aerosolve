@@ -53,12 +53,12 @@ public class FloatToStringTransform implements Transform {
     Collection<String> localKeys = (keys == null)? input.keySet() : keys;
     log.debug("k {} {}", localKeys, input);
     for (String key : localKeys) {
-      moveFloatToStringAndFloat(
+      moveFloatToString(
           input, key, values, stringOutput);
     }
   }
 
-  private void moveFloatToStringAndFloat(
+  private void moveFloatToString(
       Map<String, Double> input,
       String key, Set<Double> values,
       Set<String> stringOutput) {
