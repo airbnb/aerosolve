@@ -64,6 +64,7 @@ object AdditiveModelTrainer {
                                    smoothingByPercentage: Boolean,
                                    linfinityThreshold: Double,
                                    linfinityCap: Double,
+                                   capIterations: Int,
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    init: InitParams,
@@ -102,6 +103,11 @@ object AdditiveModelTrainer {
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
       val newModel = sgdTrain(transformed, sgdParams, modelBC)
+
+      if ((i % params.capIterations) == 0) {
+        deleteSmallFunctions(model, params.linfinityThreshold)
+      }
+
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       if (params.loss.useBestLoss) {
@@ -164,7 +170,6 @@ object AdditiveModelTrainer {
         }
       })
 
-    deleteSmallFunctions(model, params.linfinityThreshold)
     model
   }
 
@@ -567,7 +572,7 @@ object AdditiveModelTrainer {
       linearFeatureFamilies,
       priors, minCount, options)
     val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
-
+    val capIterations: Int = Try(config.getInt("cap_iterations")).getOrElse(1)
     AdditiveTrainerParams(
       numBins,
       numBags,
@@ -582,6 +587,7 @@ object AdditiveModelTrainer {
       smoothingByPercentage,
       linfinityThreshold,
       linfinityCap,
+      capIterations,
       threshold,
       epsilon,
       initParams,
