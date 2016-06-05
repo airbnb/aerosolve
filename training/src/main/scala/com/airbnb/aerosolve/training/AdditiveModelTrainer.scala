@@ -56,6 +56,7 @@ object AdditiveModelTrainer {
                                    rankKey: String,
                                    loss: LossParams,
                                    learningRate: Double,
+                                   positiveLearningRatio: Double,
                                    dropout: Double,
                                    subsample: Double,
                                    margin: Double,
@@ -290,6 +291,14 @@ object AdditiveModelTrainer {
     }
   }
 
+  def getLearningRate(label: Double, params: AdditiveTrainerParams):Float = {
+    if (params.positiveLearningRatio == 1 || label < 0) {
+      params.learningRate.toFloat
+    } else {
+      params.positiveLearningRatio.toFloat
+    }
+  }
+
   // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   // We rescale by 1 / p so that at inference time we don't have to scale by p.
   // In our case p = 1.0 - dropout rate
@@ -309,7 +318,7 @@ object AdditiveModelTrainer {
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
+    val gradWithLearningRate = grad.toFloat * getLearningRate(label, params) * classWeights(label.toInt)
     model.update(gradWithLearningRate,
       params.linfinityCap.toFloat,
       flatFeatures)
@@ -332,7 +341,7 @@ object AdditiveModelTrainer {
       (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
+      val gradWithLearningRate = -label.toFloat * getLearningRate(label, params) * classWeights(label.toInt)
       model.update(gradWithLearningRate,
         params.linfinityCap.toFloat,
         flatFeatures)
@@ -573,12 +582,14 @@ object AdditiveModelTrainer {
       priors, minCount, options)
     val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
     val capIterations: Int = Try(config.getInt("cap_iterations")).getOrElse(1)
+    val positiveLearningRatio:Double = Try(config.getDouble("positive_learning_ratio")).getOrElse(1)
     AdditiveTrainerParams(
       numBins,
       numBags,
       rankKey,
       lossParams,
       learningRate,
+      positiveLearningRatio,
       dropout,
       subsample,
       margin,
