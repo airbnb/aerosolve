@@ -58,12 +58,9 @@ public class MoveFloatToStringAndFloatTransform implements Transform {
     Set<String> stringOutput = Util.getOrCreateStringFeature(stringOutputName, stringFeatures);
 
     Map<String, Double> floatOutput = Util.getOrCreateFloatFeature(floatOutputName, floatFeatures);
+    Collection<String> localKeys = (keys == null)? input.keySet() : keys;
 
-    if (keys == null) {
-      keys = input.keySet();
-    }
-
-    for (String key : keys) {
+    for (String key : localKeys) {
       moveFloatToStringAndFloat(
         input, key, bucket, minBucket, maxBucket, stringOutput, floatOutput);
     }

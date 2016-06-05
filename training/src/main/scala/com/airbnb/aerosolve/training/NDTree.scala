@@ -2,6 +2,7 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
+import com.airbnb.aerosolve.training.utils.Sort
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -31,7 +32,7 @@ object NDTree {
       minLeafWidthPercentage: Double = 0,
       splitType: SplitType.Value = SplitType.Unspecified)
 
-  private case class Bounds(minima: Array[Double], maxima: Array[Double])
+  case class Bounds(minima: Array[Double], maxima: Array[Double])
 
   private case class Split(
     axisIndex: Int,
@@ -112,7 +113,8 @@ object NDTree {
     var makeLeaf = false
 
     if ((depth >= options.maxTreeDepth) ||
-        (indices.length <= options.minLeafCount) ||
+        // then at least one leaf is going to smaller than minLeafCount
+        (indices.length < 2 * options.minLeafCount) ||
         areBoundsOverlapping(bounds)) {
       log.debug(s"d ${depth} len ${indices.length}")
       log.debug(s"minima ${bounds.minima.mkString(",")}")
@@ -138,8 +140,8 @@ object NDTree {
             getSplitUsingSurfaceArea(points, indices, bounds, axis)
         }
 
-        if (split.leftIndices.length <= options.minLeafCount &&
-          split.rightIndices.length <= options.minLeafCount) {
+        if (split.leftIndices.length < options.minLeafCount ||
+          split.rightIndices.length < options.minLeafCount) {
           log.debug(s"${split.splitValue} leftIndices ${split.leftIndices.length} ${split.rightIndices.length}")
           makeLeaf = true
         } else {
@@ -225,28 +227,18 @@ object NDTree {
         Split(axisIndex, splitValue, left, right)
       } else {
         // no next greater element, so median happens to equal to both mix and max
+        // this will become a leaf.
         Split(0, 0.0, Array(), Array())
       }
     }
   }
 
-  private def getMedian(
-      points: Array[Array[Double]],
+  def getMedian(points: Array[Array[Double]],
       indices: Array[Int],
-      axisIndex: Int): Double = {
-    // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
-    // performance instead of O(nln(n)) performance
-    // TODO use https://github.com/scalanlp/breeze/blob/master/math/src/test/scala/breeze/util/SelectTest.scala
-    val sortedPoints = indices.map(i => points(i)(axisIndex)).sorted
-    val length = sortedPoints.length
-
-    val median = if ((length % 2) == 0) {
-      (sortedPoints(length / 2) + sortedPoints((length / 2) - 1)) / 2.0
-    } else {
-      sortedPoints(length / 2)
-    }
-
-    median
+      axisIndex: Int):Double = {
+    val axisPoints = indices.map(i => points(i)(axisIndex))
+    val length = axisPoints.length
+    Sort.quickSelect(axisPoints, length/2)
   }
 
   // Split using the surface area heuristic
@@ -254,6 +246,8 @@ object NDTree {
   // This minimizes the cost of the split which is defined as
   // P(S(L) | S(P)) * N_L + P(S(R) | S(P)) * N_R
   // which is the surface area of the sides weighted by point counts
+  // the idea is  to add the plane so that the surface areas of the two child spaces,
+  // weighted by the number of points in each child, are equal.
   private def getSplitUsingSurfaceArea(
       points: Array[Array[Double]],
       indices: Array[Int],
