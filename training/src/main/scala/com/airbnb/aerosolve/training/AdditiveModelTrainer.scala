@@ -56,7 +56,7 @@ object AdditiveModelTrainer {
                                    rankKey: String,
                                    loss: LossParams,
                                    learningRate: Double,
-                                   positiveLearningRatio: Double,
+                                   positiveLearningRate: Double,
                                    dropout: Double,
                                    subsample: Double,
                                    margin: Double,
@@ -292,10 +292,10 @@ object AdditiveModelTrainer {
   }
 
   def getLearningRate(label: Double, params: AdditiveTrainerParams):Float = {
-    if (params.positiveLearningRatio == 1 || label < 0) {
+    if (label <= 0) {
       params.learningRate.toFloat
     } else {
-      params.positiveLearningRatio.toFloat
+      params.positiveLearningRate.toFloat
     }
   }
 
@@ -582,14 +582,15 @@ object AdditiveModelTrainer {
       priors, minCount, options)
     val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
     val capIterations: Int = Try(config.getInt("cap_iterations")).getOrElse(1)
-    val positiveLearningRatio:Double = Try(config.getDouble("positive_learning_ratio")).getOrElse(1)
+    val positiveLearningRate:Double = Try(config.getDouble("positive_learning_rate")).
+      getOrElse(learningRate)
     AdditiveTrainerParams(
       numBins,
       numBags,
       rankKey,
       lossParams,
       learningRate,
-      positiveLearningRatio,
+      positiveLearningRate,
       dropout,
       subsample,
       margin,
