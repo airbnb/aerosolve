@@ -16,6 +16,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.SQLContext
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -340,9 +341,7 @@ object GenericPipeline {
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
 
     val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
-
-    val hc = new HiveContext(sc)
-    val hiveTraining = hc.sql(query)
+    val hiveTraining = runQuery(sc, query)
 
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
     val lastIdx = schema.size - 1
@@ -386,8 +385,7 @@ object GenericPipeline {
 
     val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
 
-    val hc = new HiveContext(sc)
-    val hiveTraining = hc.sql(query)
+    val hiveTraining = runQuery(sc, query)
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
     val lastIdx = schema.size - 1
 
@@ -507,8 +505,7 @@ object GenericPipeline {
       sc: SparkContext,
       query: String,
       isMulticlass: Boolean = false): RDD[Example] = {
-    val hc = new HiveContext(sc)
-    val hiveTraining = hc.sql(query)
+    val hiveTraining = runQuery(sc, query)
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
 
     hiveTraining
@@ -530,6 +527,27 @@ object GenericPipeline {
       .textFile(inputPattern)
       .map(Util.decodeExample)
     examples
+  }
+
+  def runQuery(
+      sc: SparkContext,
+      query: String): DataFrame = {
+    val queryRunner = if (query.toLowerCase().contains("com.databricks.spark.csv")) {
+      // This query is operating on a file; use generic SQLContext
+      new SQLContext(sc)
+    } else {
+      // This query should be run in Hive
+      new HiveContext(sc)
+    }
+
+    val queryComponents = query.split(";")
+
+    queryComponents.slice(0, queryComponents.length - 1).foreach(queryComponent => {
+      queryRunner.sql(queryComponent)
+    })
+
+    // Return results of last query component
+    queryRunner.sql(queryComponents.last)
   }
 
   def evalCalibration(
