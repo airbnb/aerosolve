@@ -64,6 +64,7 @@ object AdditiveModelTrainer {
                                    smoothingByPercentage: Boolean,
                                    linfinityThreshold: Double,
                                    linfinityCap: Double,
+                                   capIterations: Int,
                                    threshold: Double,
                                    epsilon: Double, // epsilon used in epsilon-insensitive loss for regression training
                                    init: InitParams,
@@ -102,6 +103,11 @@ object AdditiveModelTrainer {
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
       val newModel = sgdTrain(transformed, sgdParams, modelBC)
+
+      if ((i % params.capIterations) == 0) {
+        deleteSmallFunctions(model, params.linfinityThreshold)
+      }
+
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       if (params.loss.useBestLoss) {
@@ -164,7 +170,6 @@ object AdditiveModelTrainer {
         }
       })
 
-    deleteSmallFunctions(model, params.linfinityThreshold)
     model
   }
 
@@ -285,6 +290,10 @@ object AdditiveModelTrainer {
     }
   }
 
+  def getLearningRate(label: Double, params: AdditiveTrainerParams):Float = {
+    params.classWeights(label.toInt) * params.learningRate.toFloat
+  }
+
   // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   // We rescale by 1 / p so that at inference time we don't have to scale by p.
   // In our case p = 1.0 - dropout rate
@@ -292,7 +301,6 @@ object AdditiveModelTrainer {
                      fv: FeatureVector,
                      label: Double,
                      params: AdditiveTrainerParams): Double = {
-    val classWeights = params.classWeights
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -304,7 +312,7 @@ object AdditiveModelTrainer {
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val gradWithLearningRate = grad.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
+    val gradWithLearningRate = grad.toFloat * getLearningRate(label, params)
     model.update(gradWithLearningRate,
       params.linfinityCap.toFloat,
       flatFeatures)
@@ -318,7 +326,6 @@ object AdditiveModelTrainer {
                   fv: FeatureVector,
                   label: Double,
                   params: AdditiveTrainerParams): Double = {
-    val classWeights = params.classWeights
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -327,7 +334,7 @@ object AdditiveModelTrainer {
       (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val gradWithLearningRate = -label.toFloat * params.learningRate.toFloat * classWeights(label.toInt)
+      val gradWithLearningRate = -label.toFloat * getLearningRate(label, params)
       model.update(gradWithLearningRate,
         params.linfinityCap.toFloat,
         flatFeatures)
@@ -567,7 +574,7 @@ object AdditiveModelTrainer {
       linearFeatureFamilies,
       priors, minCount, options)
     val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
-
+    val capIterations: Int = Try(config.getInt("cap_iterations")).getOrElse(1)
     AdditiveTrainerParams(
       numBins,
       numBags,
@@ -582,6 +589,7 @@ object AdditiveModelTrainer {
       smoothingByPercentage,
       linfinityThreshold,
       linfinityCap,
+      capIterations,
       threshold,
       epsilon,
       initParams,

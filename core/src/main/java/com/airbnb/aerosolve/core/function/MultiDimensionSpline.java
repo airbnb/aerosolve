@@ -58,6 +58,10 @@ public class MultiDimensionSpline implements Function {
     updateWeights(weights);
   }
 
+  public String getWeightsString() {
+    return weights.values().toString();
+  }
+
   // Spline is multi scale, so it needs numBins
   // MultiDimensionSpline does not support multi scale.
   @Override
