@@ -74,11 +74,11 @@ object DecisionTreeTrainer {
 
     val ex = examples(0)
     val numFeatures = LinearRankerUtils.getNumFeatures(ex, rankKey)
-    val maxFeatures : Int = config.getString(key + ".max_features") match {
-      case "all" => numFeatures
+    val maxFeatures : Int =  Try(config.getString(key + ".max_features")).getOrElse("all") match {
+      case "all" => Int.MaxValue
       case "sqrt" => math.sqrt(numFeatures).ceil.toInt
       case "log2" => math.max(1, (math.log(numFeatures) / math.log(2)).ceil.toInt)
-      case _ => numFeatures
+      case _ => Int.MaxValue
     }
 
     val stumps = new util.ArrayList[ModelRecord]()
