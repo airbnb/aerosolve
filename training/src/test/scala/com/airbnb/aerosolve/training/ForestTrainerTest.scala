@@ -31,6 +31,7 @@ class ForestTrainerTest {
       |  min_leaf_items : 5
       |  num_tries : 100
       |  num_trees : 5
+      |  max_features : "sqrt"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform

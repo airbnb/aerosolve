@@ -72,6 +72,15 @@ object DecisionTreeTrainer {
         .filter(x => x.contains(rankKey))
         .take(candidateSize)
 
+    val ex = examples(0)
+    val numFeatures = LinearRankerUtils.getNumFeatures(ex, rankKey)
+    val maxFeatures : Int = config.getString(key + ".max_features") match {
+      case "all" => numFeatures
+      case "sqrt" => math.sqrt(numFeatures).ceil.toInt
+      case "log2" => math.max(1, (math.log(numFeatures) / math.log(2)).ceil.toInt)
+      case _ => numFeatures
+    }
+
     val stumps = new util.ArrayList[ModelRecord]()
     stumps.append(new ModelRecord)
 
@@ -83,6 +92,7 @@ object DecisionTreeTrainer {
       maxDepth,
       rankKey,
       rankThreshold,
+      maxFeatures,
       numTries,
       minLeafCount,
       SplitCriteria.splitCriteriaFromName(splitCriteriaName)
@@ -102,6 +112,7 @@ object DecisionTreeTrainer {
       maxDepth : Int,
       rankKey : String,
       rankThreshold : Double,
+      maxFeatures : Int,
       numTries : Int,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value) : Unit = {
@@ -114,6 +125,7 @@ object DecisionTreeTrainer {
       examples,
       rankKey,
       rankThreshold,
+      maxFeatures,
       numTries,
       minLeafCount,
       splitCriteria
@@ -144,6 +156,7 @@ object DecisionTreeTrainer {
       maxDepth,
       rankKey,
       rankThreshold,
+      maxFeatures,
       numTries,
       minLeafCount,
       splitCriteria
@@ -157,6 +170,7 @@ object DecisionTreeTrainer {
       maxDepth,
       rankKey,
       rankThreshold,
+      maxFeatures,
       numTries,
       minLeafCount,
       splitCriteria
@@ -246,6 +260,7 @@ object DecisionTreeTrainer {
       examples : Array[util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]]],
       rankKey : String,
       rankThreshold : Double,
+      maxFeatures : Int,
       numTries : Int,
       minLeafCount : Int,
       splitCriteria : SplitCriteria.Value) : Option[ModelRecord] = {
@@ -261,7 +276,7 @@ object DecisionTreeTrainer {
         // Pick an example index randomly
         val idx = rnd.nextInt(examples.length)
         val ex = examples(idx)
-        val candidateOpt = getCandidateSplit(ex, rankKey, rnd)
+        val candidateOpt = getCandidateSplit(ex, rankKey, maxFeatures, rnd)
 
         if (candidateOpt.isDefined) {
           val candidateValue = SplitCriteria.getCriteriaType(splitCriteria) match {
@@ -501,9 +516,10 @@ object DecisionTreeTrainer {
   def getCandidateSplit(
       ex : util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]],
       rankKey : String,
+      maxFeatures : Int,
       rnd : Random) : Option[ModelRecord] = {
     // Flatten the features and pick one randomly.
-    val features = collection.mutable.ArrayBuffer[(String, String, Double)]()
+    var features = collection.mutable.ArrayBuffer[(String, String, Double)]()
 
     for (family <- ex) {
       if (!family._1.equals(rankKey)) {
@@ -516,6 +532,9 @@ object DecisionTreeTrainer {
     if (features.isEmpty) {
       None
     } else {
+      // Use a random subset of features for each split
+      features = Random.shuffle(features).slice(0, maxFeatures)
+
       val idx = rnd.nextInt(features.size)
       val rec = new ModelRecord()
 

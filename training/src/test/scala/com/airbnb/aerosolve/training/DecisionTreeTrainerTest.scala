@@ -31,6 +31,7 @@ class DecisionTreeTrainerTest {
       |  max_depth : 4
       |  min_leaf_items : 5
       |  num_tries : 10
+      |  max_features : "sqrt"
       |  context_transform : identity_transform
       |  item_transform : identity_transform
       |  combined_transform : identity_transform
