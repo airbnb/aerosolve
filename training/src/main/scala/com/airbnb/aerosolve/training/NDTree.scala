@@ -2,11 +2,10 @@ package com.airbnb.aerosolve.training
 
 import com.airbnb.aerosolve.core.NDTreeNode
 import com.airbnb.aerosolve.core.models.NDTreeModel
-import com.airbnb.aerosolve.training.utils.Sort
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 
 /*
  * Enum that describes what type of splitting algorithm should be used when constructing the tree
@@ -233,12 +232,23 @@ object NDTree {
     }
   }
 
-  def getMedian(points: Array[Array[Double]],
-      indices: Array[Int],
-      axisIndex: Int):Double = {
-    val axisPoints = indices.map(i => points(i)(axisIndex))
-    val length = axisPoints.length
-    Sort.quickSelect(axisPoints, length/2)
+  private def getMedian(
+    points: Array[Array[Double]],
+    indices: Array[Int],
+    axisIndex: Int): Double = {
+    // TODO (christhetree): use median of medians algorithm (quick select) for O(n)
+    // performance instead of O(nln(n)) performance
+    // TODO use https://github.com/scalanlp/breeze/blob/master/math/src/test/scala/breeze/util/SelectTest.scala
+    val sortedPoints = indices.map(i => points(i)(axisIndex)).sorted
+    val length = sortedPoints.length
+
+    val median = if ((length % 2) == 0) {
+      (sortedPoints(length / 2) + sortedPoints((length / 2) - 1)) / 2.0
+    } else {
+      sortedPoints(length / 2)
+    }
+
+    median
   }
 
   // Split using the surface area heuristic
