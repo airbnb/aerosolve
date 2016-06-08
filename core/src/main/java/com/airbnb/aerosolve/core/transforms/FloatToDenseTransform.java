@@ -20,13 +20,14 @@ import java.util.Map;
 public class FloatToDenseTransform implements Transform{
   private List<String> fields;
   private List<String> keys;
-  private String outputName;
   private String outputStringFamily;
   private static final int featureAVGSize = 16;
   @Override
   public void configure(Config config, String key) {
-    outputStringFamily = config.getString(key + ".string_output");
-    outputName = config.getString(key + ".output");
+    String path = key + ".string_output";
+    if (config.hasPath(path)) {
+      outputStringFamily = config.getString(path);
+    }
     keys = config.getStringList(key + ".keys");
     fields = config.getStringList(key + ".fields");
     if (fields.size() != keys.size() || fields.size() <= 1) {
@@ -44,7 +45,6 @@ public class FloatToDenseTransform implements Transform{
     }
     int size = fields.size();
     StringBuilder sb = new StringBuilder((size + 1) * featureAVGSize);
-    sb.append(outputName);
     List<Double> output = new ArrayList<>(size);
     Map<String, Double> floatFamily = null;
     for (int i = 0; i < size; ++i) {
@@ -67,7 +67,9 @@ public class FloatToDenseTransform implements Transform{
 
     switch (output.size()) {
       case 0: {
-        Util.setStringFeature(featureVector, outputStringFamily, sb.toString());
+        if (outputStringFamily != null) {
+          Util.setStringFeature(featureVector, outputStringFamily, sb.toString());
+        }
       }
       break;
       case 1: {

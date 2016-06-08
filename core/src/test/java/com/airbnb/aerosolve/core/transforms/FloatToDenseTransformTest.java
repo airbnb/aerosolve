@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -12,8 +13,10 @@ import java.util.Set;
 
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+@Slf4j
 public class FloatToDenseTransformTest {
   public String makeConfig() {
     return "test_float_cross_float {\n" +
@@ -21,7 +24,14 @@ public class FloatToDenseTransformTest {
         " fields : [floatFeature1,floatFeature1,floatFeature2]\n" +
         " keys : [x,y,z]\n" +
         " string_output : string\n" +
-        " output : dense\n" +
+        "}";
+  }
+
+  public String notStringConfig() {
+    return "test_float_cross_float {\n" +
+        " transform : float_to_dense\n" +
+        " fields : [floatFeature1,floatFeature1,floatFeature2]\n" +
+        " keys : [x,y,z]\n" +
         "}";
   }
 
@@ -124,7 +134,7 @@ public class FloatToDenseTransformTest {
     assertNotNull(denseFeatures);
     assertEquals(1, denseFeatures.size());
 
-    List<Double> out = denseFeatures.get("dense^x^y^z");
+    List<Double> out = denseFeatures.get("^x^y^z");
 
     assertEquals(3, out.size());
 
@@ -141,7 +151,7 @@ public class FloatToDenseTransformTest {
     assertNotNull(denseFeatures);
     assertEquals(1, denseFeatures.size());
 
-    List<Double> out = denseFeatures.get("dense^x^y:null^z");
+    List<Double> out = denseFeatures.get("^x^y:null^z");
 
     assertEquals(2, out.size());
 
@@ -161,7 +171,7 @@ public class FloatToDenseTransformTest {
 
     assertEquals(3, out.size());
 
-    assertEquals(50.0, out.get("dense^x^y:null^z:null"), 0.01);
+    assertEquals(50.0, out.get("^x^y:null^z:null"), 0.01);
   }
 
   @Test
@@ -175,12 +185,23 @@ public class FloatToDenseTransformTest {
     Set<String> out = features.get("string");
 
     assertEquals(1, out.size());
-
-    assertNotNull(out.contains("dense^x:null^y:null^z:null"));
+    assertTrue(out.contains("^x:null^y:null^z:null"));
   }
 
+  @Test
+  public void testNoString() {
+    FeatureVector featureVector = testTransform(makeFeatureVectorString(), notStringConfig());
+    Map<String, Set<String>> features = featureVector.getStringFeatures();
+
+    assertNull(features);
+   }
+
   public FeatureVector testTransform(FeatureVector featureVector) {
-    Config config = ConfigFactory.parseString(makeConfig());
+    return testTransform(featureVector, makeConfig());
+  }
+
+  public FeatureVector testTransform(FeatureVector featureVector, String cfg) {
+    Config config = ConfigFactory.parseString(cfg);
     Transform transform = TransformFactory.createTransform(config, "test_float_cross_float");
     transform.doTransform(featureVector);
     return featureVector;

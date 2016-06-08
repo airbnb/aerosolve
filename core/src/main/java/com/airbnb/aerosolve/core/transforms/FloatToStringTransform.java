@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Similar to MoveFloatToStringAndFloat, however, just move defined float value into String Feature
+ * Similar to MoveFloatToStringTransform, however, just move defined float value into String Feature
  * not using bucket. This is used when there are certain number of incorrect data,
  * i.e. x = 0 doesn't mean it is worse than x = 0.00001, it just somewhere in the pipeline
  * make null = 0, so before we fixed the pipeline, convert it to string feature.
