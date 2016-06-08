@@ -57,6 +57,22 @@ public class FloatToDenseTransformTest {
     return featureVector;
   }
 
+  public FeatureVector makeFeatureVectorMissFamily() {
+    Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
+
+    Map<String, Double> floatFeature1 = new HashMap<>();
+
+    floatFeature1.put("x", 50.0);
+    floatFeature1.put("y", 1.3);
+    floatFeature1.put("s", 2000.0);
+
+    floatFeatures.put("floatFeature1", floatFeature1);
+
+    FeatureVector featureVector = new FeatureVector();
+    featureVector.setFloatFeatures(floatFeatures);
+    return featureVector;
+  }
+
   public FeatureVector makeFeatureVectorPartial() {
     Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
 
@@ -141,6 +157,22 @@ public class FloatToDenseTransformTest {
     assertEquals(50.0, out.get(0), 0.01);
     assertEquals(1.3, out.get(1), 0.01);
     assertEquals(2000, out.get(2), 0.01);
+  }
+
+  @Test
+  public void testMissFamily() {
+    FeatureVector featureVector = testTransform(makeFeatureVectorMissFamily());
+    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
+
+    assertNotNull(denseFeatures);
+    assertEquals(1, denseFeatures.size());
+
+    List<Double> out = denseFeatures.get("^x^y^z:null");
+
+    assertEquals(2, out.size());
+
+    assertEquals(50.0, out.get(0), 0.01);
+    assertEquals(1.3, out.get(1), 0.01);
   }
 
   @Test

@@ -50,13 +50,13 @@ public class FloatToDenseTransform implements Transform{
     for (int i = 0; i < size; ++i) {
       String familyName = fields.get(i);
       Map<String, Double> family = floatFeatures.get(familyName);
-      if (family == null) {
-        continue;
-      }
-      String featureName = keys.get(i);
-      Double feature = family.get(keys.get(i));
       sb.append('^');
+      String featureName = keys.get(i);
       sb.append(featureName);
+      Double feature = null;
+      if (family != null) {
+        feature = family.get(keys.get(i));
+      }
       if (feature != null) {
         output.add(feature);
         floatFamily = family;
