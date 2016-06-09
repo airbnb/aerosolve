@@ -87,6 +87,19 @@ object AdditiveModelTrainer {
     }
   }
 
+  // save init model to avoid recompute dynamic bucketing
+  def saveInitModel(sc: SparkContext,
+    input: Double => RDD[Example],
+    config: Config,
+    key: String): Unit = {
+    val trainConfig = config.getConfig(key)
+    val params = loadTrainingParameters(trainConfig)
+    val transformed = (frac: Double) => LinearRankerUtils.makePointwiseFloat(input(frac), config, key)
+    val model = modelInitialization(sc, transformed, params)
+    val output = config.getString(key + ".model_output")
+    TrainingUtils.saveModel(model, output)
+  }
+
   def train(sc: SparkContext,
             input: Double => RDD[Example],
             config: Config,
