@@ -56,6 +56,8 @@ object AdditiveModelTrainer {
                                    rankKey: String,
                                    loss: LossParams,
                                    learningRate: Double,
+                                   minLearningRate: Double,
+                                   learningRateDecay: Double,
                                    dropout: Double,
                                    subsample: Double,
                                    margin: Double,
@@ -77,6 +79,14 @@ object AdditiveModelTrainer {
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
     train(sc, (frac: Double) => input.sample(false, frac), config, key)
 
+  def getDecayLearningRate(learningRate: Double, params: AdditiveTrainerParams): Double = {
+    if (params.learningRate == params.minLearningRate) {
+      params.learningRate
+    } else {
+      scala.math.max(params.minLearningRate, learningRate * params.learningRateDecay)
+    }
+  }
+
   def train(sc: SparkContext,
             input: Double => RDD[Example],
             config: Config,
@@ -94,6 +104,7 @@ object AdditiveModelTrainer {
     val paramsBC = sc.broadcast(params)
     var model = modelInitialization(sc, transformed, params)
     var loss = Double.MaxValue
+    var learningRate = params.learningRate
     for (i <- 1 to iterations
          if loss >= params.loss.minLoss) {
       log.info(s"Iteration $i")
@@ -102,8 +113,9 @@ object AdditiveModelTrainer {
         sc.accumulator(0),
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
-      val newModel = sgdTrain(transformed, sgdParams, modelBC)
-
+      val newModel = sgdTrain(
+        transformed, sgdParams, modelBC, learningRate)
+      learningRate = getDecayLearningRate(learningRate, params)
       if ((i % params.capIterations) == 0) {
         deleteSmallFunctions(model, params.linfinityThreshold)
       }
@@ -143,7 +155,8 @@ object AdditiveModelTrainer {
     */
   def sgdTrain(input: Double => RDD[Example],
                sgdParams: SgdParams,
-               modelBC: Broadcast[AdditiveModel]): AdditiveModel = {
+               modelBC: Broadcast[AdditiveModel],
+               learningRate: Double): AdditiveModel = {
     val model = modelBC.value
     val params = sgdParams.paramsBC.value
     val data = input(params.subsample)
@@ -154,7 +167,8 @@ object AdditiveModelTrainer {
       data.checkpoint()
     }
 
-    data.mapPartitionsWithIndex((index, partition) => sgdPartition(index, partition, modelBC, sgdParams))
+    data.mapPartitionsWithIndex((index, partition) => sgdPartition(
+        index, partition, modelBC, sgdParams, learningRate))
       .groupByKey()
       // Average the feature functions
       // Average the weights
@@ -186,7 +200,8 @@ object AdditiveModelTrainer {
   def sgdPartition(index: Int,
                    partition: Iterator[Example],
                    modelBC: Broadcast[AdditiveModel],
-                   sgdParams: SgdParams): Iterator[((String, String), Function)] = {
+                   sgdParams: SgdParams,
+                   learningRate: Double): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value.clone()
     val multiscale = sgdParams.paramsBC.value.multiscale
 
@@ -201,7 +216,7 @@ object AdditiveModelTrainer {
       }
     }
 
-    val output = sgdPartitionInternal(partition, workingModel, sgdParams)
+    val output = sgdPartitionInternal(partition, workingModel, sgdParams, learningRate)
     output.iterator
   }
 
@@ -235,13 +250,15 @@ object AdditiveModelTrainer {
     */
   private def sgdPartitionInternal(partition: Iterator[Example],
                                    workingModel: AdditiveModel,
-                                   sgdParams: SgdParams): mutable.HashMap[(String, String), Function] = {
+                                   sgdParams: SgdParams,
+                                   learningRate: Double): mutable.HashMap[(String, String), Function] = {
     var lossTotal: Double = 0.0
     var lossSum: Double = 0.0
     var lossCount: Int = 0
     val params = sgdParams.paramsBC.value
     partition.foreach(example => {
-      val lossValue = pointwiseLoss(example.example.get(0), workingModel, params.loss.function, params)
+      val lossValue = pointwiseLoss(
+        example.example.get(0), workingModel, params.loss.function, params, learningRate)
       lossSum += lossValue
       lossTotal += lossValue
       lossCount = lossCount + 1
@@ -276,7 +293,8 @@ object AdditiveModelTrainer {
   def pointwiseLoss(fv: FeatureVector,
                     workingModel: AdditiveModel,
                     loss: String,
-                    params: AdditiveTrainerParams): Double = {
+                    params: AdditiveTrainerParams,
+                    learningRate: Double): Double = {
     val label: Double = if (loss == "regression") {
       TrainingUtils.getLabel(fv, params.rankKey)
     } else {
@@ -284,14 +302,14 @@ object AdditiveModelTrainer {
     }
 
     loss match {
-      case "logistic" => updateLogistic(workingModel, fv, label, params)
-      case "hinge" => updateHinge(workingModel, fv, label, params)
-      case "regression" => updateRegressor(workingModel, fv, label, params)
+      case "logistic" => updateLogistic(workingModel, fv, label, params, learningRate)
+      case "hinge" => updateHinge(workingModel, fv, label, params, learningRate)
+      case "regression" => updateRegressor(workingModel, fv, label, params, learningRate)
     }
   }
 
-  def getLearningRate(label: Double, params: AdditiveTrainerParams):Float = {
-    params.classWeights(label.toInt) * params.learningRate.toFloat
+  def getLearningRate(label: Double, params: AdditiveTrainerParams, learningRate: Double):Float = {
+    params.classWeights(label.toInt) * learningRate.toFloat
   }
 
   // http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
@@ -300,7 +318,7 @@ object AdditiveModelTrainer {
   def updateLogistic(model: AdditiveModel,
                      fv: FeatureVector,
                      label: Double,
-                     params: AdditiveTrainerParams): Double = {
+                     params: AdditiveTrainerParams, learningRate: Double): Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -312,7 +330,7 @@ object AdditiveModelTrainer {
     val expCorr = scala.math.exp(corr)
     val loss = scala.math.log(1.0 + 1.0 / expCorr)
     val grad = -label / (1.0 + expCorr)
-    val gradWithLearningRate = grad.toFloat * getLearningRate(label, params)
+    val gradWithLearningRate = grad.toFloat * getLearningRate(label, params, learningRate)
     model.update(gradWithLearningRate,
       params.linfinityCap.toFloat,
       flatFeatures)
@@ -325,7 +343,8 @@ object AdditiveModelTrainer {
   def updateHinge(model: AdditiveModel,
                   fv: FeatureVector,
                   label: Double,
-                  params: AdditiveTrainerParams): Double = {
+                  params: AdditiveTrainerParams,
+                  learningRate: Double): Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -334,7 +353,7 @@ object AdditiveModelTrainer {
       (1.0 - params.dropout)
     val loss = scala.math.max(0.0, params.margin - label * prediction)
     if (loss > 0.0) {
-      val gradWithLearningRate = -label.toFloat * getLearningRate(label, params)
+      val gradWithLearningRate = -label.toFloat * getLearningRate(label, params, learningRate)
       model.update(gradWithLearningRate,
         params.linfinityCap.toFloat,
         flatFeatures)
@@ -348,7 +367,8 @@ object AdditiveModelTrainer {
   def updateRegressor(model: AdditiveModel,
                       fv: FeatureVector,
                       label: Double,
-                      params: AdditiveTrainerParams): Double = {
+                      params: AdditiveTrainerParams,
+                      learningRate: Double): Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
@@ -358,14 +378,14 @@ object AdditiveModelTrainer {
     // absolute difference
     val loss = math.abs(prediction - label)
     if (prediction - label > params.epsilon) {
-      model.update(params.learningRate.toFloat,
+      model.update(learningRate.toFloat,
         params.linfinityCap.toFloat, flatFeatures)
-      model.updateDense(params.learningRate.toFloat,
+      model.updateDense(learningRate.toFloat,
         params.linfinityCap.toFloat, denseFeatures)
     } else if (prediction - label < -params.epsilon) {
-      model.update(-params.learningRate.toFloat,
+      model.update(-learningRate.toFloat,
         params.linfinityCap.toFloat, flatFeatures)
-      model.updateDense(-params.learningRate.toFloat,
+      model.updateDense(-learningRate.toFloat,
         params.linfinityCap.toFloat, denseFeatures)
     }
     loss
@@ -512,6 +532,10 @@ object AdditiveModelTrainer {
     val numBags: Int = config.getInt("num_bags")
     val rankKey: String = config.getString("rank_key")
     val learningRate: Double = config.getDouble("learning_rate")
+    val minLearningRate: Double =
+      Try(config.getDouble("min_learning_rate")).getOrElse(learningRate)
+    val learningRateDecay: Double =
+      Try(config.getDouble("learning_rate_decay")).getOrElse(1)
     val dropout: Double = config.getDouble("dropout")
     val subsample: Double = config.getDouble("subsample")
     val linfinityCap: Double = config.getDouble("linfinity_cap")
@@ -581,6 +605,8 @@ object AdditiveModelTrainer {
       rankKey,
       lossParams,
       learningRate,
+      minLearningRate,
+      learningRateDecay,
       dropout,
       subsample,
       margin,
