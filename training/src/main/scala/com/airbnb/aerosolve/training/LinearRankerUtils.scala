@@ -9,6 +9,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
+import java.util
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 import scala.collection.mutable.ArrayBuffer
@@ -32,6 +33,19 @@ object LinearRankerUtils {
       })
     })
     features.toArray
+  }
+
+  def getNumFeatures(ex : util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]],
+                     rankKey : String) : Int = {
+    // Get the number of features in the example excluding the label
+    var numFeature = 0
+
+    for (family <- ex) {
+      if (!family._1.equals(rankKey)) {
+        numFeature += family._2.size
+      }
+    }
+    numFeature
   }
 
   // Does feature expansion on an example and buckets them by rank.

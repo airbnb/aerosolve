@@ -219,6 +219,7 @@ object BoostedForestTrainer {
         params.maxDepth,
         params.rankKey,
         params.rankThreshold,
+        Int.MaxValue,
         params.numTries,
         params.minLeafCount,
         SplitCriteria.splitCriteriaFromName(params.splitCriteria))
