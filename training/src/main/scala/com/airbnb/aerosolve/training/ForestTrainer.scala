@@ -46,7 +46,7 @@ object ForestTrainer {
 
     val ex = examples.take(1)(0)
     val numFeatures = LinearRankerUtils.getNumFeatures(ex, rankKey)
-    val maxFeatures : Int = Try(config.getString(key + ".max_features")).getOrElse("all") match {
+    val maxFeatures : Int = Try(config.getString(key + ".max_features")).getOrElse("sqrt") match {
       case "all" => Int.MaxValue
       case "sqrt" => math.sqrt(numFeatures).ceil.toInt
       case "log2" => math.max(1, (math.log(numFeatures) / math.log(2)).ceil.toInt)
