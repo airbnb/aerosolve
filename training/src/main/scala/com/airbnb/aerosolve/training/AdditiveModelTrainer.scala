@@ -32,7 +32,7 @@ import scala.util.Try
 object AdditiveModelTrainer {
   private final val log: Logger = LoggerFactory.getLogger("AdditiveModelTrainer")
 
-  case class SgdParams(paramsBC: Broadcast[AdditiveTrainerParams],
+  case class SgdParams(params: AdditiveTrainerParams,
                        exampleCount: Accumulator[Long],
                        loss: Accumulator[Double])
 
@@ -114,7 +114,6 @@ object AdditiveModelTrainer {
     val output = config.getString(key + ".model_output")
     log.info("Training using " + params.loss)
 
-    val paramsBC = sc.broadcast(params)
     var model = modelInitialization(sc, transformed, params)
     var loss = Double.MaxValue
     var learningRate = params.learningRate
@@ -122,7 +121,7 @@ object AdditiveModelTrainer {
          if loss >= params.loss.minLoss) {
       log.info(s"Iteration $i")
       val sgdParams = SgdParams(
-        paramsBC,
+        params,
         sc.accumulator(0),
         sc.accumulator(0))
       val modelBC = sc.broadcast(model)
@@ -171,7 +170,7 @@ object AdditiveModelTrainer {
                modelBC: Broadcast[AdditiveModel],
                learningRate: Double): AdditiveModel = {
     val model = modelBC.value
-    val params = sgdParams.paramsBC.value
+    val params = sgdParams.params
     val data = input(params.subsample)
       .coalesce(params.numBags, params.shuffle)
 
@@ -216,7 +215,7 @@ object AdditiveModelTrainer {
                    sgdParams: SgdParams,
                    learningRate: Double): Iterator[((String, String), Function)] = {
     val workingModel = modelBC.value.clone()
-    val multiscale = sgdParams.paramsBC.value.multiscale
+    val multiscale = sgdParams.params.multiscale
 
     if (multiscale.nonEmpty) {
       val newBins = multiscale(index % multiscale.length)
@@ -268,7 +267,7 @@ object AdditiveModelTrainer {
     var lossTotal: Double = 0.0
     var lossSum: Double = 0.0
     var lossCount: Int = 0
-    val params = sgdParams.paramsBC.value
+    val params = sgdParams.params
     partition.foreach(example => {
       val lossValue = pointwiseLoss(
         example.example.get(0), workingModel, params.loss.function, params, learningRate)
