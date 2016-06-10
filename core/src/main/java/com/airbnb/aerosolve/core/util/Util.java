@@ -10,6 +10,7 @@ import com.airbnb.aerosolve.core.*;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TDeserializer;
@@ -19,6 +20,7 @@ import java.io.*;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 
+@Slf4j
 public class Util implements Serializable {
   private static double LOG2 = Math.log(2);
   // Coder / decoder utilities for various protos. This makes it easy to
@@ -377,6 +379,22 @@ public class Util implements Serializable {
     }
     Collections.sort(debugDiffRecord, new DebugDiffRecordComparator());
     return debugDiffRecord;
+  }
+
+  public static <T> Set<T> getIntersection(Set<T> a, Set<T> b) {
+    if (a == null) {
+      return b;
+    }
+    if (b == null) {
+      return a;
+    }
+
+    Set<T> small = (a.size() > b.size())? b:a;
+    Set<T> big = (a.size() > b.size())? a:b;
+
+    Set<T> intersection = new HashSet<T>(small);
+    intersection.retainAll(big);
+    return intersection;
   }
 
   public static float euclideanDistance(float[] x, List<Float> y) {
