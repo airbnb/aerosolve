@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.core.transforms;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
 import java.util.List;
@@ -14,12 +15,20 @@ import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+@Slf4j
 public class FloatFamilyToDenseTransformTest {
   public String makeConfig() {
     return "test_float_cross_float {\n" +
         " transform : float_family_to_dense\n" +
         " field1 : floatFeature1 \n" +
         " field2 : floatFeature2 \n" +
+        "}";
+  }
+
+  public String makeSelfCrossConfig() {
+    return "test_float_cross_float {\n" +
+        " transform : float_family_to_dense\n" +
+        " field1 : floatFeature1 \n" +
         "}";
   }
 
@@ -62,4 +71,25 @@ public class FloatFamilyToDenseTransformTest {
 
     assertNull(denseFeatures);
   }
+
+  @Test
+  public void testSelfCross() {
+    FeatureVector featureVector = FloatToDenseTransformTest.testTransform(
+        makeFeatureVectorFull(), makeSelfCrossConfig());
+    Map<String, List<Double>> denseFeatures = featureVector.getDenseFeatures();
+
+    assertNotNull(denseFeatures);
+    assertEquals(3, denseFeatures.size());
+    log.debug("dense {}", denseFeatures);
+    List<Double> out = denseFeatures.get("s^x");
+
+    assertEquals(2, out.size());
+
+    assertEquals(2000, out.get(0), 0.01);
+    assertEquals(50.0, out.get(1), 0.01);
+    assertNull(denseFeatures.get("x^x"));
+    assertNotNull(denseFeatures.get("s^y"));
+    assertNotNull(denseFeatures.get("x^y"));
+  }
+
 }
