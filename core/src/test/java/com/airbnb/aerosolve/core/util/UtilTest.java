@@ -155,6 +155,6 @@ public class UtilTest {
     assertEquals(a, r);
 
     r = Util.getIntersection(null, b);
-    assertEquals(3, r.size());
+    assertEquals(0, r.size());
   }
 }

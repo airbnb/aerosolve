@@ -382,11 +382,8 @@ public class Util implements Serializable {
   }
 
   public static <T> Set<T> getIntersection(Set<T> a, Set<T> b) {
-    if (a == null) {
-      return b;
-    }
-    if (b == null) {
-      return a;
+    if (a == null || b == null) {
+      return Collections.EMPTY_SET;
     }
 
     Set<T> small = (a.size() > b.size())? b:a;

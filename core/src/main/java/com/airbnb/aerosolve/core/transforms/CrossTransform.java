@@ -53,8 +53,10 @@ public class CrossTransform implements Transform {
       stringFeatures.put(outputName, output);
     }
 
-    Set<String> localKeys1 = Util.getIntersection(keys1, set1);
-    Set<String> localKeys2 = Util.getIntersection(keys2, set2);
+    Set<String> localKeys1 = (keys1 == null) ? set1 : Util.getIntersection(keys1, set1);
+    if (localKeys1.isEmpty()) return;
+    Set<String> localKeys2 = (keys2 == null) ? set2 : Util.getIntersection(keys2, set2);
+    if (localKeys2.isEmpty()) return;
 
     cross(localKeys1, localKeys2, output);
   }
