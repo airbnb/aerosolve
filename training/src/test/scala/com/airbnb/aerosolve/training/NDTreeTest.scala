@@ -83,7 +83,7 @@ class NDTreeTest {
     val options = NDTreeBuildOptions(
       maxTreeDepth,
       minLeafCount = 10,
-      minLeafWidthPercentage = 1.0 / scala.math.pow(2, maxTreeDepth),
+      minLeafValuePercent = 1.0 / scala.math.pow(2, maxTreeDepth),
       splitType = SplitType.Median)
 
     val tree = NDTree(options, points.toArray)
@@ -312,7 +312,7 @@ class NDTreeTest {
     val options = NDTreeBuildOptions(
       maxTreeDepth = 6,
       minLeafCount = 30,
-      minLeafWidthPercentage = 0.05,
+      minLeafValuePercent = 0.05,
       splitType = SplitType.Median)
 
     val tree = NDTree(options, points.toArray)

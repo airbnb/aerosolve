@@ -27,7 +27,8 @@ object NDTreePipeline {
                                   checkPointDir: String,
                                   maxTreeDepth1Dimension: Int,
                                   maxTreeDepthPerDimension: Int,
-                                  minLeafCount: Int)
+                                  minLeafCountPercent: Double,
+                                  minLeafValuePercent: Double)
 
   case class FeatureStats(count: Double, min: Double, max: Double,
                           spline: Boolean = false)
@@ -41,9 +42,14 @@ object NDTreePipeline {
       sample: 0.01
       min_count: 200
       // max_tree_depth = max(max_tree_depth_1_dimension, max_tree_depth_per_dimension * dimension + 1)
-      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) - 1 )
+      max_tree_depth_1_dimension: 6  ( max nodes could be 2^(max_tree_depth) )
       max_tree_depth_per_dimension: 4
-      min_leaf_count: 200
+      // default 1/2^(max single dimension depth(max_tree_depth_1_dimension or max_tree_depth_per_dimension) + 2)
+      // if you set it to 0, it will be replaced with default value too.
+      min_leaf_value_percent: 0.01
+       // default value is 1/2^(max_tree_depth + 2)
+      // if you set it to 0, it will be replaced with default value too.
+      min_leaf_count_percent: 0.01
       // feature families in linear_feature should use linear
       linear_feature: ["L", "T", "L_x_T"]
       // if your job failed, try to set check_point to avoid rerun
@@ -74,7 +80,8 @@ object NDTreePipeline {
     val checkPointDir = Try(cfg.getString("check_point_dir")).getOrElse("")
     val maxTreeDepth1Dimension = cfg.getInt("max_tree_depth_1_dimension")
     val maxTreeDepthPerDimension = cfg.getInt("max_tree_depth_per_dimension")
-    val minLeafCount = cfg.getInt("min_leaf_count")
+    val minLeafCountPercent: Double = Try(cfg.getDouble("min_leaf_count_percent")).getOrElse(0)
+    val minLeafValuePercent: Double = Try(cfg.getDouble("min_leaf_value_percent")).getOrElse(0)
 
     NDTreePipelineParams(
       cfg.getDouble("sample"),
@@ -83,7 +90,8 @@ object NDTreePipeline {
       checkPointDir,
       maxTreeDepth1Dimension,
       maxTreeDepthPerDimension,
-      minLeafCount)
+      minLeafCountPercent,
+      minLeafValuePercent)
   }
 
   def buildFeatures(sc: SparkContext, config : Config):
@@ -101,10 +109,9 @@ object NDTreePipeline {
 
   def getFeatures(sc: SparkContext, input: RDD[Example], params: NDTreePipelineParams):
                   Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = {
-    val paramsBC = sc.broadcast(params)
     val featureRDD: RDD[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] =
       input.mapPartitions(partition => {
-        flattenExample(partition, paramsBC.value.linearFeatureFamilies)
+        flattenExample(partition, params.linearFeatureFamilies)
     }).reduceByKey((a, b) => {
         val result = a match {
           case Left(x) => {
@@ -123,15 +130,15 @@ object NDTreePipeline {
         val a = x._2
         a match {
           case Left(x) => {
-            x.size >= paramsBC.value.minCount
+            x.size >= params.minCount
           }
           case Right(y) => {
-            y.count >= paramsBC.value.minCount
+            y.count >= params.minCount
           }
         }
       })
-    if (!paramsBC.value.checkPointDir.isEmpty) {
-      sc.setCheckpointDir(paramsBC.value.checkPointDir)
+    if (!params.checkPointDir.isEmpty) {
+      sc.setCheckpointDir(params.checkPointDir)
       featureRDD.checkpoint()
     }
 
@@ -145,16 +152,28 @@ object NDTreePipeline {
             // FloatToDense transform make sure all array in y are same size.
             // so we just pick first one to get the dimension
             val dimension = y(0).length
-            val minLeafWidthPercentage: Double = if (dimension == 1) {
-              1.0/scala.math.pow(2, paramsBC.value.maxTreeDepth1Dimension)
+
+            val minLeafValuePercent: Double = if (params.minLeafValuePercent != 0) {
+              params.minLeafValuePercent
+            } else if (dimension == 1) {
+              1.0/scala.math.pow(2, params.maxTreeDepth1Dimension + 2)
             } else {
-              1.0/scala.math.pow(2, paramsBC.value.maxTreeDepthPerDimension)
+              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension + 2 )
             }
+
+            val minLeafCountPercent: Double = if (params.minLeafCountPercent != 0) {
+              params.minLeafCountPercent
+            } else if (dimension == 1) {
+              1.0/scala.math.pow(2, params.maxTreeDepth1Dimension + 2)
+            } else {
+              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension * dimension + 2 )
+            }
+
             val options = NDTreeBuildOptions(
-              math.max(paramsBC.value.maxTreeDepth1Dimension + 1,
-                paramsBC.value.maxTreeDepthPerDimension * dimension + 1),
-                paramsBC.value.minLeafCount,
-                minLeafWidthPercentage)
+              math.max(params.maxTreeDepth1Dimension + 1,
+                params.maxTreeDepthPerDimension * dimension + 1),
+                (minLeafCountPercent * y.length).toInt,
+                minLeafValuePercent)
 
               ((x._1._1, x._1._2), Left(NDTree.buildTree(options, y.toArray)))
           }
@@ -164,7 +183,6 @@ object NDTreePipeline {
         }
         result
     }).collect
-    paramsBC.unpersist()
 
     log.info(s"tree length ${tree.length}")
     tree
