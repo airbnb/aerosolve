@@ -77,7 +77,7 @@ object AdditiveModelTrainer {
                                    checkPointDir: String)
 
   def train(sc: SparkContext, input: RDD[Example], config: Config, key: String): AdditiveModel =
-    train(sc, (frac: Double) => input.sample(false, frac), config, key)
+    train(sc, (frac: Double) => input.sample(false, frac, System.currentTimeMillis), config, key)
 
   def getDecayLearningRate(learningRate: Double, params: AdditiveTrainerParams): Double = {
     if (params.learningRate == params.minLearningRate) {
@@ -640,7 +640,7 @@ object AdditiveModelTrainer {
                          input: RDD[Example],
                          config: Config,
                          key: String) = {
-    trainAndSaveToFileEarlySample(sc, (frac: Double) => input.sample(false, frac), config, key)
+    trainAndSaveToFileEarlySample(sc, (frac: Double) => input.sample(false, frac, System.currentTimeMillis), config, key)
   }
 
   /**
