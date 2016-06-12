@@ -64,6 +64,7 @@ object JobRunner extends Logging {
             .evalRun(sc, config, "eval_model_calibrated")
           case "GenericDumpModel" => GenericPipeline
             .dumpModelRun(sc, config)
+          case "DumpModelToHive" => ModelDebug.dumpModelForHive(sc, config)
           case "GenericDumpForest" => GenericPipeline
             .dumpForestRun(sc, config)
           case "GenericDumpFullRankLinearModel" => GenericPipeline
