@@ -22,7 +22,7 @@ object NDTree {
   val splitUsingSurfaceAreaMaxCount = 10
 
   val defaultOneDimensionalSplitType = SplitType.Median
-  val defaultMultiDimensionalSplitType = SplitType.SurfaceArea
+  val defaultMultiDimensionalSplitType = SplitType.Median
 
   case class NDTreeBuildOptions(
       maxTreeDepth: Int,
@@ -184,6 +184,8 @@ object NDTree {
         math.max(axisIndexValues._1, axisIndexValues._2)
       })
     })
+    log.debug(s"maxima ${maxima.mkString(",")}")
+    log.debug(s"applicablePoints ${applicablePoints.map(i => i.mkString(",")).mkString("|")}")
 
     Bounds(minima, maxima)
   }
@@ -286,6 +288,7 @@ object NDTree {
 
       val score = leftCost + rightCost
 
+      log.info(s"score $i $leftCost $rightCost $score $bestScore ${leftIndices.length} ${rightIndices.length}")
       if (i == 0 || ((score < bestScore) && (leftIndices.length > 0) && (rightIndices.length > 0))) {
         bestSplit = Split(axisIndex, splitValue, leftIndices, rightIndices)
         bestScore = score

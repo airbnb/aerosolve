@@ -133,4 +133,28 @@ public class UtilTest {
     assertEquals(-1.0, result3.get(1).getFeatureWeightDiff(), 0.0001);
     assertEquals(0.5, result3.get(2).getFeatureWeightDiff(), 0.0001);
   }
+
+  @Test
+  public void testGetIntersection() {
+    Set<Integer> a = new HashSet<>(Arrays.asList(1, 2));
+    Set<Integer> b = new HashSet<>(Arrays.asList(3, 4));
+
+    Set<Integer> r = Util.getIntersection(a, b);
+    assertEquals(0, r.size());
+
+    a = new HashSet<>(Arrays.asList(1, 2));
+    b = new HashSet<>(Arrays.asList(2, 4));
+    r = Util.getIntersection(a, b);
+    assertEquals(1, r.size());
+    assertTrue(r.contains(2));
+
+    a = new HashSet<>(Arrays.asList(1, 2, 3));
+    b = new HashSet<>(Arrays.asList(1, 2, 3));
+    r = Util.getIntersection(a, b);
+    assertEquals(3, r.size());
+    assertEquals(a, r);
+
+    r = Util.getIntersection(null, b);
+    assertEquals(0, r.size());
+  }
 }

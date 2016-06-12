@@ -35,7 +35,7 @@ public class FloatToDenseTransformTest {
         "}";
   }
 
-  public FeatureVector makeFeatureVectorFull() {
+  public static FeatureVector makeFeatureVectorFull() {
     Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
 
     Map<String, Double> floatFeature1 = new HashMap<>();
@@ -57,7 +57,7 @@ public class FloatToDenseTransformTest {
     return featureVector;
   }
 
-  public FeatureVector makeFeatureVectorMissFamily() {
+  public static FeatureVector makeFeatureVectorMissFamily() {
     Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
 
     Map<String, Double> floatFeature1 = new HashMap<>();
@@ -232,7 +232,7 @@ public class FloatToDenseTransformTest {
     return testTransform(featureVector, makeConfig());
   }
 
-  public FeatureVector testTransform(FeatureVector featureVector, String cfg) {
+  public static FeatureVector testTransform(FeatureVector featureVector, String cfg) {
     Config config = ConfigFactory.parseString(cfg);
     Transform transform = TransformFactory.createTransform(config, "test_float_cross_float");
     transform.doTransform(featureVector);
