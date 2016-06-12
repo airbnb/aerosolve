@@ -15,7 +15,7 @@ import java.util.Map;
  * self cross use key's alphabetical order to determine order
  * so you can add 1_ 2_ in front of features to manipulate order.
  */
-public class FloatFamilyToDenseTransform implements Transform {
+public class FloatFamilyCrossToTwoDDenseTransform implements Transform {
   private String fieldName1;
   private String fieldName2;
 

@@ -16,10 +16,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 @Slf4j
-public class FloatFamilyToDenseTransformTest {
+public class FloatFamilyCrossToTwoDDenseTransformTest {
   public String makeConfig() {
     return "test_float_cross_float {\n" +
-        " transform : float_family_to_dense\n" +
+        " transform : float_family_cross_to_two_d_dense\n" +
         " field1 : floatFeature1 \n" +
         " field2 : floatFeature2 \n" +
         "}";
@@ -27,7 +27,7 @@ public class FloatFamilyToDenseTransformTest {
 
   public String makeSelfCrossConfig() {
     return "test_float_cross_float {\n" +
-        " transform : float_family_to_dense\n" +
+        " transform : float_family_cross_to_two_d_dense\n" +
         " field1 : floatFeature1 \n" +
         "}";
   }
