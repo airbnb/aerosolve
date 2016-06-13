@@ -55,7 +55,7 @@ public class StringCrossFloatTransformTest {
     return "test_cross {\n" +
         " transform : string_cross_float\n" +
         " field1 : strFeature1\n" +
-        " keys1 : [\"RAW\", \"b\"]\n" +
+        " keys1 : [\"raw\", \"b\"]\n" +
         " field2 : loc\n" +
         " keys2 : [\"lat\"]\n" +
         " output : out\n" +
@@ -73,7 +73,8 @@ public class StringCrossFloatTransformTest {
     Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
     assertEquals(2, floatFeatures.size());
     Map<String, Double> out = floatFeatures.get("out");
-    assertTrue(out.size() == 2);
+    log.info("{}", out);
+    assertEquals(2, out.size());
     log.info("Cross output");
     for (Map.Entry<String, Double> entry : out.entrySet()) {
       log.info(entry.getKey() + '=' + entry.getValue());
