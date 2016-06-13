@@ -2,7 +2,6 @@ package com.airbnb.aerosolve.core.features;
 
 import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
@@ -14,7 +13,6 @@ import java.util.Set;
 
 import static org.junit.Assert.*;
 
-@Slf4j
 public class FeaturesTest {
   public static Features createFeature() {
     Object[] values = new Object[6];
@@ -25,7 +23,7 @@ public class FeaturesTest {
 
     names[1] = "f_RAW";
     values[1] = "raw_feature";
-    names[2] = "K_Star";
+    names[2] = "K_star";
     values[2] = "monkey";
     names[3] = "K_good";
     values[3] = Boolean.FALSE;
@@ -58,23 +56,22 @@ public class FeaturesTest {
     assertEquals(4, stringFeatures.size());
     Set<String> stringFeature = stringFeatures.get("f");
     assertEquals(1, stringFeature.size());
-    log.info("{}", stringFeature);
     assertTrue(stringFeature.contains("raw_feature"));
 
-    stringFeature = stringFeatures.get("k");
+    stringFeature = stringFeatures.get("K");
     assertEquals(2, stringFeature.size());
     assertTrue(stringFeature.contains("star:monkey"));
     assertTrue(stringFeature.contains("good:F"));
 
-    stringFeature = stringFeatures.get("x");
+    stringFeature = stringFeatures.get("X");
     assertNull(stringFeature);
 
     stringFeature = stringFeatures.get(Features.MISS);
     assertEquals(1, stringFeature.size());
-    assertTrue(stringFeature.contains("x_jump"));
+    assertTrue(stringFeature.contains("X_jump"));
 
     assertEquals(2, floatFeatures.size());
-    Map<String, Double> floatFeature = floatFeatures.get("s");
+    Map<String, Double> floatFeature = floatFeatures.get("S");
     assertEquals(1, floatFeature.size());
     assertEquals(10.0, floatFeature.get("speed"), 0);
 
@@ -162,7 +159,6 @@ public class FeaturesTest {
   @Test
   public void isLabel() throws Exception {
     assertTrue(Features.isLabel(Features.getFamily("LABEL")));
-    assertTrue(Features.isLabel(Features.getFamily("label")));
     assertFalse(Features.isLabel(Features.getFamily("LABE_ab")));
   }
 
