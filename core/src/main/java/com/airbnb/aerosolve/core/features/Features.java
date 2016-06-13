@@ -14,12 +14,7 @@ import java.util.*;
 
 @Builder @Slf4j
 public class Features {
-  // lower case label field name will be replaced by LABEL family name.
-  // Default family names are all Upper case, i.e. MISS
-  // family names defined by prefix before _ will all turn into lower cases.
-  // since spark hql select * turn all field names into lower case.
-  // while select with field names keeps the case.
-  // so keep everything in example as lower case, make sure both cases are ok.
+  // lower case label field will be inserted into Uper case LABEL family name.
   public final static String LABEL = "LABEL";
   public final static String LABEL_FEATURE_NAME = "";
   public final static String MISS = "MISS";
@@ -29,8 +24,8 @@ public class Features {
   // for float feature without family name
   public final static String DEFAULT_FLOAT_FAMILY = "DEFAULT_FLOAT";
 
-  // In raw case, don't append feature name
-  public final static String RAW = "raw";
+  // In RAW case, don't append feature name
+  public final static String RAW = "RAW";
   private final static char FAMILY_SEPARATOR = '_';
   private final static char TRUE_FEATURE = 'T';
   private final static char FALSE_FEATURE = 'F';
@@ -85,7 +80,7 @@ public class Features {
       String name = names[i];
       Object value = values[i];
       if (value == null) {
-        missing.add(name.toLowerCase());
+        missing.add(name);
       } else {
         Pair<String, String> feature = getFamily(name);
         if (value instanceof String) {
@@ -156,7 +151,7 @@ public class Features {
     if (tokens.length == 1) {
       return RAW;
     } else {
-      return tokens[0].toLowerCase();
+      return tokens[0];
     }
   }
 
@@ -185,15 +180,15 @@ public class Features {
       if (name.compareToIgnoreCase(LABEL) == 0) {
         return new ImmutablePair<>(LABEL, LABEL_FEATURE_NAME) ;
       } else if (!name.isEmpty()){
-        return new ImmutablePair<>("", name.toLowerCase()) ;
+        return new ImmutablePair<>("", name) ;
       } else {
         throw new RuntimeException("Column name empty");
       }
     } else if (pos == 0) {
       throw new RuntimeException("Column name can't prefix with _! " + name);
     } else {
-      return new ImmutablePair<>(name.substring(0, pos).toLowerCase(),
-          name.substring(pos + 1).toLowerCase());
+      return new ImmutablePair<>(name.substring(0, pos),
+          name.substring(pos + 1));
     }
   }
 }
