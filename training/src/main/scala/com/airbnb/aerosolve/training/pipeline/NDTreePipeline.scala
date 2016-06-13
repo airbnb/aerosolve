@@ -47,7 +47,7 @@ object NDTreePipeline {
       // default 1/2^(max single dimension depth(max_tree_depth_1_dimension or max_tree_depth_per_dimension) + 2)
       // if you set it to 0, it will be replaced with default value too.
       min_leaf_value_percent: 0.01
-       // default value is 1/2^(max_tree_depth + 2)
+       // default value is 1/2^(max_tree_depth + 1)
       // if you set it to 0, it will be replaced with default value too.
       min_leaf_count_percent: 0.01
       // feature families in linear_feature should use linear
@@ -156,9 +156,9 @@ object NDTreePipeline {
             val minLeafValuePercent: Double = if (params.minLeafValuePercent != 0) {
               params.minLeafValuePercent
             } else if (dimension == 1) {
-              1.0/scala.math.pow(2, params.maxTreeDepth1Dimension + 2)
+              1.0/scala.math.pow(2, params.maxTreeDepth1Dimension + 1)
             } else {
-              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension + 2 )
+              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension + 1)
             }
 
             val minLeafCountPercent: Double = if (params.minLeafCountPercent != 0) {
@@ -166,7 +166,7 @@ object NDTreePipeline {
             } else if (dimension == 1) {
               1.0/scala.math.pow(2, params.maxTreeDepth1Dimension + 2)
             } else {
-              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension * dimension + 2 )
+              1.0/scala.math.pow(2, params.maxTreeDepthPerDimension * dimension + 2)
             }
 
             val options = NDTreeBuildOptions(
