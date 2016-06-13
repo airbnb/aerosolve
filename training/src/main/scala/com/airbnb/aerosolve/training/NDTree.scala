@@ -25,11 +25,11 @@ object NDTree {
   val defaultMultiDimensionalSplitType = SplitType.Median
 
   case class NDTreeBuildOptions(
-      maxTreeDepth: Int,
-      minLeafCount: Int,
-      // (leaf's max - min)/(root's max - min)
-      minLeafWidthPercentage: Double = 0,
-      splitType: SplitType.Value = SplitType.Unspecified)
+    maxTreeDepth: Int,
+    minLeafCount: Int,
+    // (leaf's max - min)/(root's max - min)
+    minLeafValuePercent: Double = 0,
+    splitType: SplitType.Value = SplitType.Unspecified)
 
   case class Bounds(minima: Array[Double], maxima: Array[Double])
 
@@ -110,7 +110,6 @@ object NDTree {
     node.setMax(bounds.maxima.map(java.lang.Double.valueOf).toBuffer.asJava)
 
     var makeLeaf = false
-
     if ((depth >= options.maxTreeDepth) ||
         // then at least one leaf is going to smaller than minLeafCount
         (indices.length < 2 * options.minLeafCount) ||
@@ -127,7 +126,7 @@ object NDTree {
 
       // TODO Choose axisIndex with largest corresponding delta as option: deltas.zipWithIndex.maxBy(_._1)._2
       // there is no pop in buildTreeRecursive, so nodes(0) is always the root
-      val axisIndex = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafWidthPercentage)
+      val axisIndex = getNextAxis(lastAxis, deltas, nodes(0), options.minLeafValuePercent)
       if (axisIndex.isEmpty) {
         makeLeaf = true
       } else {
