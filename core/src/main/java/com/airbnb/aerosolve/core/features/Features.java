@@ -14,6 +14,7 @@ import java.util.*;
 
 @Builder @Slf4j
 public class Features {
+  // lower case label field will be inserted into Upper case LABEL family name.
   public final static String LABEL = "LABEL";
   public final static String LABEL_FEATURE_NAME = "";
   public final static String MISS = "MISS";
@@ -176,7 +177,7 @@ public class Features {
   static Pair<String, String> getFamily(String name) {
     int pos = name.indexOf(FAMILY_SEPARATOR);
     if (pos == -1) {
-      if (name.compareTo(LABEL) == 0) {
+      if (name.compareToIgnoreCase(LABEL) == 0) {
         return new ImmutablePair<>(LABEL, LABEL_FEATURE_NAME) ;
       } else if (!name.isEmpty()){
         return new ImmutablePair<>("", name) ;
