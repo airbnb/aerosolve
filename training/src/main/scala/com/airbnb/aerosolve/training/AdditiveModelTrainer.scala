@@ -116,7 +116,7 @@ object AdditiveModelTrainer {
 
     var model = modelInitialization(sc, transformed, params)
     var learningRate = params.learningRate
-    val saveModelEachIteration: Boolean = Try(config.getBoolean("save_model_each_iteration")).getOrElse(false)
+    val saveModelEachIteration: Boolean = Try(config.getBoolean(key + ".save_model_each_iteration")).getOrElse(false)
     for (i <- 1 to iterations) {
       log.info(s"Iteration $i")
       val sgdParams = SgdParams(
@@ -585,8 +585,6 @@ object AdditiveModelTrainer {
       null
     }
 
-    val minLoss: Double = Try(config.getDouble("min_loss")).getOrElse(0)
-
     val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
     Try(config.getStringList("class_weights").toList.toArray)
       .getOrElse(Array[String]())
@@ -597,7 +595,7 @@ object AdditiveModelTrainer {
         classWeights += (cls -> w)
       })
 
-    val lossParams = LossParams(loss, lossMod, minLoss)
+    val lossParams = LossParams(loss, lossMod)
     val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
     val initParams = InitParams(initModelPath, onlyUseInitModelFunctions,
       linearFeatureFamilies,
