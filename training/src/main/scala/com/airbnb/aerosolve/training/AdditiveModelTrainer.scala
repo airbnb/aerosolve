@@ -37,8 +37,7 @@ object AdditiveModelTrainer {
                        loss: Accumulator[Double])
 
   case class LossParams(function: String,
-                        lossMod: Int,
-                        minLoss: Double)
+                        lossMod: Int)
 
   case class InitParams(initModelPath: String,
                         // default to false, if set to true,
@@ -116,10 +115,9 @@ object AdditiveModelTrainer {
     log.info("Training using " + params.loss)
 
     var model = modelInitialization(sc, transformed, params)
-    var loss = Double.MaxValue
     var learningRate = params.learningRate
-    for (i <- 1 to iterations
-         if loss >= params.loss.minLoss) {
+    val saveModelEachIteration: Boolean = Try(config.getBoolean(key + ".save_model_each_iteration")).getOrElse(false)
+    for (i <- 1 to iterations) {
       log.info(s"Iteration $i")
       val sgdParams = SgdParams(
         params,
@@ -136,15 +134,14 @@ object AdditiveModelTrainer {
       modelBC.unpersist()
       val newLoss = sgdParams.loss.value / sgdParams.exampleCount.value
       // save each iteration's model and make it easy to pick the best one.
-      val saveModelEachIteration: Boolean = Try(config.getBoolean("save_model_each_iteration")).getOrElse(false)
       val modelName = if (saveModelEachIteration){
         s"${output}_$i"
       } else {
         output
       }
       model = newModel
+      log.info(s"iterations $i Loss = $newLoss count = ${sgdParams.exampleCount.value} save $modelName")
       TrainingUtils.saveModel(model, modelName)
-      log.info(s"iterations $i Loss = $newLoss count = ${sgdParams.exampleCount.value}")
     }
     model
   }
@@ -588,8 +585,6 @@ object AdditiveModelTrainer {
       null
     }
 
-    val minLoss: Double = Try(config.getDouble("min_loss")).getOrElse(0)
-
     val classWeights: mutable.Map[Int, Float] = mutable.Map(-1 -> 1.0f, 1 -> 1.0f)
     Try(config.getStringList("class_weights").toList.toArray)
       .getOrElse(Array[String]())
@@ -600,7 +595,7 @@ object AdditiveModelTrainer {
         classWeights += (cls -> w)
       })
 
-    val lossParams = LossParams(loss, lossMod, minLoss)
+    val lossParams = LossParams(loss, lossMod)
     val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
     val initParams = InitParams(initModelPath, onlyUseInitModelFunctions,
       linearFeatureFamilies,
