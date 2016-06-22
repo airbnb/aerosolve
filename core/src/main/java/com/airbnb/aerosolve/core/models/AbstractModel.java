@@ -48,15 +48,19 @@ public abstract class AbstractModel implements Model, Serializable {
 
   // returns probability: 1 / (1 + exp(-(offset + scale * score))
   public double scoreProbability(float score) {
+    return scoreProbability(score, offset, slope);
+  }
+
+  public static double scoreProbability(float score, double offset, double slope) {
     return 1.0 / (1.0 + Math.exp(-(offset + slope * score)));
   }
-  
+
   // Optional method for multi-class classifiers.
   public ArrayList<MulticlassScoringResult> scoreItemMulticlass(FeatureVector combinedItem) {
     assert(false);
     return new ArrayList<MulticlassScoringResult>();
   }
-  
+
   // Populates a multiclass result probability using softmax over the scores by default.
   // Some models might override this if their scores are already probabilities e.g. random forests.
   public void scoreToProbability(ArrayList<MulticlassScoringResult> results) {
