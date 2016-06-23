@@ -425,7 +425,6 @@ object AdditiveModelTrainer {
     val params = additiveTrainerParams.init
     if (params.nDTreePipelineParams != null) {
       val initExamples = input(params.nDTreePipelineParams.sample)
-      val linearFeatureFamilies = params.linearFeatureFamilies
       val result: Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = NDTreePipeline.getFeatures(
         sc, initExamples, params.nDTreePipelineParams)
       for (((family, name), feature) <- result) {
@@ -597,7 +596,9 @@ object AdditiveModelTrainer {
 
     val lossParams = LossParams(loss, lossMod)
     val checkPointDir = Try(config.getString("check_point_dir")).getOrElse("")
-    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions,
+    val initParams = InitParams(
+      initModelPath,
+      onlyUseInitModelFunctions,
       linearFeatureFamilies,
       priors, minCount, options)
     val shuffle: Boolean = Try(config.getBoolean("shuffle")).getOrElse(true)
