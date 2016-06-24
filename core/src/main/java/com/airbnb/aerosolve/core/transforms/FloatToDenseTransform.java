@@ -20,14 +20,9 @@ import java.util.Map;
 public class FloatToDenseTransform implements Transform{
   private List<String> fields;
   private List<String> keys;
-  private String outputStringFamily;
   private static final int featureAVGSize = 16;
   @Override
   public void configure(Config config, String key) {
-    String path = key + ".string_output";
-    if (config.hasPath(path)) {
-      outputStringFamily = config.getString(path);
-    }
     keys = config.getStringList(key + ".keys");
     fields = config.getStringList(key + ".fields");
     if (fields.size() != keys.size() || fields.size() <= 1) {
@@ -46,38 +41,25 @@ public class FloatToDenseTransform implements Transform{
     int size = fields.size();
     StringBuilder sb = new StringBuilder((size + 1) * featureAVGSize);
     List<Double> output = new ArrayList<>(size);
-    Map<String, Double> floatFamily = null;
     for (int i = 0; i < size; ++i) {
       String familyName = fields.get(i);
       Map<String, Double> family = floatFeatures.get(familyName);
-      sb.append('^');
-      String featureName = keys.get(i);
-      sb.append(featureName);
-      Double feature = null;
       if (family != null) {
-        feature = family.get(keys.get(i));
-      }
-      if (feature != null) {
-        output.add(feature);
-        floatFamily = family;
-      } else {
-        sb.append(":null");
-      }
-    }
-
-    switch (output.size()) {
-      case 0: {
-        if (outputStringFamily != null) {
-          Util.setStringFeature(featureVector, outputStringFamily, sb.toString());
+        Double feature = family.get(keys.get(i));
+        if (feature != null) {
+          if (i > 0) {
+            sb.append('^');
+          }
+          String featureName = keys.get(i);
+          sb.append(featureName);
+          output.add(feature);
+        } else {
+          return;
         }
+      } else {
+        return;
       }
-      break;
-      case 1: {
-        floatFamily.put(sb.toString(), output.get(0));
-      }
-      break;
-      default:
-        Util.setDenseFeature(featureVector, sb.toString(), output);
     }
+    Util.setDenseFeature(featureVector, sb.toString(), output);
   }
 }
