@@ -132,7 +132,7 @@ object NDTreePipeline {
             val bs = b.right.get
             Right(FeatureStats(y.count + bs.count,
               scala.math.min(y.min, bs.min),
-              scala.math.max(y.max, bs.max)))
+              scala.math.max(y.max, bs.max), y.spline))
           }
         }
         result
