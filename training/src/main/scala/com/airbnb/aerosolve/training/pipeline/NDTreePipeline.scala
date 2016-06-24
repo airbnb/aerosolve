@@ -24,6 +24,7 @@ object NDTreePipeline {
   case class NDTreePipelineParams(sample: Double,
                                   minCount: Int,
                                   linearFeatureFamilies: util.List[String],
+                                  splineFeatureFamilies: util.List[String],
                                   checkPointDir: String,
                                   maxTreeDepth1Dimension: Int,
                                   maxTreeDepthPerDimension: Int,
@@ -54,6 +55,8 @@ object NDTreePipeline {
       min_leaf_count: 20
       // feature families in linear_feature should use linear
       linear_feature: ["L", "T", "L_x_T"]
+      // set feature families using spline
+      spline_feature: ["ds"]
       // if your job failed, try to set check_point to avoid rerun
       // and set("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
       // clean checkpoint files if the reference is out of scope.
@@ -79,6 +82,9 @@ object NDTreePipeline {
   def getNDTreePipelineParams(cfg: Config): NDTreePipelineParams = {
     val linearFeatureFamilies: java.util.List[String] = Try(cfg.getStringList("linear_feature"))
       .getOrElse[java.util.List[String]](List.empty.asJava)
+    val splineFeatureFamilies: java.util.List[String] = Try(
+      cfg.getStringList("spline_feature"))
+      .getOrElse[java.util.List[String]](List.empty.asJava)
     val checkPointDir = Try(cfg.getString("check_point_dir")).getOrElse("")
     val maxTreeDepth1Dimension = cfg.getInt("max_tree_depth_1_dimension")
     val maxTreeDepthPerDimension = cfg.getInt("max_tree_depth_per_dimension")
@@ -89,6 +95,7 @@ object NDTreePipeline {
       cfg.getDouble("sample"),
       cfg.getInt("min_count"),
       linearFeatureFamilies,
+      splineFeatureFamilies,
       checkPointDir,
       maxTreeDepth1Dimension,
       maxTreeDepthPerDimension,
@@ -114,7 +121,7 @@ object NDTreePipeline {
                   Array[((String, String), Either[Array[NDTreeNode], FeatureStats])] = {
     val featureRDD: RDD[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] =
       input.mapPartitions(partition => {
-        flattenExample(partition, params.linearFeatureFamilies)
+        flattenExample(partition, params)
     }).reduceByKey((a, b) => {
         val result = a match {
           case Left(x) => {
@@ -125,7 +132,7 @@ object NDTreePipeline {
             val bs = b.right.get
             Right(FeatureStats(y.count + bs.count,
               scala.math.min(y.min, bs.min),
-              scala.math.max(y.max, bs.max)))
+              scala.math.max(y.max, bs.max), y.spline))
           }
         }
         result
@@ -192,11 +199,11 @@ object NDTreePipeline {
   }
 
   def flattenExample(partition: Iterator[Example],
-                     linearFeatureFamilies: java.util.List[String])
+                     params: NDTreePipelineParams)
                   : Iterator[((String, String), Either[ArrayBuffer[Array[Double]], FeatureStats])] = {
     val map = mutable.Map[(String, String), Either[ArrayBuffer[Array[Double]], FeatureStats]]()
     partition.foreach(examples => {
-      examplesToFloatFeatureArray(examples, linearFeatureFamilies, map)
+      examplesToFloatFeatureArray(examples, params, map)
       examplesToDenseFeatureArray(examples, map)
       examplesToStringFeatureArray(examples, map)
     })
@@ -220,23 +227,30 @@ object NDTreePipeline {
     }
   }
 
-  def examplesToFloatFeatureArray(example: Example, linearFeatureFamilies:java.util.List[String],
+  def examplesToFloatFeatureArray(example: Example,
+                                  params: NDTreePipelineParams,
                                   map: mutable.Map[(String, String),
-                                    Either[ArrayBuffer[Array[Double]], FeatureStats]]): Unit = {
+                                  Either[ArrayBuffer[Array[Double]], FeatureStats]]): Unit = {
+    val linearFeatureFamilies = params.linearFeatureFamilies
+    val splineFeatureFamilies = params.splineFeatureFamilies
     for (i <- 0 until example.getExample.size()) {
       val featureVector = example.getExample.get(i)
       val floatFeatures = Util.safeMap(featureVector.floatFeatures).asScala
       floatFeatures.foreach(familyMap => {
         val family = familyMap._1
-        if (linearFeatureFamilies.contains(family)) {
+        val isLinear = linearFeatureFamilies.contains(family)
+        val isSpline = splineFeatureFamilies.contains(family)
+        if (isLinear || isSpline) {
           familyMap._2.foreach(feature => {
             val key = (family, feature._1)
             val stats =  map.getOrElseUpdate(key,
               Right(FeatureStats(0, Double.MaxValue, Double.MinValue))).right.get
             val v = feature._2
-            map.put(key, Right(FeatureStats(stats.count + 1,
+            map.put(key, Right(FeatureStats(
+              stats.count + 1,
               scala.math.min(stats.min, v),
-              scala.math.max(stats.max, v))))
+              scala.math.max(stats.max, v),
+              isSpline)))
           })
         } else if (family.compare(GenericPipeline.LABEL) != 0) {
           familyMap._2.foreach(feature => {
