@@ -9,6 +9,8 @@ import java.util.List;
 public class Point implements Function {
   private float weight;
 
+  public Point() {  }
+
   public Point(float weight) {
     this.weight = weight;
   }
