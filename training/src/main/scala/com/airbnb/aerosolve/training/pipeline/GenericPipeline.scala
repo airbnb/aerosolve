@@ -39,10 +39,11 @@ object GenericPipeline {
     val output = cfg.getString("output")
     val numShards = cfg.getInt("num_shards")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
+    val shuffle = Try(cfg.getBoolean("shuffle")).getOrElse(true)
     val training = makeTraining(sc, query, isMulticlass)
 
     training
-      .coalesce(numShards, true)
+      .coalesce(numShards, shuffle)
       .map(Util.encode)
       .saveAsTextFile(output, classOf[GzipCodec])
   }

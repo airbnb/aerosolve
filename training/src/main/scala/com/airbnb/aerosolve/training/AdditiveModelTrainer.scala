@@ -330,7 +330,8 @@ object AdditiveModelTrainer {
   def updateLogistic(model: AdditiveModel,
                      fv: FeatureVector,
                      label: Double,
-                     params: AdditiveTrainerParams, learningRate: Double): Double = {
+                     params: AdditiveTrainerParams,
+                     learningRate: Double): Double = {
     val flatFeatures = Util.flattenFeatureWithDropout(fv, params.dropout)
     // only MultiDimensionSpline use denseFeatures for now
     val denseFeatures = MultiDimensionSpline.featureDropout(fv, params.dropout)
