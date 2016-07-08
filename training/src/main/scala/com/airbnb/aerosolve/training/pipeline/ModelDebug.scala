@@ -3,8 +3,10 @@ package com.airbnb.aerosolve.training.pipeline
 import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.core.function.{AbstractFunction, MultiDimensionSpline}
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.training.pipeline.HiveUtil
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.hive.HiveContext
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Try
@@ -70,14 +72,27 @@ object ModelDebug {
     recordToString: (ModelRecord) => String): Unit = {
     val modelName = config.getString("model_name")
     val modelDump = config.getString("model_dump")
+    val outputHiveTable = Try(config.getString("output_hive_table")).getOrElse("")
+
     val overwrite: Boolean = Try(config.getBoolean("overwrite")).getOrElse(false)
 
     val model = sc
       .textFile(modelName)
       .map(Util.decodeModel)
       .filter(filterFunction)
-      .map(recordToString).filter(_.size > 0)
+      .map(recordToString)
+      .filter(_.length > 0)
 
     PipelineUtil.saveAndCommitAsTextFile(model, modelDump, overwrite)
+
+    if (!outputHiveTable.isEmpty) {
+      val hiveContext = new HiveContext(sc)
+      val partitionKey = config.getString("partition_key")
+      val partitionValue = config.getString("partition_value")
+      // assume the value of partition key is string
+      HiveUtil.updateHivePartition(
+        hiveContext, outputHiveTable, s"$partitionKey='$partitionValue'", modelDump
+      )
+    }
   }
 }
