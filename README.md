@@ -51,7 +51,7 @@ machine learning benchmark.
 Feature Representation
 ----------------------
 
-This section dives into the [thrift based feature representation.](https://github.com/airbnb/aerosolve/tree/master/core/src/main/thrift)
+This section dives into the [thrift based feature representation](https://github.com/airbnb/aerosolve/tree/master/core/src/main/thrift).
 
 Features are grouped into logical groups called families of features. The reason for this is so we can express transformations on an entire feature family
 at once or interact two different families of features together to create a new feature family.
@@ -80,7 +80,7 @@ The reasons for having this structure are:
 Feature Transform language
 --------------------------
 
-This section dives into the [feature transform language](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/transforms)
+This section dives into the [feature transform language](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/transforms).
 
 Feature transforms are applied with a separate [transformer module](https://github.com/airbnb/aerosolve/blob/master/core/src/main/java/com/airbnb/aerosolve/core/transforms/Transformer.java) that is decoupled from the model. This allows the user to break apart transforms or transform data ahead of time of scoring for example. e.g. in an application the items in a corpus may be transformed ahead of time and stored, while the context is not known until runtime. Then at runtime, one can transform the context and combined them with each transformed item to get the final feature vector that is then fed to the models.
 
@@ -98,7 +98,7 @@ Please see the [corresponding unit tests](https://github.com/airbnb/aerosolve/tr
 Models
 ------
 
-This section covers [debuggable models](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/models)
+This section covers [debuggable models](https://github.com/airbnb/aerosolve/tree/master/core/src/main/java/com/airbnb/aerosolve/core/models).
 
 Although there are several models in the model directory only two are the main debuggable models. The rest are experimental or sub-models that create transforms for the interpretable models.
 
