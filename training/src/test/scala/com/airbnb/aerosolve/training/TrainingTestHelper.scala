@@ -180,7 +180,7 @@ object TrainingTestHelper {
     example
   }
 
-  def makeClassificationExamples = {
+  lazy val makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -201,7 +201,7 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
-  def makeLinearClassificationExamples = {
+  lazy val makeLinearClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
@@ -227,7 +227,7 @@ object TrainingTestHelper {
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(randomSeed)
 
-    for (i <- 0 until 200) {
+    for (i <- 0 until 400) {
       val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
       val y = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
 

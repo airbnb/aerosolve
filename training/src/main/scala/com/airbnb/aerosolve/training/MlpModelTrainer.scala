@@ -473,6 +473,7 @@ object MlpModelTrainer {
       case FunctionForm.RELU => if (activation > 0) 1.0 else 0.0
       case FunctionForm.IDENTITY => 1.0
       case FunctionForm.TANH => 1.0 - activation * activation
+      case _ => throw new IllegalArgumentException(s"Unrecognized function: $func")
     }
   }
 }
