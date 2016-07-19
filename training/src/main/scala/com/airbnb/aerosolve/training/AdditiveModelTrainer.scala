@@ -249,7 +249,7 @@ object AdditiveModelTrainer {
     val sgdParams = SgdParams(params, sc.accumulator(0), sc.accumulator(0))
     var modelBC = sc.broadcast(model.generateFeatureIndexer())
     var i = 0
-    while (i <= iterations &&
+    while (i < iterations &&
       (params.loss.earlyStopping == 0 || (i - bestIteration) < params.loss.earlyStopping) &&
       (trainingLosses.length < 2 || (trainingLosses(1) - trainingLosses(0) > params.loss.convergenceTolerance))
     ) {
