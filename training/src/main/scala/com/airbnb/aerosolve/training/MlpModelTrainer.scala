@@ -1,15 +1,12 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.{FeatureVector, Example, FunctionForm}
 import com.airbnb.aerosolve.core.models.MlpModel
-
-import com.airbnb.aerosolve.core.util.FloatVector
-import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.util.{FloatVector, Util}
+import com.airbnb.aerosolve.core.{Example, FeatureVector, FunctionForm}
 import com.typesafe.config.Config
-import org.slf4j.{LoggerFactory, Logger}
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
 import scala.util.Try
@@ -18,48 +15,48 @@ import scala.util.Try
   * A trainer that generates a MLP model.
   * TODO (Peng): add maxNorm regularizations
   */
-
 object MlpModelTrainer {
   private final val log: Logger = LoggerFactory.getLogger("MlpModelTrainer")
-  private final val LAYER_PREFIX : String = "$layer:"
-  private final val NODE_PREFIX : String = "$node:"
-  private final val BIAS_PREFIX : String = "$bias:"
+  private final val LAYER_PREFIX: String = "$layer:"
+  private final val NODE_PREFIX: String = "$node:"
+  private final val BIAS_PREFIX: String = "$bias:"
+
   case class TrainerOptions(loss: String,
                             margin: Double, // margin in Hinge loss or epsilon in regression
                             iteration: Int, // number of iterations to run
-                            subsample : Double, // determine mini-batch size
-                            threshold : Double, // threshold for binary classification
+                            subsample: Double, // determine mini-batch size
+                            threshold: Double, // threshold for binary classification
                             rankKey: String,
-                            learningRateInit : Double,  // initial learning rate
-                            learningRateDecay : Double, // learning rate decay rate
-                            momentumInit : Double, // initial momentum value
-                            momentumEnd : Double,  // ending momentum value
-                            momentumT : Int,
-                            dropout : Double, // dropout rate
-                            maxNorm : Double, // max norm
-                            weightDecay : Double, // l2 regularization parameter
-                            weightInitStd : Double, // weight initialization std
-                            cache : String,
-                            minCount : Int
+                            learningRateInit: Double, // initial learning rate
+                            learningRateDecay: Double, // learning rate decay rate
+                            momentumInit: Double, // initial momentum value
+                            momentumEnd: Double, // ending momentum value
+                            momentumT: Int,
+                            dropout: Double, // dropout rate
+                            maxNorm: Double, // max norm
+                            weightDecay: Double, // l2 regularization parameter
+                            weightInitStd: Double, // weight initialization std
+                            cache: String,
+                            minCount: Int
                            )
 
   case class NetWorkParams(activationFunctions: java.util.ArrayList[FunctionForm],
-                           nodeNumber : java.util.ArrayList[Integer])
+                           nodeNumber: java.util.ArrayList[Integer])
 
-  def train(sc : SparkContext,
-            input : RDD[Example],
-            config : Config,
-            key : String) : MlpModel = {
+  def train(sc: SparkContext,
+            input: RDD[Example],
+            config: Config,
+            key: String): MlpModel = {
     val trainerOptions = parseTrainingOptions(config.getConfig(key))
     val networkOptions = parseNetworkOptions(config.getConfig(key))
 
-    val raw : RDD[Example] =
+    val raw: RDD[Example] =
       LinearRankerUtils
         .makePointwiseFloat(input, config, key)
 
     val pointwise = trainerOptions.cache match {
       case "memory" => raw.cache()
-      case _ : String => raw
+      case _: String => raw
     }
 
     val model = setupModel(trainerOptions, networkOptions, pointwise)
@@ -73,10 +70,10 @@ object MlpModelTrainer {
     model
   }
 
-  def modelIteration(sc : SparkContext,
-                     options : TrainerOptions,
-                     model : MlpModel,
-                     pointwise : RDD[Example]) = {
+  def modelIteration(sc: SparkContext,
+                     options: TrainerOptions,
+                     model: MlpModel,
+                     pointwise: RDD[Example]) = {
 
     var learningRate = options.learningRateInit
     // initialize previous updates with 0
@@ -113,10 +110,10 @@ object MlpModelTrainer {
     }
   }
 
-  def computeGradient(sc : SparkContext,
-                      options : TrainerOptions,
-                      model : MlpModel,
-                      miniBatch : RDD[Example]) : Map[(String, String), FloatVector] = {
+  def computeGradient(sc: SparkContext,
+                      options: TrainerOptions,
+                      model: MlpModel,
+                      miniBatch: RDD[Example]): Map[(String, String), FloatVector] = {
     // compute the sum of gradient of examples in the mini-batch
     val modelBC = sc.broadcast(model)
     miniBatch
@@ -235,7 +232,7 @@ object MlpModelTrainer {
   }
 
   def updateModel(model: MlpModel,
-                  gradientContainer:  Map[(String, String), FloatVector],
+                  gradientContainer: Map[(String, String), FloatVector],
                   updateContainer: scala.collection.mutable.HashMap[(String, String), FloatVector],
                   momentum: Float,
                   learningRate: Float,
@@ -244,7 +241,7 @@ object MlpModelTrainer {
     // then update model weights (also update the prevUpdateContainer)
     val numHiddenLayers = model.getNumHiddenLayers
     for ((key, prevUpdate) <- updateContainer) {
-      val weightToUpdate : FloatVector = if (key._1.startsWith(LAYER_PREFIX)) {
+      val weightToUpdate: FloatVector = if (key._1.startsWith(LAYER_PREFIX)) {
         val layerId: Int = key._1.substring(LAYER_PREFIX.length).toInt
         assert(layerId >= 0 && layerId <= numHiddenLayers)
         if (key._2.equals(BIAS_PREFIX)) {
@@ -279,15 +276,15 @@ object MlpModelTrainer {
     }
   }
 
-  def trainAndSaveToFile(sc : SparkContext,
-                         input : RDD[Example],
-                         config : Config,
-                         key : String) = {
+  def trainAndSaveToFile(sc: SparkContext,
+                         input: RDD[Example],
+                         config: Config,
+                         key: String) = {
     val model = train(sc, input, config, key)
     TrainingUtils.saveModel(model, config, key + ".model_output")
   }
 
-  private def parseTrainingOptions(config : Config) : TrainerOptions = {
+  private def parseTrainingOptions(config: Config): TrainerOptions = {
     TrainerOptions(
       loss = config.getString("loss"),
       margin = config.getDouble("margin"),
@@ -309,15 +306,15 @@ object MlpModelTrainer {
     )
   }
 
-  private def parseNetworkOptions(config : Config) : NetWorkParams = {
+  private def parseNetworkOptions(config: Config): NetWorkParams = {
     val activationStr = config.getStringList("activations")
     val activations = new java.util.ArrayList[FunctionForm]()
     for (func: String <- activationStr) {
       activations.append(getFunctionForm(func))
     }
 
-    val nodeNumbers =  new java.util.ArrayList[Integer]()
-    for (num : Integer <- config.getIntList("node_number")) {
+    val nodeNumbers = new java.util.ArrayList[Integer]()
+    for (num: Integer <- config.getIntList("node_number")) {
       nodeNumbers.append(num)
     }
 
@@ -327,9 +324,9 @@ object MlpModelTrainer {
     )
   }
 
-  def setupModel(trainerOptions : TrainerOptions,
+  def setupModel(trainerOptions: TrainerOptions,
                  networkOptions: NetWorkParams,
-                 pointwise : RDD[Example]) : MlpModel = {
+                 pointwise: RDD[Example]): MlpModel = {
     val model = new MlpModel(
       networkOptions.activationFunctions,
       networkOptions.nodeNumber)
@@ -342,7 +339,7 @@ object MlpModelTrainer {
     val stats = TrainingUtils.getFeatureStatistics(trainerOptions.minCount, pointwise)
 
     // set up input layer weights
-    var count : Int = 0
+    var count: Int = 0
     for (kv <- stats) {
       val (family, feature) = kv._1
       if (family != trainerOptions.rankKey) {
@@ -370,7 +367,7 @@ object MlpModelTrainer {
     model
   }
 
-  private def setupUpdateContainer(model: MlpModel) : scala.collection.mutable.HashMap[(String, String), FloatVector] = {
+  private def setupUpdateContainer(model: MlpModel): scala.collection.mutable.HashMap[(String, String), FloatVector] = {
     val container = scala.collection.mutable.HashMap[(String, String), FloatVector]()
     // set up input layer weights gradient
     val inputLayerWeights = model.getInputLayerWeights
@@ -414,7 +411,7 @@ object MlpModelTrainer {
     update
   }
 
-  private def getFunctionForm(func: String) : FunctionForm = {
+  private def getFunctionForm(func: String): FunctionForm = {
     func match {
       case "sigmoid" => FunctionForm.SIGMOID
       case "relu" => FunctionForm.RELU
@@ -427,7 +424,7 @@ object MlpModelTrainer {
   private def updateMomentum(momentumInit: Double,
                              momentumEnd: Double,
                              momentumT: Int,
-                             iter: Int) : Double = {
+                             iter: Int): Double = {
     if (iter >= momentumT)
       return momentumEnd
     val frac = iter.toDouble / momentumT
@@ -458,7 +455,7 @@ object MlpModelTrainer {
     val label = TrainingUtils.getLabel(fv, option.rankKey)
     if (prediction - label > option.margin) {
       1.0
-    } else if (prediction - label < - option.margin) {
+    } else if (prediction - label < -option.margin) {
       -1.0
     } else {
       0.0
@@ -473,6 +470,7 @@ object MlpModelTrainer {
       case FunctionForm.RELU => if (activation > 0) 1.0 else 0.0
       case FunctionForm.IDENTITY => 1.0
       case FunctionForm.TANH => 1.0 - activation * activation
+      case _ => throw new IllegalArgumentException(s"Unrecognized function: $func")
     }
   }
 }

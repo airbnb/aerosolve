@@ -39,5 +39,5 @@ dependencies {
   compile 'org.projectlombok:lombok:1.14.8'
   compile 'org.apache.commons:commons-lang3:3.4'
   compile 'org.apache.commons:commons-math3:3.6.1'
-  testCompile 'org.slf4j:slf4j-simple:1.7.7'
+  testCompile 'org.slf4j:slf4j-log4j12:1.7.21'
 }

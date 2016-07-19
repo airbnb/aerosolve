@@ -4,10 +4,11 @@ import com.airbnb.aerosolve.core.DebugScoreRecord;
 import com.airbnb.aerosolve.core.FeatureVector;
 import com.airbnb.aerosolve.core.ModelHeader;
 import com.airbnb.aerosolve.core.ModelRecord;
+import com.airbnb.aerosolve.core.features.SparseLabeledPoint;
 import com.airbnb.aerosolve.core.function.AbstractFunction;
 import com.airbnb.aerosolve.core.function.Function;
-import com.airbnb.aerosolve.core.function.FunctionUtil;
 import com.airbnb.aerosolve.core.util.Util;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -15,16 +16,34 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Random;
 
 import static com.airbnb.aerosolve.core.function.FunctionUtil.toFloat;
 
-// A generalized additive model with a parametric function per feature.
-// See http://en.wikipedia.org/wiki/Generalized_additive_model
+/**
+ * A generalized additive model with a parametric function per feature. See
+ * http://en.wikipedia.org/wiki/Generalized_additive_model
+ *
+ * Aside from common functionality AdditiveModel has special optimization that uses an indexer for
+ * features. This allows efficient storage of sparse feature vector such that they could be persist
+ * into memory or disk if desired. This is achieved by calling `generateFeatureIndexer` function
+ * after model has been initialized with all feature weights, which arranges all known features into
+ * an array. All feature vector can now be flatten into a sparse vector according to index of
+ * feature in corresponding feature indexer. Subsequent model update can then be made via array
+ * lookup instead of nested map lookup. This is done via calling `generateWeightVector` to populate
+ * the array of function corresponding to the feature.
+ */
 @Slf4j
 public class AdditiveModel extends AbstractModel implements Cloneable {
   public static final String DENSE_FAMILY = "dense";
-  @Getter @Setter
+  @Getter
+  @Setter
   private Map<String, Map<String, Function>> weights = new HashMap<>();
 
   // only MultiDimensionSpline using denseWeights
@@ -39,6 +58,54 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
       }
     }
     return denseWeights;
+  }
+
+  // featureIndexer maps features to a unique consecutive ascending index
+  // mapping training data via this index before shuffling can save a lot of time
+  @Getter
+  private Map<String, Map<String, Integer>> featureIndexer = new HashMap<>();
+  // weightVector takes the index generated above and construct an indexed weight function vector
+  @Getter
+  private Function[] weightVector = new Function[0];
+
+  /**
+   * Generate the feature indexer which maps each feature to a unique integer index
+   *
+   * @apiNote Subsequent `generateWeightVector` calls will use this index. This index does not
+   * automatically update when features are added or removed.
+   */
+  public AdditiveModel generateFeatureIndexer() {
+    featureIndexer.clear();
+
+    int count = 0;
+    for (Map.Entry<String, Map<String, Function>> family : weights.entrySet()) {
+      String familyName = family.getKey();
+      Map<String, Integer> featureIndex = new HashMap<>();
+      featureIndexer.put(familyName, featureIndex);
+      for (Map.Entry<String, Function> feature : family.getValue().entrySet()) {
+        featureIndex.put(feature.getKey(), count++);
+      }
+    }
+    // (re)initialize the weight vector to be populated
+    weightVector = new Function[count];
+    return this;
+  }
+
+  /**
+   * Populate the weight vector with index weight function according to feature indexer
+   *
+   * @apiNote `generateFeatureIndexer` must be called before this function if there is any feature
+   * set modification No error/boundary checking is performed in this function. This function is
+   * automatically called during `clone`.
+   */
+  public AdditiveModel generateWeightVector() {
+    for (Map.Entry<String, Map<String, Integer>> family : featureIndexer.entrySet()) {
+      String familyName = family.getKey();
+      for (Map.Entry<String, Integer> feature : family.getValue().entrySet()) {
+        weightVector[feature.getValue()] = weights.get(familyName).get(feature.getKey());
+      }
+    }
+    return this;
   }
 
   @Override
@@ -83,8 +150,8 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
         float subScore = func.evaluate(val);
         sum += subScore;
         String str = featureFamily.getKey() + ":" + feature.getKey() + "=" + val
-                     + " = " + subScore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
+            + " = " + subScore + "<br>\n";
+        scores.add(new AbstractMap.SimpleEntry<>(str, subScore));
       }
     }
 
@@ -99,7 +166,7 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
         sum += subScore;
         String str = DENSE_FAMILY + ":" + featureName + "=" + val
             + " = " + subScore + "<br>\n";
-        scores.add(new AbstractMap.SimpleEntry<String, Float>(str, subScore));
+        scores.add(new AbstractMap.SimpleEntry<>(str, subScore));
       }
     }
 
@@ -234,6 +301,30 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
     return sum;
   }
 
+  public float scoreFeatures(SparseLabeledPoint point, double dropout, Random rand) {
+    float prediction = 0;
+
+    for (int i = 0; i < point.indices.length; i++) {
+      if (dropout <= 0 || rand.nextDouble() > dropout) {
+        int index = point.indices[i];
+        Function function = weightVector[index];
+        float value = point.values[i];
+        prediction += function.evaluate(value);
+      }
+    }
+
+    for (int i = 0; i < point.denseIndices.length; i++) {
+      if (dropout <= 0 || rand.nextDouble() > dropout) {
+        int index = point.denseIndices[i];
+        Function function = weightVector[index];
+        float[] value = point.denseValues[i];
+        prediction += function.evaluate(value);
+      }
+    }
+
+    return prediction;
+  }
+
   public Map<String, Function> getOrCreateFeatureFamily(String featureFamily) {
     Map<String, Function> featFamily = weights.get(featureFamily);
     if (featFamily == null) {
@@ -254,37 +345,22 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
     }
   }
 
-  // Update weights based on gradient and learning rate
-  public void update(float gradWithLearningRate,
-                     float cap,
-                     Map<String, Map<String, Double>> flatFeatures) {
-    // update with lInfinite cap
-    for (Map.Entry<String, Map<String, Double>> featureFamily : flatFeatures.entrySet()) {
-      Map<String, Function> familyWeightMap = weights.get(featureFamily.getKey());
-      if (familyWeightMap == null) continue;
-      for (Map.Entry<String, Double> feature : featureFamily.getValue().entrySet()) {
-        Function func = familyWeightMap.get(feature.getKey());
-        if (func == null) continue;
-        float val = feature.getValue().floatValue();
-        func.update(-gradWithLearningRate, val);
-        func.LInfinityCap(cap);
+  public void update(float gradWithLearningRate, SparseLabeledPoint point, double dropout, Random rand) {
+    for (int i = 0; i < point.indices.length; i++) {
+      if (dropout <= 0 || rand.nextDouble() > dropout) {
+        int index = point.indices[i];
+        Function function = weightVector[index];
+        float value = point.values[i];
+        function.update(-gradWithLearningRate, value);
       }
     }
-  }
 
-  public void updateDense(float gradWithLearningRate,
-                          float cap,
-                          Map<String, List<Double>> denseFeatures) {
-    // update with lInfinite cap
-    if (denseFeatures != null && !denseFeatures.isEmpty()) {
-      Map<String, Function> denseWeights = getOrCreateDenseWeights();
-      for (Map.Entry<String, List<Double>> feature : denseFeatures.entrySet()) {
-        String featureName = feature.getKey();
-        Function func = denseWeights.get(featureName);
-        if (func == null) continue;
-        float[] val = FunctionUtil.toFloat(feature.getValue());
-        func.update(-gradWithLearningRate, val);
-        func.LInfinityCap(cap);
+    for (int i = 0; i < point.denseIndices.length; i++) {
+      if (dropout <= 0 || rand.nextDouble() > dropout) {
+        int index = point.denseIndices[i];
+        Function function = weightVector[index];
+        float[] value = point.denseValues[i];
+        function.update(-gradWithLearningRate, value);
       }
     }
   }
@@ -300,11 +376,13 @@ public class AdditiveModel extends AbstractModel implements Cloneable {
 
     copy.denseWeights = copyFeatures(denseWeights);
 
-    return copy;
+    // regenerate weight vector
+    copy.weightVector = new Function[copy.weightVector.length];
+    return copy.generateWeightVector();
   }
 
   private Map<String, Function> copyFeatures(Map<String, Function> featureMap) {
-    if(featureMap == null) return null;
+    if (featureMap == null) return null;
 
     Map<String, Function> newFeatureMap = new HashMap<>();
     featureMap.forEach((feature, function) -> {

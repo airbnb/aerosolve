@@ -12,9 +12,9 @@ import scala.collection.mutable.ArrayBuffer
 object TrainingTestHelper {
   val log = LoggerFactory.getLogger("TrainingTestHelper")
 
-  def makeExample(x : Double,
-                  y : Double,
-                  target : Double) : Example = {
+  def makeExample(x: Double,
+                  y: Double,
+                  target: Double): Example = {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
@@ -39,9 +39,9 @@ object TrainingTestHelper {
     example
   }
 
-  def makeDenseExample(x : Double,
-                  y : Double,
-                  target : Double) : Example = {
+  def makeDenseExample(x: Double,
+                       y: Double,
+                       target: Double): Example = {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setDenseFeatures(new java.util.HashMap)
@@ -72,11 +72,11 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
-  def makeMulticlassExample(x : Double,
-                            y : Double,
-                            z : Double,
-                            label : (String, Double),
-                            label2 : Option[(String, Double)]) : Example = {
+  def makeMulticlassExample(x: Double,
+                            y: Double,
+                            z: Double,
+                            label: (String, Double),
+                            label2: Option[(String, Double)]): Example = {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
@@ -100,7 +100,7 @@ object TrainingTestHelper {
     example
   }
 
-  def makeSimpleMulticlassClassificationExamples(multiLabel : Boolean) = {
+  def makeSimpleMulticlassClassificationExamples(multiLabel: Boolean) = {
     val examples = ArrayBuffer[Example]()
     val labels = ArrayBuffer[String]()
     val rnd = new java.util.Random(1234)
@@ -108,28 +108,24 @@ object TrainingTestHelper {
       var x = 2.0 * rnd.nextDouble() - 1.0
       var y = 2.0 * rnd.nextDouble() - 1.0
       val z = 2.0 * rnd.nextDouble() - 1.0
-      var label : String = ""
+      var label: String = ""
       rnd.nextInt(4) match {
-        case 0 => {
+        case 0 =>
           label = "top_left"
           x = x - 10.0
           y = y + 10.0
-        }
-        case 1 => {
+        case 1 =>
           label = "top_right"
           x = x + 10.0
           y = y + 10.0
-        }
-        case 2 => {
+        case 2 =>
           label = "bot_left"
           x = x - 10.0
           y = y - 10.0
-        }
-        case 3 => {
+        case 3 =>
           label = "bot_right"
           x = x + 10.0
           y = y - 10.0
-        }
       }
       labels += label
       if (multiLabel) {
@@ -152,17 +148,17 @@ object TrainingTestHelper {
       val z = 20.0 * rnd.nextDouble() - 10.0
       val d = math.sqrt(x * x + y * y + z * z)
       // Three nested layers inner, middle and outer
-      val label : String = if (d < 5) "inner" else
-                           if (d < 10) "middle" else "outer"
+      val label: String = if (d < 5) "inner"
+      else if (d < 10) "middle" else "outer"
       labels += label
       examples += makeMulticlassExample(x, y, z, (label, 1.0), None)
     }
     (examples, labels)
   }
 
-  def makeHybridExample(x : Double,
-                        y : Double,
-                        target : Double) : Example = {
+  def makeHybridExample(x: Double,
+                        y: Double,
+                        target: Double): Example = {
     val example = new Example
     val item: FeatureVector = new FeatureVector
     item.setFloatFeatures(new java.util.HashMap)
@@ -180,11 +176,11 @@ object TrainingTestHelper {
     example
   }
 
-  def makeClassificationExamples = {
+  lazy val makeClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
-    var numPos : Int = 0
+    var numPos: Int = 0
     for (i <- 0 until 500) {
       val x = 2.0 * rnd.nextDouble() - 1.0
       val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -201,11 +197,11 @@ object TrainingTestHelper {
     (examples, label, numPos)
   }
 
-  def makeLinearClassificationExamples = {
+  lazy val makeLinearClassificationExamples = {
     val examples = ArrayBuffer[Example]()
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(1234)
-    var numPos : Int = 0
+    var numPos: Int = 0
     for (i <- 0 until 200) {
       val x = 2.0 * rnd.nextDouble() - 1.0
       val y = 10.0 * (2.0 * rnd.nextDouble() - 1.0)
@@ -227,7 +223,7 @@ object TrainingTestHelper {
     val label = ArrayBuffer[Double]()
     val rnd = new java.util.Random(randomSeed)
 
-    for (i <- 0 until 200) {
+    for (i <- 0 until 400) {
       val x = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
       val y = 4.0 * (2.0 * rnd.nextDouble() - 1.0)
 
@@ -262,12 +258,12 @@ object TrainingTestHelper {
     for (familyMap <- weights) {
       for (featureMap <- familyMap._2.asScala) {
         log.info(("family=%s,feature=%s,"
-                  + "minVal=%f, maxVal=%f, weights=%s")
-                   .format(familyMap._1,
-                           featureMap._1,
-                           featureMap._2.spline.getMinVal,
-                           featureMap._2.spline.getMaxVal,
-                           featureMap._2.spline.getWeights.mkString(",")
+          + "minVal=%f, maxVal=%f, weights=%s")
+          .format(familyMap._1,
+            featureMap._1,
+            featureMap._2.spline.getMinVal,
+            featureMap._2.spline.getMaxVal,
+            featureMap._2.spline.getWeights.mkString(",")
           )
         )
       }

@@ -13,6 +13,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Row, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -28,7 +29,7 @@ object TrainingUtils {
                  rankKey: String,
                  threshold: Double,
                  downsample: Map[Int, Float]): RDD[Example] = {
-    val sample = input.mapPartitions( examples => {
+    val sample = input.mapPartitions(examples => {
       val rnd = new java.util.Random()
       examples.flatMap { e =>
         val label = getLabel(e, loss, rankKey, threshold).toInt
@@ -76,28 +77,28 @@ object TrainingUtils {
     }
   }
 
-  def saveModel(model : AbstractModel,
-                config : Config,
-                key : String): Unit = {
+  def saveModel(model: AbstractModel,
+                config: Config,
+                key: String): Unit = {
     try {
       val output = config.getString(key)
       saveModel(model, output)
     } catch {
-      case _ : Throwable => log.error("Could not save model")
+      case _: Throwable => log.error("Could not save model")
     }
   }
 
   def saveModel(model: AbstractModel, output: String): Unit = {
     try {
-      val fileSystem = FileSystem.get(new java.net.URI(output),
-                                      new Configuration())
+      val fileSystem = FileSystem.get(new java.net.URI(output), new Configuration())
       val file = fileSystem.create(new Path(output), true)
       val writer = new BufferedWriter(new OutputStreamWriter(file))
       model.save(writer)
       writer.close()
       file.close()
+      log.info(s"Saved model to $output")
     } catch {
-      case _ : Throwable => log.error("Could not save model")
+      case e: Throwable => log.error(s"Could not save model at $output because $e")
     }
   }
 
@@ -111,11 +112,7 @@ object TrainingUtils {
     val modelStream = fs.open(modelPath)
     val reader = new BufferedReader(new InputStreamReader(modelStream))
     val modelOpt = ModelFactory.createFromReader(reader)
-    if (!modelOpt.isPresent) {
-      return None
-    }
-    val model = modelOpt.get()
-    return Some(model)
+    Option(modelOpt.orNull())
   }
 
   def loadPlattScaleWeights(filePath: String): Option[Array[Double]] = {
@@ -123,14 +120,14 @@ object TrainingUtils {
       TrainingUtils.readStringFromFile(filePath)
     if (calibrationModelStr == null) {
       // error already logged in readStringFromFile
-      return None
+      None
+    } else {
+      val calibrationWeights = scala.collection.mutable.ArrayBuffer.empty[Double]
+      for (weight <- calibrationModelStr.split(" "))
+        calibrationWeights += weight.toDouble
+
+      Some(calibrationWeights.toArray)
     }
-
-    val calibrationWeights = scala.collection.mutable.ArrayBuffer.empty[Double]
-    for (weight <- calibrationModelStr.split(" "))
-      calibrationWeights += weight.toDouble
-
-    return Some(calibrationWeights.toArray)
   }
 
   def debugScore(example: Example, model: AbstractModel, transformer: Transformer) = {
@@ -138,7 +135,7 @@ object TrainingUtils {
     for (ex <- example.example.asScala) {
       val builder = new java.lang.StringBuilder()
       model.debugScoreItem(example.example.get(0), builder)
-      val result = builder.toString()
+      val result = builder.toString
       println(result)
     }
   }
@@ -146,16 +143,11 @@ object TrainingUtils {
   def getLatestDirectory(dir: String): Option[String] = {
     val fs = FileSystem.get(new URI(dir), hadoopConfiguration)
     val path = new Path(dir)
-    val files = fs.listStatus(path)
-    if (files.isEmpty) {
-      return None
-    }
-    val result = files
-      .map(x => x.getPath().toString())
-      .toBuffer
+    val files = fs.listStatus(path).toSeq
+    files
+      .map(x => x.getPath.toString)
       .sortWith((a, b) => a > b)
-      .head
-    Some(result)
+      .headOption
   }
 
   def writeStringToFile(str: String, output: String) = {
@@ -172,14 +164,15 @@ object TrainingUtils {
     val filePath = new Path(filename)
     if (!fs.exists(filePath)) {
       log.error(filename + " does not exist")
-      return null
-    }
-    val fileStream = fs.open(filePath)
-    val reader = new BufferedReader(new InputStreamReader(fileStream))
-    val result = reader.readLine()
-    reader.close()
+      null
+    } else {
+      val fileStream = fs.open(filePath)
+      val reader = new BufferedReader(new InputStreamReader(fileStream))
+      val result = reader.readLine()
+      reader.close()
 
-    result
+      result
+    }
   }
 
   def trainAndSaveToFile(sc: SparkContext,
@@ -213,80 +206,74 @@ object TrainingUtils {
     label
   }
 
-  def getLabel(fv : FeatureVector, rankKey : String, threshold : Double) : Double = {
+  def getLabel(fv: FeatureVector, rankKey: String, threshold: Double): Double = {
     // get label for classification
-    val rank = fv.floatFeatures.get(rankKey).asScala.head._2
-    val label = if (rank <= threshold) {
+    val rank = fv.floatFeatures.get(rankKey).values().iterator().next().doubleValue()
+    if (rank <= threshold) {
       -1.0
     } else {
       1.0
     }
-    return label
   }
 
-  def getLabelDistribution(fv : FeatureVector, rankKey : String) : Map[String, Double] = {
+  def getLabelDistribution(fv: FeatureVector, rankKey: String): Map[String, Double] = {
     fv.floatFeatures.get(rankKey).asScala.map(x => (x._1.toString, x._2.toDouble)).toMap
   }
 
-  def getLabel(fv : FeatureVector, rankKey : String) : Double = {
+  def getLabel(fv: FeatureVector, rankKey: String): Double = {
     // get label for regression
     fv.floatFeatures.get(rankKey).asScala.head._2.toDouble
   }
 
   // Returns the statistics of a feature
-  case class FeatureStatistics(count : Double,min : Double, max : Double, mean : Double, variance : Double)
+  case class FeatureStatistics(count: Double, min: Double, max: Double, mean: Double, variance: Double)
 
-  def getFeatureStatistics(
-                minCount : Int,
-                input : RDD[Example]) : Array[((String, String), FeatureStatistics)] = {
-    // ignore features present in less than minCount examples
-    // output: Array[((featureFamily, featureName), (minValue, maxValue))]
+  /**
+    * Compute [[FeatureStatistics]] across examples and ignore those with less than minCount features.
+    */
+  def getFeatureStatistics(minCount: Int, input: RDD[Example]): Array[((String, String), FeatureStatistics)] = {
+    val sqlContext = SQLContext.getOrCreate(input.sparkContext)
+    import sqlContext.implicits._
+    import org.apache.spark.sql.functions._
+
     input
-      .mapPartitions(partition => {
-      // family, feature name => count, min, max, sum x, sum x ^ 2
-      val weights = new ConcurrentHashMap[(String, String), FeatureStatistics]().asScala
-      partition.foreach(examples => {
-        for (i <- 0 until examples.example.size()) {
-          val flatFeature = Util.flattenFeature(examples.example.get(i)).asScala
-          flatFeature.foreach(familyMap => {
-            familyMap._2.foreach(feature => {
-              val key = (familyMap._1, feature._1)
-              val curr = weights.getOrElse(key, FeatureStatistics(0, Double.MaxValue, Double.MinValue, 0.0, 0.0))
-                val v = feature._2
-                weights.put(key,
-                            FeatureStatistics(curr.count + 1,
-                             scala.math.min(curr.min, v),
-                             scala.math.max(curr.max, v),
-                             curr.mean + v, // actually the sum
-                             curr.variance + v * v) // actually the sum of squares
-                )
-              })
-          })
+      .flatMap(examples => {
+        examples.example.iterator().flatMap {
+          example =>
+            Util.flattenFeatureAsStream(example).iterator()
+              .flatMap {
+                featureFamily =>
+                  val family = featureFamily.getKey
+                  featureFamily.getValue.iterator().map {
+                    feature =>
+                      val value = feature.getValue.toDouble
+                      (family, feature.getKey, value)
+                  }
+              }
         }
       })
-      weights.iterator
-    })
-      .reduceByKey((a, b) =>
-                     FeatureStatistics(a.count + b.count,
-                      scala.math.min(a.min, b.min),
-                      scala.math.max(a.max, b.max),
-                      a.mean + b.mean,
-                      a.variance + b.variance))
-      .filter(x => x._2.count >= minCount)
-      .map(x => (x._1,
-          FeatureStatistics(
-           count = x._2.count,
-           min = x._2.min,
-           max = x._2.max,
-           mean = x._2.mean / x._2.count,
-           variance = (x._2.variance - x._2.mean * x._2.mean / x._2.count) / (x._2.count - 1.0)
-           )))
+      .toDF("family", "feature", "value")
+      .groupBy($"family", $"feature")
+      .agg(
+        count(lit(1)) as "count",
+        min($"value"),
+        max($"value"),
+        sum($"value"),
+        // TODO: use built-in stdev function in Spark 1.6
+        sum($"value" * $"value")
+      )
+      // ignore features present in less than minCount examples
+      .where($"count" >= minCount)
+      .map {
+        case Row(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) =>
+          ((family, feature), FeatureStatistics(count, min, max, sum / count, (sqSum - sum * sum / count) / (count - 1)))
+      }
       .collect
   }
 
-  def getLabelCounts(minCount : Int,
-                     input : RDD[Example],
-                     rankKey: String) : Array[((String, String), Int)] = {
+  def getLabelCounts(minCount: Int,
+                     input: RDD[Example],
+                     rankKey: String): Array[((String, String), Int)] = {
     input
       .mapPartitions(partition => {
         // family, feature name => count
@@ -318,8 +305,8 @@ object TrainingUtils {
       .collect
   }
 
-  def createStringDictionaryFromFeatureStatistics(stats : Array[((String, String), FeatureStatistics)],
-                                                  excludedFamilies : Set[String]) : StringDictionary = {
+  def createStringDictionaryFromFeatureStatistics(stats: Array[((String, String), FeatureStatistics)],
+                                                  excludedFamilies: Set[String]): StringDictionary = {
     val dictionary = new StringDictionary()
     for (stat <- stats) {
       val (family, feature) = stat._1

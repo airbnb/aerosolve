@@ -2,7 +2,6 @@ package com.airbnb.aerosolve.core.transforms;
 
 import com.airbnb.aerosolve.core.Example;
 import com.airbnb.aerosolve.core.FeatureVector;
-import com.typesafe.config.Config;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -10,8 +9,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Stream;
+
+import com.typesafe.config.Config;
 
 public class Transformer implements Serializable {
 
@@ -50,28 +51,51 @@ public class Transformer implements Serializable {
 
   public void transformItems(List<FeatureVector> items) {
     if (items != null) {
-      for (FeatureVector item : items) {
-        transformItem(item);
-      }
+      items.forEach(this::transformItem);
     }
   }
 
+  /**
+   * Apply combined transform to a (already context-combined) feature vector
+   */
   public void transformCombined(FeatureVector combined) {
     if (combinedTransform != null && combined != null) {
       combinedTransform.doTransform(combined);
     }
   }
 
-  // In place apply all the transforms to the context and items
-  // and apply the combined transform to items.
+  /**
+   * Apply combined transform to a stream of (already context-combined) feature vector
+   */
+  public void transformCombined(Iterable<FeatureVector> combined) {
+    if (combinedTransform != null && combined != null) {
+      combinedTransform.doTransform(combined);
+    }
+  }
+
+  /**
+   * In place apply all the transforms to the context and items,
+   * add context to examples,
+   * and apply the combined transform to now combined examples.
+   */
   public void combineContextAndItems(Example examples) {
     transformContext(examples.context);
     transformItems(examples.example);
     addContextToItemsAndTransform(examples);
   }
 
-  // Adds the context to items and applies the combined transform
+  /**
+   * Adds the context to items and applies the combined transform
+   */
   public void addContextToItemsAndTransform(Example examples) {
+    addContextToItems(examples);
+    transformCombined(examples.example);
+  }
+
+  /**
+   * Adds the context's features to examples' features
+   */
+  public void addContextToItems(Example examples) {
     Map<String, Set<String>> contextStringFeatures = null;
     Map<String, Map<String, Double>> contextFloatFeatures = null;
     Map<String, List<Double>> contextDenseFeatures = null;
@@ -87,15 +111,17 @@ public class Transformer implements Serializable {
       }
     }
     for (FeatureVector item : examples.example) {
-      addContextToItemAndTransform(
-          contextStringFeatures, contextFloatFeatures, contextDenseFeatures, item);
+      addContextToItem(contextStringFeatures, contextFloatFeatures, contextDenseFeatures, item);
     }
   }
 
-  public void addContextToItemAndTransform(Map<String, Set<String>> contextStringFeatures,
-                                           Map<String, Map<String, Double>> contextFloatFeatures,
-                                           Map<String, List<Double>> contextDenseFeatures,
-                                           FeatureVector item) {
+  /**
+   * Adds context features to an individual feature vector
+   */
+  private void addContextToItem(Map<String, Set<String>> contextStringFeatures,
+                                Map<String, Map<String, Double>> contextFloatFeatures,
+                                Map<String, List<Double>> contextDenseFeatures,
+                                FeatureVector item) {
     if (contextStringFeatures != null) {
       if (item.getStringFeatures() == null) {
         item.setStringFeatures(new HashMap<>());
@@ -126,6 +152,5 @@ public class Transformer implements Serializable {
         itemDenseFeatures.put(denseFeature.getKey(), denseFeatureValueCopy);
       }
     }
-    transformCombined(item);
   }
 }

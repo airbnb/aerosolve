@@ -6,23 +6,45 @@ package com.airbnb.aerosolve.core.util;
  * Utilities for machine learning
  */
 
-import com.airbnb.aerosolve.core.*;
+import com.airbnb.aerosolve.core.DebugScoreDiffRecord;
+import com.airbnb.aerosolve.core.DebugScoreRecord;
+import com.airbnb.aerosolve.core.Example;
+import com.airbnb.aerosolve.core.FeatureVector;
+import com.airbnb.aerosolve.core.KDTreeNode;
+import com.airbnb.aerosolve.core.ModelRecord;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
+
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TSerializer;
 
-import java.io.*;
-import java.util.*;
-import java.util.zip.GZIPInputStream;
-
 @Slf4j
 public class Util implements Serializable {
   private static double LOG2 = Math.log(2);
+
   // Coder / decoder utilities for various protos. This makes it easy to
   // manipulate in spark. e.g. if we  wanted to see the 50 weights in a model
   // val top50 = sc.textFile("model.bz2").map(Util.decodeModel).sortBy(x => -x.weight).take(50);
@@ -35,6 +57,7 @@ public class Util implements Serializable {
       return "";
     }
   }
+
   public static FeatureVector decodeFeatureVector(String str) {
     return decode(FeatureVector.class, str);
   }
@@ -98,7 +121,7 @@ public class Util implements Serializable {
         BufferedReader reader = new BufferedReader(new InputStreamReader(gzipInputStream));
         List<T> list = new ArrayList<>();
         String line = reader.readLine();
-        while(line != null) {
+        while (line != null) {
           T t = Util.decode(clazz, line);
           if (t == null) {
             assert (false);
@@ -233,7 +256,7 @@ public class Util implements Serializable {
   }
 
   public static double logBase2(double value) {
-    return Math.log(value)/LOG2;
+    return Math.log(value) / LOG2;
   }
 
   public static Map<Integer, Double> prepareRankMap(List<Double> scores, List<Double> utilities) {
@@ -246,14 +269,14 @@ public class Util implements Serializable {
       scoresMap.put(i, scores.get(i));
     }
     Map.Entry<Integer, Double>[] kvs = sortByValuesDesc(scoresMap);
-    for (int j = 0; j < kvs.length; j ++) {
+    for (int j = 0; j < kvs.length; j++) {
       double util = utilities.get(kvs[j].getKey());
       rankMap.put(j, util);
     }
     return rankMap;
   }
 
-  public static <K,V> Map<K, V> safeMap(Map<K, V> map) {
+  public static <K, V> Map<K, V> safeMap(Map<K, V> map) {
     if (map == null) {
       return Collections.EMPTY_MAP;
     } else {
@@ -261,55 +284,94 @@ public class Util implements Serializable {
     }
   }
 
-  public static  Map<String, Map<String, Double>> flattenFeature(
-      FeatureVector featureVector) {
-    Map<String, Map<String, Double>> flatFeature = new HashMap<>();
-    if (featureVector.stringFeatures != null) {
-      for (Map.Entry<String, Set<String>> entry : featureVector.stringFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (String feature : entry.getValue()) {
-          out.put(feature, 1.0);
-        }
-      }
-    }
-    if (featureVector.floatFeatures != null) {
-      for (Map.Entry<String, Map<String, Double>> entry : featureVector.floatFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          out.put(feature.getKey(), feature.getValue());
-        }
-      }
-    }
-    return flatFeature;
+  /**
+   * Flatten a feature vector from example to a nested stream(feature family, stream(feature name.
+   * feature value))
+   */
+  public static Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> flattenFeatureAsStream(FeatureVector featureVector) {
+    // reuse flatten with dropout = 0
+    return flattenFeatureWithDropoutAsStream(featureVector, 0.0, 0);
   }
 
-  public static  Map<String, Map<String, Double>> flattenFeatureWithDropout(
-      FeatureVector featureVector,
-      double dropout) {
-    Map<String, Map<String, Double>> flatFeature = new HashMap<>();
+  /**
+   * Flatten a feature vector from example to a nested map of feature family -> (feature -> value)
+   */
+  public static Map<String, Map<String, Double>> flattenFeature(FeatureVector featureVector) {
+    return flattenFeatureStreamToMap(flattenFeatureAsStream(featureVector));
+  }
+
+  private static Random random = new Random();
+
+  /**
+   * Flatten a feature vector from example to a nested map of feature family -> (feature -> value)
+   * with dropout
+   */
+  public static Map<String, Map<String, Double>> flattenFeatureWithDropout(FeatureVector featureVector, double dropout) {
+    long seed = random.nextLong();
+    return flattenFeatureStreamToMap(flattenFeatureWithDropoutAsStream(featureVector, dropout, seed));
+  }
+
+  /**
+   * Convert a flatten nested stream(feature family, stream(feature name. feature value)) to nested
+   * map of feature family -> (feature -> value)
+   */
+  private static Map<String, Map<String, Double>> flattenFeatureStreamToMap(Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> stream) {
+    Map<String, Map<String, Double>> outputFeatureMap = new HashMap<>();
+
+    stream.forEach(inputFamilyEntry -> {
+      String familyName = inputFamilyEntry.getKey();
+      Map<String, Double> outputFeatureFamily = outputFeatureMap.get(familyName);
+      if (outputFeatureFamily == null) {
+        outputFeatureFamily = new HashMap<>();
+        outputFeatureMap.put(familyName, outputFeatureFamily);
+      }
+      // NB: this is necessary due to stream semantic where variable inside forEach has to be final
+      final Map<String, Double> finalFeatures = outputFeatureFamily;
+      inputFamilyEntry.getValue().forEach(feature -> finalFeatures.put(feature.getKey(), feature.getValue()));
+    });
+
+    return outputFeatureMap;
+  }
+
+  /**
+   * Convert a feature vector from example to a nested stream(feature family, stream(feature name.
+   * feature value)) with dropout
+   *
+   * @apiNote Understand Stream can only be iterated once just like iterator, it is crucial to set a
+   * random seed if one wants to reproduce consistent dropout result.
+   */
+  public static Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> flattenFeatureWithDropoutAsStream(
+      FeatureVector featureVector, double dropout, long seed) {
+    // collect string features into a stream
+    Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> stringFeatures = Stream.empty();
     if (featureVector.stringFeatures != null) {
-      for (Map.Entry<String, Set<String>> entry : featureVector.stringFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (String feature : entry.getValue()) {
-          if (Math.random() < dropout) continue;
-          out.put(feature, 1.0);
-        }
-      }
+      stringFeatures = featureVector.stringFeatures.entrySet().stream().map(entry -> {
+        Stream<? extends Map.Entry<String, Double>> values =
+            entry.getValue().stream()
+                .map(feature -> new HashMap.SimpleImmutableEntry<>(feature, 1.0));
+        return new HashMap.SimpleImmutableEntry<>(entry.getKey(), values);
+      });
     }
+
+    // collect float features into a stream
+    Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> floatFeatures = Stream.empty();
     if (featureVector.floatFeatures != null) {
-      for (Map.Entry<String, Map<String, Double>> entry : featureVector.floatFeatures.entrySet()) {
-        Map<String, Double> out = new HashMap<>();
-        flatFeature.put(entry.getKey(), out);
-        for (Map.Entry<String, Double> feature : entry.getValue().entrySet()) {
-          if (Math.random() < dropout) continue;
-          out.put(feature.getKey(), feature.getValue());
-        }
-      }
+      floatFeatures = featureVector.floatFeatures.entrySet().stream().map(entry ->
+          new HashMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().entrySet().stream())
+      );
     }
-    return flatFeature;
+
+    // concat string and float features and apply dropout if necessary
+    Stream<? extends Map.Entry<String, Stream<? extends Map.Entry<String, Double>>>> flatFeatures = Stream.concat(stringFeatures, floatFeatures);
+    if (dropout > 0) {
+      Random random = new Random(seed);
+      // dropout needs to be applied in the inner most stream
+      return flatFeatures.map(
+          entry -> new HashMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().filter(x -> random.nextDouble() >= dropout))
+      );
+    } else {
+      return flatFeatures;
+    }
   }
 
   public static class DebugDiffRecordComparator implements Comparator<DebugScoreDiffRecord> {
@@ -324,12 +386,13 @@ public class Util implements Serializable {
       }
       return 0;
     }
+
   }
 
-  private static Map<String, Map<String, Double>> debugScoreRecordListToMap(List<DebugScoreRecord> recordList){
+  private static Map<String, Map<String, Double>> debugScoreRecordListToMap(List<DebugScoreRecord> recordList) {
     Map<String, Map<String, Double>> recordMap = new HashMap<>();
 
-    for(int i = 0; i < recordList.size(); i++){
+    for (int i = 0; i < recordList.size(); i++) {
       String key = recordList.get(i).featureFamily + '\t' + recordList.get(i).featureName;
       Map<String, Double> record = new HashMap<>();
       record.put("featureValue", recordList.get(i).featureValue);
@@ -340,7 +403,7 @@ public class Util implements Serializable {
   }
 
   public static List<DebugScoreDiffRecord> compareDebugRecords(List<DebugScoreRecord> record1,
-                                                               List<DebugScoreRecord> record2){
+                                                               List<DebugScoreRecord> record2) {
     List<DebugScoreDiffRecord> debugDiffRecord = new ArrayList<>();
     final String featureValue = "featureValue";
     final String featureWeight = "featureWeight";
@@ -351,17 +414,17 @@ public class Util implements Serializable {
     keys.addAll(recordMap1.keySet());
     keys.addAll(recordMap2.keySet());
 
-    for(String key: keys){
+    for (String key : keys) {
       DebugScoreDiffRecord diffRecord = new DebugScoreDiffRecord();
       double fv1 = 0.0;
       double fv2 = 0.0;
       double fw1 = 0.0;
       double fw2 = 0.0;
-      if(recordMap1.get(key) != null){
+      if (recordMap1.get(key) != null) {
         fv1 = recordMap1.get(key).get(featureValue);
         fw1 = recordMap1.get(key).get(featureWeight);
       }
-      if(recordMap2.get(key) != null){
+      if (recordMap2.get(key) != null) {
         fv2 = recordMap2.get(key).get(featureValue);
         fw2 = recordMap2.get(key).get(featureWeight);
       }
@@ -386,8 +449,8 @@ public class Util implements Serializable {
       return Collections.EMPTY_SET;
     }
 
-    Set<T> small = (a.size() > b.size())? b:a;
-    Set<T> big = (a.size() > b.size())? a:b;
+    Set<T> small = (a.size() > b.size()) ? b : a;
+    Set<T> big = (a.size() > b.size()) ? a : b;
 
     Set<T> intersection = new HashSet<T>(small);
     intersection.retainAll(big);
