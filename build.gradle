@@ -2,56 +2,64 @@ apply plugin: 'wrapper'
 
 // Needed for shadow.
 buildscript {
-  repositories {
-    jcenter()
-    maven { url "https://plugins.gradle.org/m2/" }
-  }
-  dependencies {
-    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
-    classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
-    classpath 'gradle.plugin.com.palantir.gradle.gitversion:gradle-git-version:0.5.2'
-  }
+    repositories {
+        jcenter()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
+        classpath 'gradle.plugin.com.palantir.gradle.gitversion:gradle-git-version:0.5.2'
+    }
 }
 
 allprojects {
-  apply plugin: 'java'
-  apply plugin: 'idea'
-  apply plugin: 'eclipse'
-  apply plugin: 'com.github.johnrengelman.shadow'
-  apply plugin: 'com.palantir.git-version'
+    apply plugin: 'java'
+    apply plugin: 'idea'
+    apply plugin: 'eclipse'
+    apply plugin: 'com.github.johnrengelman.shadow'
+    apply plugin: 'com.palantir.git-version'
 
-  repositories {
-    jcenter()
-    maven { url "http://repo.typesafe.com/typesafe/releases/" }
-    maven { url 'http://projectlombok.org/mavenrepo' }
-  }
+    repositories {
+        jcenter()
+        maven { url "http://repo.typesafe.com/typesafe/releases/" }
+        maven { url 'http://projectlombok.org/mavenrepo' }
+    }
 
-  configurations {
-    provided
-  }
+    configurations {
+        provided
+    }
 
-  group = 'com.airbnb.aerosolve'
-  version gitVersion()
+    group = 'com.airbnb.aerosolve'
+    version gitVersion()
 
-  ext.publish = true
-  ext.dryRun = false
+    ext.publish = true
+    ext.dryRun = false
 
-  sourceSets {
-      main {
-          compileClasspath += configurations.provided
-      }
-      test {
-          compileClasspath += configurations.provided
-          runtimeClasspath += configurations.provided
-      }
-  }
+    sourceSets {
+        main {
+            compileClasspath += configurations.provided
+        }
+        test {
+            compileClasspath += configurations.provided
+            runtimeClasspath += configurations.provided
+        }
+    }
 
-  compileJava {
-    sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
-    options.setDeprecation true
-    options.encoding = 'UTF-8'
-  }
+    compileJava {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+        options.setDeprecation true
+        options.encoding = 'UTF-8'
+    }
+
+    if (JavaVersion.current().isJava8Compatible()) {
+        tasks.withType(Javadoc) {
+            // disable the crazy super-strict doclint tool in Java 8
+            //noinspection SpellCheckingInspection
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
 }
 
 subprojects {

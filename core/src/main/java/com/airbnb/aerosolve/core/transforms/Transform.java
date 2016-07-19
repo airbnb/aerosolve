@@ -29,14 +29,12 @@ public interface Transform extends Serializable {
    * @implNote this function can be overridden if the transform can be applied much more efficiency
    * in (small) batches If such implementation exists, one would typically override the single
    * feature vector implementation with the following instead:
-   * <pre>
-   * {@code
+   * <pre> <code>
    *  @Override
    *  public void doTransform(FeatureVector featureVector) {
    *    doTransform(Stream.of(featureVector));
    *  }
-   * }
-   * </pre>
+   * </code> </pre>
    */
   default void doTransform(Iterable<FeatureVector> featureVectors) {
     featureVectors.forEach(this::doTransform);
