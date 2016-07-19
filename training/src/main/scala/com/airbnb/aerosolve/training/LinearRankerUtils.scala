@@ -1,36 +1,31 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.Example
-import com.airbnb.aerosolve.core.FeatureVector
-import com.airbnb.aerosolve.core.transforms.Transformer
-import com.typesafe.config.Config
-import org.slf4j.{Logger, LoggerFactory}
-import org.apache.spark.rdd.RDD
 import java.util
-import java.util.{Spliterator, Spliterators}
 import java.util.stream.StreamSupport
+import java.util.{Spliterator, Spliterators}
 
+import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.airbnb.aerosolve.core.features.SparseLabeledPoint
 import com.airbnb.aerosolve.core.models.AdditiveModel
+import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.Util
+import com.typesafe.config.Config
+import org.apache.spark.rdd.RDD
 
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.HashSet
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.Buffer
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 case class CompressedExample(pos: Array[(String, String)],
                              neg: Array[(String, String)],
-                             label: Double);
+                             label: Double)
 
 object LinearRankerUtils {
-  private final val log: Logger = LoggerFactory.getLogger("LinearRankerUtils")
 
   def getFeatures(sample: FeatureVector): Array[(String, String)] = {
-    val features = HashSet[(String, String)]()
+    val features = mutable.HashSet[(String, String)]()
     sample.stringFeatures.foreach(family => {
       family._2.foreach(value => {
         features.add((family._1, value))
@@ -60,7 +55,7 @@ object LinearRankerUtils {
   Array[Array[Array[(String, String)]]] = {
     transformer.combineContextAndItems(examples)
     val samples: Seq[FeatureVector] = examples.example
-    val buckets = HashMap[Int, Buffer[Array[(String, String)]]]()
+    val buckets = mutable.HashMap[Int, mutable.Buffer[Array[(String, String)]]]()
     samples
       .filter(x => x.stringFeatures != null &&
         x.floatFeatures != null &&
@@ -94,10 +89,10 @@ object LinearRankerUtils {
         val transformer = new Transformer(config, key)
         partition.foreach(examples => {
           val buckets = LinearRankerUtils.expandAndBucketizeExamples(examples, transformer, rankKey)
-          for (i <- 0 to buckets.size - 2) {
-            for (j <- i + 1 to buckets.size - 1) {
-              val neg = buckets(i)(rnd.nextInt(buckets(i).size)).toSet
-              val pos = buckets(j)(rnd.nextInt(buckets(j).size)).toSet
+          for (i <- 0 to buckets.length - 2) {
+            for (j <- i + 1 until buckets.length) {
+              val neg = buckets(i)(rnd.nextInt(buckets(i).length)).toSet
+              val pos = buckets(j)(rnd.nextInt(buckets(j).length)).toSet
               val intersect = pos.intersect(neg)
               // For ranking we have pairs of examples with label always 1.0.
               val out = CompressedExample(pos.diff(intersect).toArray,
@@ -116,7 +111,7 @@ object LinearRankerUtils {
     var sum: Double = 0
     feature.foreach(v => {
       val opt = weightMap.get(v)
-      if (opt != None) {
+      if (opt.isDefined) {
         sum += opt.get._1
       }
     })

@@ -116,7 +116,7 @@ object TrainingUtils {
       return None
     }
     val model = modelOpt.get()
-    return Some(model)
+    Some(model)
   }
 
   def loadPlattScaleWeights(filePath: String): Option[Array[Double]] = {
@@ -131,7 +131,7 @@ object TrainingUtils {
     for (weight <- calibrationModelStr.split(" "))
       calibrationWeights += weight.toDouble
 
-    return Some(calibrationWeights.toArray)
+    Some(calibrationWeights.toArray)
   }
 
   def debugScore(example: Example, model: AbstractModel, transformer: Transformer) = {
@@ -139,7 +139,7 @@ object TrainingUtils {
     for (ex <- example.example.asScala) {
       val builder = new java.lang.StringBuilder()
       model.debugScoreItem(example.example.get(0), builder)
-      val result = builder.toString()
+      val result = builder.toString
       println(result)
     }
   }
@@ -152,7 +152,7 @@ object TrainingUtils {
       return None
     }
     val result = files
-      .map(x => x.getPath().toString())
+      .map(x => x.getPath.toString)
       .toBuffer
       .sortWith((a, b) => a > b)
       .head
