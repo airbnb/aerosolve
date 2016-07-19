@@ -112,11 +112,7 @@ object TrainingUtils {
     val modelStream = fs.open(modelPath)
     val reader = new BufferedReader(new InputStreamReader(modelStream))
     val modelOpt = ModelFactory.createFromReader(reader)
-    if (!modelOpt.isPresent) {
-      return None
-    }
-    val model = modelOpt.get()
-    Some(model)
+    Option(modelOpt.orNull())
   }
 
   def loadPlattScaleWeights(filePath: String): Option[Array[Double]] = {
@@ -124,14 +120,14 @@ object TrainingUtils {
       TrainingUtils.readStringFromFile(filePath)
     if (calibrationModelStr == null) {
       // error already logged in readStringFromFile
-      return None
+      None
+    } else {
+      val calibrationWeights = scala.collection.mutable.ArrayBuffer.empty[Double]
+      for (weight <- calibrationModelStr.split(" "))
+        calibrationWeights += weight.toDouble
+
+      Some(calibrationWeights.toArray)
     }
-
-    val calibrationWeights = scala.collection.mutable.ArrayBuffer.empty[Double]
-    for (weight <- calibrationModelStr.split(" "))
-      calibrationWeights += weight.toDouble
-
-    Some(calibrationWeights.toArray)
   }
 
   def debugScore(example: Example, model: AbstractModel, transformer: Transformer) = {
@@ -147,16 +143,11 @@ object TrainingUtils {
   def getLatestDirectory(dir: String): Option[String] = {
     val fs = FileSystem.get(new URI(dir), hadoopConfiguration)
     val path = new Path(dir)
-    val files = fs.listStatus(path)
-    if (files.isEmpty) {
-      return None
-    }
-    val result = files
+    val files = fs.listStatus(path).toSeq
+    files
       .map(x => x.getPath.toString)
-      .toBuffer
       .sortWith((a, b) => a > b)
-      .head
-    Some(result)
+      .headOption
   }
 
   def writeStringToFile(str: String, output: String) = {
@@ -173,14 +164,15 @@ object TrainingUtils {
     val filePath = new Path(filename)
     if (!fs.exists(filePath)) {
       log.error(filename + " does not exist")
-      return null
-    }
-    val fileStream = fs.open(filePath)
-    val reader = new BufferedReader(new InputStreamReader(fileStream))
-    val result = reader.readLine()
-    reader.close()
+      null
+    } else {
+      val fileStream = fs.open(filePath)
+      val reader = new BufferedReader(new InputStreamReader(fileStream))
+      val result = reader.readLine()
+      reader.close()
 
-    result
+      result
+    }
   }
 
   def trainAndSaveToFile(sc: SparkContext,
