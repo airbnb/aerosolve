@@ -241,13 +241,10 @@ object LinearRankerUtils {
         examples =>
           val t0 = System.nanoTime()
 
-          // create a stream from iterator for efficiency
-          val source = examples.iterator.flatMap(_.example).asJava
-          val spliterator = Spliterators.spliteratorUnknownSize(source, Spliterator.ORDERED)
-          val stream = StreamSupport.stream(spliterator, false)
-
-          transformer.transformCombined(stream)
+          val features = examples.iterator.flatMap(_.example).toIterable.asJava
+          transformer.transformCombined(features)
           transformerTimer += (System.nanoTime() - t0)
+
           examples
       }
     })

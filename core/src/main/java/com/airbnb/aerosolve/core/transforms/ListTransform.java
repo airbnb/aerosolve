@@ -6,8 +6,6 @@ import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Created by hector_yee on 8/25/14.
@@ -37,11 +35,10 @@ public class ListTransform implements Transform {
   }
 
   @Override
-  public void doTransform(Stream<FeatureVector> featureVectors) {
+  public void doTransform(Iterable<FeatureVector> featureVectors) {
     // collect stream because they can only be operated once
-    List<FeatureVector> vectors = featureVectors.collect(Collectors.toList());
     for (Transform transform : transforms) {
-      transform.doTransform(vectors.stream());
+      transform.doTransform(featureVectors);
     }
   }
 }

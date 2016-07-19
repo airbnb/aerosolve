@@ -38,7 +38,7 @@ public interface Transform extends Serializable {
    * }
    * </pre>
    */
-  default void doTransform(Stream<FeatureVector> featureVectors) {
+  default void doTransform(Iterable<FeatureVector> featureVectors) {
     featureVectors.forEach(this::doTransform);
   }
 }

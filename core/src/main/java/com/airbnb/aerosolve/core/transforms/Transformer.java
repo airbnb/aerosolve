@@ -67,7 +67,7 @@ public class Transformer implements Serializable {
   /**
    * Apply combined transform to a stream of (already context-combined) feature vector
    */
-  public void transformCombined(Stream<FeatureVector> combined) {
+  public void transformCombined(Iterable<FeatureVector> combined) {
     if (combinedTransform != null && combined != null) {
       combinedTransform.doTransform(combined);
     }
@@ -89,7 +89,7 @@ public class Transformer implements Serializable {
    */
   public void addContextToItemsAndTransform(Example examples) {
     addContextToItems(examples);
-    transformCombined(examples.example.stream());
+    transformCombined(examples.example);
   }
 
   /**
