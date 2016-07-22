@@ -167,6 +167,23 @@ object GenericPipeline {
     val metrics = evalCompute(sc, config, cfgKey, isTrainingFunc)
 
     metrics.foreach(x => log.info(if (x._1 contains "THRESHOLD") x._1 else x.toString))
+
+    // Write metrics to result
+    try {
+      val result: String = confi.getConfig(cfgKey).getString("result")
+      val fileSystem = FileSystem.get(new java.net.URI(result), new Configuration())
+      val file = fileSystem.create(new Path(result), true)
+      val writer = new BufferedWriter(new OutputStreamWriter(file))
+      metrics.foreach{ x => 
+        writer.write(if (x._1 contains "THRESHOLD") x._1 else x.toString)
+        writer.newLine()
+      }
+      writer.flush()
+      writer.close()
+      file.close()
+    } catch {
+      case _ : Throwable => log.error("Could not write to result")
+    }
   }
 
   def evalCompute(
