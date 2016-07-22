@@ -87,6 +87,24 @@ object Evaluation {
       .toArray
   }
 
+  def evaluateBinaryClassification(records : RDD[EvaluationRecord],
+                                   buckets : Int,
+                                   evalMetric : String,
+                                   resultOutputPath: String) : Array[(String, Double)] = {
+    val metrics = evaluateBinaryClassification(records, buckets, evalMetric)
+    ResultUtil.writeResults(metrics, resultOutputPath)
+    metrics
+  }
+
+  def evaluateBinaryClassification(records : List[EvaluationRecord],
+                                   buckets : Int,
+                                   evalMetric : String,
+                                   resultOutputPath: String) : Array[(String, Double)] = {
+    val metrics = evaluateBinaryClassification(records, buckets, evalMetric)
+    ResultUtil.writeResults(metrics, resultOutputPath)
+    metrics
+  }
+
   def evaluateMulticlassClassification(records : RDD[EvaluationRecord]) : Array[(String, Double)] = {
     records.flatMap(rec => {
       // Metric, value, count
