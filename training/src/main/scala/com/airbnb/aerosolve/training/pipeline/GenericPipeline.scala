@@ -477,8 +477,8 @@ object GenericPipeline {
       isRegression: Boolean,
       isMulticlass: Boolean,
       metric: String,
-      isTraining: Example,
-      resultsOutputPath: String => Boolean) : Array[(String, Double)] = {
+      isTraining: Example => Boolean,
+      resultsOutputPath: String) : Array[(String, Double)] = {
     val examples = sc.textFile(inputPattern)
       .map(Util.decodeExample)
       .sample(false, subSample)

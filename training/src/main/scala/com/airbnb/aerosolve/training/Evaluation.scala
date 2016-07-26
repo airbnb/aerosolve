@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.training
 import org.slf4j.{Logger, LoggerFactory}
 import org.apache.spark.rdd.RDD
 import com.airbnb.aerosolve.core.EvaluationRecord
+import com.airbnb.aerosolve.training.pipeline.ResultUtil
 import org.apache.spark.SparkContext._
 import scala.collection.{mutable, Map}
 import scala.collection.mutable.{ArrayBuffer, Buffer}
