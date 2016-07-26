@@ -184,7 +184,7 @@ object GenericPipeline {
     val isRegression = Try(cfg.getBoolean("is_regression")).getOrElse(false)
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
     val metric = cfg.getString("metric_to_maximize")
-    val resultsOutputPath = Try(cfg.getString("results_output_path"))..getOrElse("")
+    val resultsOutputPath = Try(cfg.getString("results_output_path")).getOrElse("")
     val (model, transformer) = getModelAndTransform(config, modelCfgName, modelName)
 
     val metrics = evalModelInternal(
