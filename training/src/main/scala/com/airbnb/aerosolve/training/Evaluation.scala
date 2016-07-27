@@ -120,12 +120,12 @@ object Evaluation {
     }
 
     metricsAppend(metrics, trainPR, holdPR, results)
-
     evaluateBinaryClassificationAUC(records, metrics, results)
 
+    // Write results
     thresholdsAppend(trainPR, holdPR, holdThresholdPrecisionRecall, trainThresholdPrecisionRecall)
-    val metricsArray = metrics.sortWith((a, b) => a._1 < b._1).toArray
-    ResultUtil.writeResults(resultsOutputPath, metricsArray, holdThresholdPrecisionRecall.toArray, trainThresholdPrecisionRecall.toArray)
+    val resultsArray = results.sortWith((a, b) => a._1 < b._1).toArray
+    ResultUtil.writeResults(resultsOutputPath, resultsArray, holdThresholdPrecisionRecall.toArray, trainThresholdPrecisionRecall.toArray)
 
     metrics
       .sortWith((a, b) => a._1 < b._1)
@@ -143,6 +143,7 @@ object Evaluation {
     var results = mutable.Buffer[(String, Double)]()
     var holdThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
     var trainThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
+
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
     val trainPR = new ArrayBuffer[(Double, Double, Double)]()
@@ -164,9 +165,12 @@ object Evaluation {
     }
 
     metricsAppend(metrics, trainPR, holdPR, results)
-    thresholdsAppend(trainPR, holdPR, holdThresholdPrecisionRecall, trainThresholdPrecisionRecall)
-
     evaluateBinaryClassificationAUC(records, metrics, results)
+
+    // Write results
+    thresholdsAppend(trainPR, holdPR, holdThresholdPrecisionRecall, trainThresholdPrecisionRecall)
+    val resultsArray = results.sortWith((a, b) => a._1 < b._1).toArray
+    ResultUtil.writeResults(resultsOutputPath, resultsArray, holdThresholdPrecisionRecall.toArray, trainThresholdPrecisionRecall.toArray)
 
     metrics
       .sortWith((a, b) => a._1 < b._1)
