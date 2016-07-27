@@ -1,36 +1,34 @@
 package com.airbnb.aerosolve.training
 
-import com.airbnb.aerosolve.core.KDTreeNode
-import com.airbnb.aerosolve.core.KDTreeNodeType
+import com.airbnb.aerosolve.core.{KDTreeNode, KDTreeNodeType}
 import com.airbnb.aerosolve.core.models.KDTreeModel
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 // A specialized 2D Kdtree that supports accumulating boxes of values.
-
 class KDTree(val nodes: Array[KDTreeNode]) extends Serializable {
   val model = new KDTreeModel(nodes)
 
   // Returns the indices of nodes traversed to get to the leaf containing the point.
-  def query(loc : (Double, Double)) : Array[Int] = {
+  def query(loc: (Double, Double)): Array[Int] = {
     model.query(loc._1, loc._2).asScala.map(x => x.intValue()).toArray
   }
 
   // Returns the indices of all node overlapping the box
-  def queryBox(minXY : (Double, Double), maxXY : (Double, Double)) : Array[Int] = {
+  def queryBox(minXY: (Double, Double), maxXY: (Double, Double)): Array[Int] = {
     model.queryBox(minXY._1, minXY._2, maxXY._1, maxXY._2).asScala.map(x => x.intValue()).toArray
   }
 
   // Return nodes as csv.
   // node_id, minX, minY, maxX, maxY, count, parent, is_leaf, left_child, right_child, is_xsplit, split_value
-  def getCSV() : Array[String] = {
-    val csv  = ArrayBuffer[String]()
+  def getCSV(): Array[String] = {
+    val csv = ArrayBuffer[String]()
     getCSVRecursive(0, -1, csv)
-    return csv.toArray
+    csv.toArray
   }
 
-  private def getCSVRecursive(currIdx : Int, parent : Int, csv : ArrayBuffer[String]) : Unit = {
+  private def getCSVRecursive(currIdx: Int, parent: Int, csv: ArrayBuffer[String]): Unit = {
     val builder = StringBuilder.newBuilder
 
     val node = nodes(currIdx)
@@ -47,45 +45,68 @@ class KDTree(val nodes: Array[KDTreeNode]) extends Serializable {
       builder.append(",FALSE,%d,%d,%s,%f".format(
         node.leftChild,
         node.rightChild,
-        (if (node.nodeType == KDTreeNodeType.X_SPLIT) "TRUE" else "FALSE"),
+        if (node.nodeType == KDTreeNodeType.X_SPLIT) "TRUE" else "FALSE",
         node.splitValue
-        ))
+      ))
     }
     csv.append(builder.toString)
+
     if (node.nodeType != KDTreeNodeType.LEAF) {
       getCSVRecursive(node.leftChild, currIdx, csv)
       getCSVRecursive(node.rightChild, currIdx, csv)
     }
   }
+
+  /**
+    * Update bounds of KDTree node in-place
+    *
+    * @note bounding box is informational and is not used in pinpoint observation
+    *       into a KDTree node. This information was used in KDTree split cost computation.
+    * @param bounds a map from KDTree node id to bounding box
+    */
+  def updateBounds(bounds: Map[Int, KDTree.Bounds]): Unit = {
+    nodes.iterator.zipWithIndex.foreach {
+      case (node, id) =>
+        bounds.get(id)
+          .foreach {
+            bound =>
+              node.setMinX(bound.minX)
+              node.setMaxX(bound.maxX)
+              node.setMinY(bound.minY)
+              node.setMaxY(bound.maxY)
+          }
+    }
+  }
 }
 
 object KDTree {
-  case class KDTreeBuildOptions(maxTreeDepth : Int,
-                                minLeafCount : Int)
 
-  def apply(options : KDTreeBuildOptions,
-            pts : Array[(Double, Double)]) : KDTree = {
+  case class KDTreeBuildOptions(maxTreeDepth: Int, minLeafCount: Int)
+
+  def apply(options: KDTreeBuildOptions,
+            pts: Array[(Double, Double)]): KDTree = {
     val nodes = ArrayBuffer[KDTreeNode]()
-    val idx : Array[Int] = (0 until pts.length).toArray
+    val idx: Array[Int] = pts.indices.toArray
     if (idx.length > 0) {
       val node = new KDTreeNode()
       nodes.append(node)
       buildTreeRecursive(options, pts, idx, nodes, node, 1)
     }
-    return new KDTree(nodes.toArray)
+    new KDTree(nodes.toArray)
   }
 
-  private case class Bounds(minX : Double, maxX : Double, minY : Double, maxY : Double)
-  private case class Split(xSplit : Boolean, splitVal : Double, leftIdx : Array[Int], rightIdx : Array[Int])
+  case class Bounds(minX: Double, maxX: Double, minY: Double, maxY: Double)
 
-  private def buildTreeRecursive(options : KDTreeBuildOptions,
-                                 pts : Array[(Double, Double)],
-                                 idx : Array[Int],
-                                 nodes : ArrayBuffer[KDTreeNode],
-                                 node : KDTreeNode,
-                                 depth : Int) : Unit = {
+  case class Split(xSplit: Boolean, splitVal: Double, leftIdx: Array[Int], rightIdx: Array[Int])
+
+  private def buildTreeRecursive(options: KDTreeBuildOptions,
+                                 pts: Array[(Double, Double)],
+                                 idx: Array[Int],
+                                 nodes: ArrayBuffer[KDTreeNode],
+                                 node: KDTreeNode,
+                                 depth: Int): Unit = {
     assert(idx.length > 0)
-    node.setCount(idx.size)
+    node.setCount(idx.length)
     // Determine the min and max dimensions of the active set
     // Active points are triplets of x, y and index
     val bounds = getBounds(pts, idx)
@@ -94,18 +115,18 @@ object KDTree {
     node.setMinY(bounds.minY)
     node.setMaxY(bounds.maxY)
 
-    var makeLeaf : Boolean = false
+    var makeLeaf: Boolean = false
     if (depth >= options.maxTreeDepth ||
-        idx.size <= options.minLeafCount ||
-        (bounds.minX >= bounds.maxX) ||
-        (bounds.minY >= bounds.maxY)) {
+      idx.length <= options.minLeafCount ||
+      (bounds.minX >= bounds.maxX) ||
+      (bounds.minY >= bounds.maxY)) {
       makeLeaf = true
     }
 
     // Recursively build tree
     if (!makeLeaf) {
       val split = getSplitVal(pts, idx, bounds)
-      if (split.leftIdx.size <= options.minLeafCount || split.rightIdx.size <= options.minLeafCount) {
+      if (split.leftIdx.length <= options.minLeafCount || split.rightIdx.length <= options.minLeafCount) {
         makeLeaf = true
       } else {
         val nodeType = if (split.xSplit) KDTreeNodeType.X_SPLIT else KDTreeNodeType.Y_SPLIT
@@ -125,16 +146,19 @@ object KDTree {
       node.setNodeType(KDTreeNodeType.LEAF)
     }
   }
-  private def getBounds(pts : Array[(Double, Double)],
-                        idx : Array[Int]) : Bounds = {
+
+  private def getBounds(pts: Array[(Double, Double)],
+                        idx: Array[Int]): Bounds = {
     val res = idx.map(i => pts(i))
-              .map(pt => Bounds(pt._1, pt._1, pt._2, pt._2))
-    return res.fold(res.head) { (a, b) =>
+      .map(pt => Bounds(pt._1, pt._1, pt._2, pt._2))
+    res.fold(res.head) { (a, b) =>
       Bounds(math.min(a.minX, b.minX), math.max(a.maxX, b.maxX),
-             math.min(a.minY, b.minY), math.max(a.maxY, b.maxY)) }
+        math.min(a.minY, b.minY), math.max(a.maxY, b.maxY))
+    }
 
   }
-  private def getArea(bounds : Bounds) : Double = {
+
+  private def getArea(bounds: Bounds): Double = {
     (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY)
   }
 
@@ -143,33 +167,37 @@ object KDTree {
   // This minimizes the cost of the split which is defined as
   // P(S(L) | S(P)) * N_L + P(S(R) | S(P)) * N_R
   // which is the surface area of the sides weighted by point counts
-  private def computeCost(pts : Array[(Double, Double)],
-                          idx : Array[Int],
-                          parentArea : Double) : Double = {
+  private def computeCost(pts: Array[(Double, Double)],
+                          idx: Array[Int],
+                          parentArea: Double): Double = {
     if (parentArea == 0.0) {
-      return idx.size
+      idx.length
+    } else {
+      val bounds = getBounds(pts, idx)
+      val area = getArea(bounds)
+      if (area == 0.0) {
+        Double.MaxValue
+      } else {
+        area * idx.length.toDouble / parentArea
+      }
     }
-    val bounds = getBounds(pts, idx)
-    val area = getArea(bounds)
-    if (area == 0.0) return Double.MaxValue
-    return area * idx.size.toDouble / parentArea
   }
 
-  private def getSplitVal(pts : Array[(Double, Double)],
-                          idx : Array[Int],
-                          bounds : Bounds) : Split = {
+  private def getSplitVal(pts: Array[(Double, Double)],
+                          idx: Array[Int],
+                          bounds: Bounds): Split = {
     val dx = bounds.maxX - bounds.minX
     val dy = bounds.maxY - bounds.minY
     val parentArea = dx * dy
-    var xSplit = dx > dy
+    val xSplit = dx > dy
 
-    var bestSplit : Split = Split(true, 0.0, Array(), Array())
-    var bestScore : Double = Double.MaxValue
+    var bestSplit: Split = Split(true, 0.0, Array(), Array())
+    var bestScore: Double = Double.MaxValue
 
     // Sample uniformly for the best split
-    val MAX_COUNT : Int = 10
+    val MAX_COUNT: Int = 10
     for (i <- 0 until MAX_COUNT) {
-      val frac : Double = (i + 1.0) / (MAX_COUNT + 1.0)
+      val frac: Double = (i + 1.0) / (MAX_COUNT + 1.0)
       val splitVal = if (xSplit) bounds.minX + dx * frac else bounds.minY + dy * frac
 
       val leftIdx = if (xSplit) {
@@ -187,12 +215,12 @@ object KDTree {
       val leftCost = computeCost(pts, leftIdx, parentArea)
       val rightCost = computeCost(pts, rightIdx, parentArea)
       val score = leftCost + rightCost
-      if (i == 0 || (score < bestScore && leftIdx.size > 0 && rightIdx.size > 0)) {
+      if (i == 0 || (score < bestScore && leftIdx.length > 0 && rightIdx.length > 0)) {
         bestSplit = Split(xSplit, splitVal, leftIdx, rightIdx)
         bestScore = score
       }
     }
 
-    return bestSplit
+    bestSplit
   }
 }
