@@ -33,8 +33,8 @@ object Evaluation {
                                    buckets : Int,
                                    evalMetric : String,
                                    resultsOutputPath: String) : Array[(String, Double)] = {
-    // Convert RDD to list
-    val recordsList = List.fromArray(records.collect());
+    // Convert RDD to List
+    val recordsList = records.collect().toList;
     evaluateBinaryClassificationWithResults(recordsList, buckets, evalMetric, resultsOutputPath)
   }
 
@@ -148,10 +148,8 @@ object Evaluation {
                             results: mutable.Buffer[(String, Double)],
                             trainThresholdPrecisionRecall: mutable.Buffer[(Double, Double, Double)],
                             holdThresholdPrecisionRecall: mutable.Buffer[(Double, Double, Double)]): Unit = {
-    metrics.append(("!TRAIN_PRECISION_RECALL_AUC", getPRAUC(trainPR)))
-    metrics.append(("!HOLD_PRECISION_RECALL_AUC", getPRAUC(holdPR)))
-    results.append(("TRAIN_PRECISION_RECALL_AUC", getPRAUC(trainPR)))
-    results.append(("HOLD_PRECISION_RECALL_AUC", getPRAUC(holdPR)))
+    appendMetricAndResult(metrics, results, "TRAIN_PRECISION_RECALL_AUC", getPRAUC(trainPR))
+    appendMetricAndResult(metrics, results, "HOLD_PRECISION_RECALL_AUC", getPRAUC(holdPR))
 
     for (tpr <- trainPR) {
       metrics.append(("!TRAIN_THRESHOLD=%f PRECISION=%f RECALL=%f".format(tpr._3, tpr._1, tpr._2), 0))
@@ -186,21 +184,13 @@ object Evaluation {
     val te = metricsMap.getOrElse("TRAIN_SQERR", 0.0)
     val tc = metricsMap.getOrElse("TRAIN_COUNT", 0.0)
 
-    metrics.append(("!BEST_THRESHOLD", threshold))
-    metrics.append(("!TRAIN_ACC", (ttp + ttn) / tc))
-    metrics.append(("!TRAIN_RMSE", Math.sqrt(te / tc)))
-    metrics.append(("!TRAIN_FPR", tfp / (tfp + ttn)))
-    metrics.append(("!TRAIN_RECALL", if (ttp > 0.0) ttp / (ttp + tfn) else 0.0))
-    metrics.append(("!TRAIN_PRECISION", if (ttp > 0.0) ttp / (ttp + tfp) else 0.0))
-    metrics.append(("!TRAIN_F1", 2 * ttp / (2 * ttp + tfn + tfp)))
-
-    results.append(("BEST_THRESHOLD", threshold))
-    results.append(("TRAIN_ACC", (ttp + ttn) / tc))
-    results.append(("TRAIN_RMSE", Math.sqrt(te / tc)))
-    results.append(("TRAIN_FPR", tfp / (tfp + ttn)))
-    results.append(("TRAIN_RECALL", if (ttp > 0.0) ttp / (ttp + tfn) else 0.0))
-    results.append(("TRAIN_PRECISION", if (ttp > 0.0) ttp / (ttp + tfp) else 0.0))
-    results.append(("TRAIN_F1", 2 * ttp / (2 * ttp + tfn + tfp)))
+    appendMetricAndResult(metrics, results, "BEST_THRESHOLD", threshold)
+    appendMetricAndResult(metrics, results, "TRAIN_ACC", (ttp + ttn) / tc)
+    appendMetricAndResult(metrics, results, "TRAIN_RMSE", Math.sqrt(te / tc))
+    appendMetricAndResult(metrics, results, "TRAIN_FPR", tfp / (tfp + ttn))
+    appendMetricAndResult(metrics, results, "TRAIN_RECALL", if (ttp > 0.0) ttp / (ttp + tfn) else 0.0)
+    appendMetricAndResult(metrics, results, "TRAIN_PRECISION", if (ttp > 0.0) ttp / (ttp + tfp) else 0.0)
+    appendMetricAndResult(metrics, results, "TRAIN_F1", 2 * ttp / (2 * ttp + tfn + tfp))
 
     val htp = metricsMap.getOrElse("HOLD_TP", 0.0)
     val htn = metricsMap.getOrElse("HOLD_TN", 0.0)
@@ -210,21 +200,22 @@ object Evaluation {
     val he = metricsMap.getOrElse("HOLD_SQERR", 0.0)
     val hc = metricsMap.getOrElse("HOLD_COUNT", 0.0)
 
-    metrics.append(("!HOLD_ACC", (htp + htn) / hc))
-    metrics.append(("!HOLD_RMSE", Math.sqrt(he / hc)))
-    metrics.append(("!HOLD_FPR", hfp / (hfp + htn)))
-    metrics.append(("!HOLD_RECALL", if (htp > 0.0) htp / (htp + hfn) else 0.0))
-    metrics.append(("!HOLD_PRECISION", if (htp > 0.0) htp / (htp + hfp) else 0.0))
-    metrics.append(("!HOLD_F1", 2 * htp / (2 * htp + hfn + hfp)))
-
-    results.append(("HOLD_ACC", (htp + htn) / hc))
-    results.append(("HOLD_RMSE", Math.sqrt(he / hc)))
-    results.append(("HOLD_FPR", hfp / (hfp + htn)))
-    results.append(("HOLD_RECALL", if (htp > 0.0) htp / (htp + hfn) else 0.0))
-    results.append(("HOLD_PRECISION", if (htp > 0.0) htp / (htp + hfp) else 0.0))
-    results.append(("HOLD_F1", 2 * htp / (2 * htp + hfn + hfp)))
+    appendMetricAndResult(metrics, results, "HOLD_ACC", (htp + htn) / hc)
+    appendMetricAndResult(metrics, results, "HOLD_RMSE", Math.sqrt(he / hc))
+    appendMetricAndResult(metrics, results, "HOLD_FPR", hfp / (hfp + htn))
+    appendMetricAndResult(metrics, results, "HOLD_RECALL", if (htp > 0.0) htp / (htp + hfn) else 0.0)
+    appendMetricAndResult(metrics, results, "HOLD_PRECISION", if (htp > 0.0) htp / (htp + hfp) else 0.0)
+    appendMetricAndResult(metrics, results, "HOLD_F1", 2 * htp / (2 * htp + hfn + hfp))
 
     metrics
+  }
+
+  private def appendMetricAndResult(metrics: mutable.Buffer[(String, Double)],
+                                     results: mutable.Buffer[(String, Double)],
+                                     name: String,
+                                     value: Double) = {
+    metrics.append(("!" + name, value))
+    results.append((name, value))
   }
 
   private def regressionMetrics(map:Map[String, Double], prefix:String,
@@ -283,25 +274,17 @@ object Evaluation {
                                   results: mutable.Buffer[(String, Double)] = null) = {
     val trainMean = train._1 / count
     val trainVar = train._2 / count - trainMean * trainMean
-    metrics.append(("!TRAIN_AUC", trainMean))
-    metrics.append(("!TRAIN_AUC_STDDEV", Math.sqrt(trainVar)))
-    metrics.append(("!TRAIN_AUC_MIN", train._3))
-    metrics.append(("!TRAIN_AUC_MAX", train._4))
-    results.append(("TRAIN_AUC", trainMean))
-    results.append(("TRAIN_AUC_STDDEV", Math.sqrt(trainVar)))
-    results.append(("TRAIN_AUC_MIN", train._3))
-    results.append(("TRAIN_AUC_MAX", train._4))
+    appendMetricAndResult(metrics, results, "TRAIN_AUC", trainMean)
+    appendMetricAndResult(metrics, results, "TRAIN_AUC_STDDEV", Math.sqrt(trainVar))
+    appendMetricAndResult(metrics, results, "TRAIN_AUC_MIN", train._3)
+    appendMetricAndResult(metrics, results, "TRAIN_AUC_MAX", train._4)
 
     val holdMean = hold._1 / count
     val holdVar = hold._2 / count - holdMean * holdMean
-    metrics.append(("!HOLD_AUC", holdMean))
-    metrics.append(("!HOLD_AUC_STDDEV", Math.sqrt(holdVar)))
-    metrics.append(("!HOLD_AUC_MIN", hold._3))
-    metrics.append(("!HOLD_AUC_MAX", hold._4))
-    results.append(("HOLD_AUC", holdMean))
-    results.append(("HOLD_AUC_STDDEV", Math.sqrt(holdVar)))
-    results.append(("HOLD_AUC_MIN", hold._3))
-    results.append(("HOLD_AUC_MAX", hold._4))
+    appendMetricAndResult(metrics, results, "HOLD_AUC", holdMean)
+    appendMetricAndResult(metrics, results, "HOLD_AUC_STDDEV", Math.sqrt(holdVar))
+    appendMetricAndResult(metrics, results, "HOLD_AUC_MIN", hold._3)
+    appendMetricAndResult(metrics, results, "HOLD_AUC_MAX", hold._4)
   }
 
   private def getClassificationAUCTrainHold(records : RDD[EvaluationRecord]) : (Double, Double) = {
