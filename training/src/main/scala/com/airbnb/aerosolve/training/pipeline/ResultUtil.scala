@@ -11,21 +11,21 @@ import scala.collection.mutable
       "HOLD_PRECISION_RECALL_AUC": 0.897908,
       "HOLD_ACC": 0.897908,
       ...
-      "hold_threshold": [
+      "HOLD_THRESHOLDS": [
         0.021060,
         0.313343,
         0.897908,
         1.190191,
         1.482474
       ],
-      "hold_recall": [
+      "HOLD_RECALLS": [
         0.021060,
         0.313343,
         0.897908,
         1.190191,
         1.482474
       ],
-      "hold_precision": [
+      "HOLD_PRECISIONS": [
         0.021060,
         0.313343,
         0.897908,
@@ -35,21 +35,21 @@ import scala.collection.mutable
       "TRAIN_PRECISION_RECALL_AUC": 0.897908,
       "TRAIN_ACC": 0.897908,
       ...
-      "train_threshold": [
+      "TRAIN_THRESHOLDS": [
         0.021060,
         0.313343,
         0.897908,
         1.190191,
         1.482474
       ],
-      "train_recall": [
+      "TRAIN_RECALLS": [
         0.021060,
         0.313343,
         0.897908,
         1.190191,
         1.482474
       ],
-      "train_precision": [
+      "TRAIN_PRECISIONS": [
         0.021060,
         0.313343,
         0.897908,
@@ -68,8 +68,12 @@ object ResultUtil {
 
     // Add main metrics
     for (i <- 0 until metrics.length - 1) {
-      val elem = metrics(i)
-      allMetrics.append("\"" + elem._1 + "\": " + elem._2)
+      var name = metrics(i)._1
+      if (name(0) == '!') {
+        name = name.substring(1)
+      }
+      val value = metrics(i)._2
+      allMetrics.append("\"" + name + "\": " + value)
     }
 
     // Add hold precision recall metrics
@@ -82,9 +86,9 @@ object ResultUtil {
       holdPrecisions.append(elem._2.toString)
       holdRecalls.append(elem._3.toString)
     }
-    allMetrics.append(holdThresholds.mkString("\"hold_threshold\": [", ",", "]"))
-    allMetrics.append(holdPrecisions.mkString("\"hold_precision\": [", ",", "]"))
-    allMetrics.append(holdRecalls.mkString("\"hold_recall\": [", ",", "]"))
+    allMetrics.append(holdThresholds.mkString("\"HOLD_THRESHOLDS\": [", ",", "]"))
+    allMetrics.append(holdPrecisions.mkString("\"HOLD_PRECISIONS\": [", ",", "]"))
+    allMetrics.append(holdRecalls.mkString("\"HOLD_RECALLS\": [", ",", "]"))
 
     // Add hold precision recall metrics
     var trainThresholds = mutable.Buffer[String]()
@@ -96,9 +100,9 @@ object ResultUtil {
       trainPrecisions.append(elem._2.toString)
       trainRecalls.append(elem._3.toString)
     }
-    allMetrics.append(trainThresholds.mkString("\"train_threshold\": [", ",", "]"))
-    allMetrics.append(trainPrecisions.mkString("\"train_precision\": [", ",", "]"))
-    allMetrics.append(trainRecalls.mkString("\"train_recall\": [", ",", "]"))
+    allMetrics.append(trainThresholds.mkString("\"TRAIN_THRESHOLDS\": [", ",", "]"))
+    allMetrics.append(trainPrecisions.mkString("\"TRAIN_PRECISIONS\": [", ",", "]"))
+    allMetrics.append(trainRecalls.mkString("\"TRAIN_RECALLS\": [", ",", "]"))
 
     // Write to file as a string
     val json = allMetrics.mkString("{", ",", "}")
