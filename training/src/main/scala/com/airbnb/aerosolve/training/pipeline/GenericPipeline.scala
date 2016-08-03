@@ -33,19 +33,30 @@ object GenericPipeline {
   val LABEL = "LABEL"
   val DEFAULT_TRAINING_FRACTION = 0.9373 // 0.9373 = (255 - 16) / 255
 
-  def makeTrainingRun(sc: SparkContext, config: Config) = {
-    val cfg = config.getConfig("make_training")
-    val query = cfg.getString("hive_query")
-    val output = cfg.getString("output")
+  def makeExampleRun(sc: SparkContext, config: Config) = {
+    val cfg = config.getConfig("make_example")
+    val trainQuery = cfg.getString("training_hive_query")
+    val evalQuery = Try(cfg.getString("eval_hive_query")).getOrElse("")
+    val trainOutput = cfg.getString("training_output")
+    val evalOutput = Try(cfg.getString("eval_output")).getOrElse("")
     val numShards = cfg.getInt("num_shards")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
     val shuffle = Try(cfg.getBoolean("shuffle")).getOrElse(true)
-    val training = makeTraining(sc, query, isMulticlass)
+    val training = makeTraining(sc, trainQuery, isMulticlass)
 
     training
       .coalesce(numShards, shuffle)
       .map(Util.encode)
-      .saveAsTextFile(output, classOf[GzipCodec])
+      .saveAsTextFile(trainOutput, classOf[GzipCodec])
+
+    if (evalQuery.length > 0 && evalOutput.length > 0) {
+      val eval = makeTraining(sc, evalQuery, isMulticlass)
+
+      eval
+        .coalesce(numShards, shuffle)
+        .map(Util.encode)
+        .saveAsTextFile(evalOutput, classOf[GzipCodec])
+    }
   }
 
   def debugExampleRun(sc: SparkContext, config: Config) = {
