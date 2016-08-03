@@ -47,7 +47,7 @@ object JobRunner extends Logging {
       try {
         job match {
           case "GenericMakeExamples" => GenericPipeline
-            .makeTrainingRun(sc, config)
+            .makeExampleRun(sc, config)
           case "GenericDebugExamples" => GenericPipeline
             .debugExampleRun(sc, config)
           case "GenericDebugTransforms" => GenericPipeline
