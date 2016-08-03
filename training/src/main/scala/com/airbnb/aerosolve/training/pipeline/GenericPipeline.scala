@@ -33,16 +33,15 @@ object GenericPipeline {
   val LABEL = "LABEL"
   val DEFAULT_TRAINING_FRACTION = 0.9373 // 0.9373 = (255 - 16) / 255
 
-  def makeTrainingRun(sc: SparkContext, config: Config) = {
-    val cfg = config.getConfig("make_training")
+  def makeExampleRun(sc: SparkContext, cfg: Config) = {
     val query = cfg.getString("hive_query")
     val output = cfg.getString("output")
     val numShards = cfg.getInt("num_shards")
     val isMulticlass = Try(cfg.getBoolean("is_multiclass")).getOrElse(false)
     val shuffle = Try(cfg.getBoolean("shuffle")).getOrElse(true)
-    val training = makeTraining(sc, query, isMulticlass)
+    val examples = makeTraining(sc, query, isMulticlass)
 
-    training
+    examples
       .coalesce(numShards, shuffle)
       .map(Util.encode)
       .saveAsTextFile(output, classOf[GzipCodec])
@@ -188,7 +187,6 @@ object GenericPipeline {
     // get calibration training data
     val data = getExamples(sc, input)
         .sample(false, plattsConfig.getDouble("subsample"))
-    
     val isTrainingFunc = getIsTrainingFunc(config, isTrainingOpt)
 
     val scoresAndLabel = PipelineUtil.scoreExamples(sc, transformer, model, data, isTrainingFunc, LABEL)
