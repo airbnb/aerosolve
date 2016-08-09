@@ -92,7 +92,7 @@ object ResultUtil {
     allMetrics.append(holdPrecisions.mkString("\"HOLD_PRECISIONS\": [\n", ",\n", "\n]"))
     allMetrics.append(holdRecalls.mkString("\"HOLD_RECALLS\": [\n", ",\n", "\n]"))
 
-    // Add hold precision recall metrics
+    // Add train precision recall metrics
     var trainThresholds = mutable.Buffer[String]()
     var trainPrecisions = mutable.Buffer[String]()
     var trainRecalls = mutable.Buffer[String]()

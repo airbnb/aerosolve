@@ -176,8 +176,7 @@ object Evaluation {
     metrics
   }
 
-  private def appendMetrics(metricsMap: Map[String, Double],
-                            threshold: Double): mutable.Buffer[(String, Double)] = {
+  private def appendMetrics(metricsMap: Map[String, Double], threshold: Double): mutable.Buffer[(String, Double)] = {
     val metrics = metricsMap.toBuffer
     val ttp = metricsMap.getOrElse("TRAIN_TP", 0.0)
     val ttn = metricsMap.getOrElse("TRAIN_TN", 0.0)
