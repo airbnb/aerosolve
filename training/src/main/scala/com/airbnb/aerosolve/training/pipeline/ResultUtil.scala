@@ -63,7 +63,8 @@ object ResultUtil {
   def writeResults(resultsOutputPath: String,
                    metrics: Array[(String, Double)],
                    holdThresholdPrecisionRecall: Array[(Double, Double, Double)],
-                   trainThresholdPrecisionRecall: Array[(Double, Double, Double)]) = {
+                   trainThresholdPrecisionRecall: Array[(Double, Double, Double)],
+                   writeResult: Boolean = true) = {
     var allMetrics = mutable.Buffer[String]()
 
     // Add main metrics
@@ -107,7 +108,12 @@ object ResultUtil {
     allMetrics.append(trainRecalls.mkString("\"TRAIN_RECALLS\": [\n", ",\n", "\n]"))
 
     // Write to file as a string
-    val json = allMetrics.mkString("{\n", ",\n", "\n}\n")
-    PipelineUtil.writeStringToFile(json, resultsOutputPath)
+    val jsonString = allMetrics.mkString("{\n", ",\n", "\n}\n")
+    if (writeResult) {
+      PipelineUtil.writeStringToFile(jsonString, resultsOutputPath)
+    }
+
+    // Return jsonString for testing
+    jsonString
   }
 }
