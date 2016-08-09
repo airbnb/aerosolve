@@ -68,9 +68,9 @@ You can inspect the model using
 ```
 spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar 
 scala> import com.airbnb.aerosolve.core.util.Util
-scala> val model = sc.textFile("output/model/spline.model").map(Util.decodeModel)
+scala> val model = sc.textFile("output/model/additive.model").map(Util.decodeModel)
 scala> model.take(5).foreach(println)
-ModelRecord(modelHeader:ModelHeader(modelType:spline, numRecords:53, numHidden:64, slope:1.0, offset:0.0))
+ModelRecord(modelHeader:ModelHeader(modelType:additive, numRecords:53, numHidden:64, slope:1.0, offset:0.0))
 ModelRecord(featureFamily:S, featureName:11th, weightVector:[-0.72265625, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], minVal:1.0, maxVal:2.0)
 ModelRecord(featureFamily:S, featureName:Local-gov, weightVector:[-0.125, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], minVal:1.0, maxVal:2.0)
 ModelRecord(featureFamily:S, featureName:Handlers-cleaners, weightVector:[-1.08203125, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], minVal:1.0, maxVal:2.0)
@@ -132,3 +132,21 @@ For example, you may get:
 ```
 
 The results may vary slightly in different runs.
+
+You can inspect the performance results using
+
+```
+spark-shell --master local[1] --jars build/libs/income_prediction-1.0.0-all.jar
+scala> sc.textFile("output/training_results").take(5).foreach(println)
+{
+"TRAIN_PRECISION_RECALL_AUC": 0.6679520282894851,
+"HOLD_PRECISION_RECALL_AUC": 0.0,
+"TRAIN_AUC": 0.8687429312496084,
+"TRAIN_AUC_STDDEV": 0.00599332027720505,
+scala> sc.textFile("output/testing_results").take(5).foreach(println)
+{
+"HOLD_TN": 9904.0,
+"HOLD_FN": 915.0,
+"HOLD_FP": 2531.0,
+"HOLD_SQERR": 2039.0555058585458,
+```
