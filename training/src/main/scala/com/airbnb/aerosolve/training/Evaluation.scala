@@ -3,6 +3,7 @@ package com.airbnb.aerosolve.training
 import org.slf4j.{Logger, LoggerFactory}
 import org.apache.spark.rdd.RDD
 import com.airbnb.aerosolve.core.EvaluationRecord
+import com.airbnb.aerosolve.training.pipeline.ResultUtil
 import org.apache.spark.SparkContext._
 import scala.collection.{mutable, Map}
 import scala.collection.mutable.{ArrayBuffer, Buffer}
@@ -19,45 +20,35 @@ object Evaluation {
   def evaluateBinaryClassification(records : RDD[EvaluationRecord],
                                    buckets : Int,
                                    evalMetric : String) : Array[(String, Double)] = {
-    var metrics  = mutable.Buffer[(String, Double)]()
-    var bestF1 = -1.0
-    val thresholds = records.map(x => x.score).histogram(buckets)._1
-    // Search all thresholds for the best F1
-    // At the same time collect the precision and recall.
-    val trainPR = new ArrayBuffer[(Double, Double, Double)]()
-    val holdPR = new ArrayBuffer[(Double, Double, Double)]()
-    trainPR.append((1.0, 0.0, thresholds.max))
-    holdPR.append((1.0, 0.0, thresholds.max))
-
-    for (i <- 0 until thresholds.size - 1) {
-      val threshold = thresholds(i)
-      val tmp = evaluateBinaryClassificationAtThreshold(records, threshold)
-      val tmpMap = tmp.toMap
-      val f1 = tmpMap.getOrElse(evalMetric, 0.0)
-      if (f1 > bestF1) {
-        bestF1 = f1
-        metrics = tmp
-      }
-      trainPR.append((tmpMap.getOrElse("!TRAIN_PRECISION", 0.0), tmpMap.getOrElse("!TRAIN_RECALL", 0.0), threshold))
-      holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0), threshold))
-    }
-
-    metricsAppend(metrics, trainPR, holdPR)
-
-    evaluateBinaryClassificationAUC(records, metrics)
-
-    metrics
-      .sortWith((a, b) => a._1 < b._1)
-      .toArray
+    evaluateBinaryClassificationWithResults(records, buckets, evalMetric, null)
   }
 
   def evaluateBinaryClassification(records : List[EvaluationRecord],
                                    buckets : Int,
                                    evalMetric : String) : Array[(String, Double)] = {
+    evaluateBinaryClassificationWithResults(records, buckets, evalMetric, null)
+  }
+
+  def evaluateBinaryClassificationWithResults(records : RDD[EvaluationRecord],
+                                   buckets : Int,
+                                   evalMetric : String,
+                                   resultsOutputPath: String) : Array[(String, Double)] = {
+    // Convert RDD to List
+    val recordsList = records.collect().toList
+    evaluateBinaryClassificationWithResults(recordsList, buckets, evalMetric, resultsOutputPath)
+  }
+
+  def evaluateBinaryClassificationWithResults(records : List[EvaluationRecord],
+                                   buckets : Int,
+                                   evalMetric : String,
+                                   resultsOutputPath: String) : Array[(String, Double)] = {
     var metrics  = mutable.Buffer[(String, Double)]()
     var bestF1 = -1.0
     val scores: List[Double] = records.map(x => x.score)
     val thresholds = getThresholds(scores, buckets)
+    var holdThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
+    var trainThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
+
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
     val trainPR = new ArrayBuffer[(Double, Double, Double)]()
@@ -78,9 +69,23 @@ object Evaluation {
       holdPR.append((tmpMap.getOrElse("!HOLD_PRECISION", 0.0), tmpMap.getOrElse("!HOLD_RECALL", 0.0), threshold))
     }
 
-    metricsAppend(metrics, trainPR, holdPR)
-
+    metricsAppend(metrics, trainPR, holdPR, holdThresholdPrecisionRecall, trainThresholdPrecisionRecall)
     evaluateBinaryClassificationAUC(records, metrics)
+
+    metrics.sortWith((a, b) => a._1 < b._1)
+
+    // Write results
+    if (resultsOutputPath != null) {
+      ResultUtil.writeResults(resultsOutputPath, metrics.toArray, holdThresholdPrecisionRecall.toArray, trainThresholdPrecisionRecall.toArray)
+    }
+
+    // Format threshold metrics into Strings
+    for (tpr <- trainThresholdPrecisionRecall) {
+      metrics.append(("!TRAIN_THRESHOLD=%f PRECISION=%f RECALL=%f".format(tpr._1, tpr._2, tpr._3), 0))
+    }
+    for (hpr <- holdThresholdPrecisionRecall) {
+      metrics.append(("!HOLD_THRESHOLD=%f PRECISION=%f RECALL=%f".format(hpr._1, hpr._2, hpr._3), 0))
+    }
 
     metrics
       .sortWith((a, b) => a._1 < b._1)
@@ -147,26 +152,18 @@ object Evaluation {
 
   private def metricsAppend(metrics: mutable.Buffer[(String, Double)],
                             trainPR: ArrayBuffer[(Double, Double, Double)],
-                            holdPR: ArrayBuffer[(Double, Double, Double)]): Unit = {
+                            holdPR: ArrayBuffer[(Double, Double, Double)],
+                            trainThresholdPrecisionRecall: mutable.Buffer[(Double, Double, Double)],
+                            holdThresholdPrecisionRecall: mutable.Buffer[(Double, Double, Double)]): Unit = {
     metrics.append(("!TRAIN_PRECISION_RECALL_AUC", getPRAUC(trainPR)))
     metrics.append(("!HOLD_PRECISION_RECALL_AUC", getPRAUC(holdPR)))
+
     for (tpr <- trainPR) {
-      metrics.append(("!TRAIN_THRESHOLD=%f PRECISION=%f RECALL=%f".format(tpr._3, tpr._1, tpr._2), 0))
+      trainThresholdPrecisionRecall.append((tpr._3, tpr._1, tpr._2))
     }
     for (hpr <- holdPR) {
-      metrics.append(("!HOLD_THRESHOLD=%f PRECISION=%f RECALL=%f".format(hpr._3, hpr._1, hpr._2), 0))
+      holdThresholdPrecisionRecall.append((hpr._3, hpr._1, hpr._2))
     }
-  }
-
-  private def evaluateBinaryClassificationAtThreshold(records : RDD[EvaluationRecord],
-                                                      threshold : Double) : mutable.Buffer[(String, Double)] = {
-    val metricsMap = records
-      .flatMap(x => evaluateRecordBinaryClassification(x, threshold))
-      .reduceByKey(_ + _)
-      .collectAsMap
-
-    val metrics = appendMetrics(metricsMap, threshold)
-    metrics
   }
 
   private def evaluateBinaryClassificationAtThreshold(records : List[EvaluationRecord],
@@ -211,6 +208,7 @@ object Evaluation {
     metrics.append(("!HOLD_RECALL", if (htp > 0.0) htp / (htp + hfn) else 0.0))
     metrics.append(("!HOLD_PRECISION", if (htp > 0.0) htp / (htp + hfp) else 0.0))
     metrics.append(("!HOLD_F1", 2 * htp / (2 * htp + hfn + hfp)))
+
     metrics
   }
 
@@ -239,33 +237,8 @@ object Evaluation {
       .toArray
   }
 
-  private def evaluateBinaryClassificationAUC(records : RDD[EvaluationRecord],
-                                              metrics : mutable.Buffer[(String, Double)]) = {
-    val COUNT = 5
-
-    // Partition the records into COUNT independent populations
-    val recs = records.map(x => (scala.util.Random.nextInt(COUNT),x))
-
-    // Sum and sum squared AUC, min, max
-    var train = (0.0, 0.0, 1e10, -1e10)
-    var hold = (0.0, 0.0, 1e10, -1e10)
-    var count : Double = 0.0
-    for (i <- 0 until COUNT) {
-      // Result contains (Train AUC, Hold AUC)
-      val myrecs = recs.filter(x => x._1 == i).map(x => x._2)
-      val result = getClassificationAUCTrainHold(myrecs)
-      train = (train._1 + result._1, train._2 + result._1 * result._1,
-        Math.min(train._3, result._1), Math.max(train._4, result._1))
-      hold =  (hold._1 + result._2, hold._2 + result._2 * result._2,
-        Math.min(hold._3, result._2), Math.max(hold._4, result._2))
-    }
-
-    updateMetricsForAUC(metrics, train, hold, COUNT.toDouble)
-  }
-
   private def evaluateBinaryClassificationAUC(records : List[EvaluationRecord],
                                               metrics: mutable.Buffer[(String, Double)]) = {
-
     val COUNT = 5
 
     // Partition the records into COUNT independent populations
@@ -290,13 +263,15 @@ object Evaluation {
   private def updateMetricsForAUC(metrics: mutable.Buffer[(String, Double)],
                                   train: (Double, Double, Double, Double),
                                   hold: (Double, Double, Double, Double),
-                                  count: Double) = {
+                                  count: Double,
+                                  results: mutable.Buffer[(String, Double)] = null) = {
     val trainMean = train._1 / count
     val trainVar = train._2 / count - trainMean * trainMean
     metrics.append(("!TRAIN_AUC", trainMean))
     metrics.append(("!TRAIN_AUC_STDDEV", Math.sqrt(trainVar)))
     metrics.append(("!TRAIN_AUC_MIN", train._3))
     metrics.append(("!TRAIN_AUC_MAX", train._4))
+
     val holdMean = hold._1 / count
     val holdVar = hold._2 / count - holdMean * holdMean
     metrics.append(("!HOLD_AUC", holdMean))

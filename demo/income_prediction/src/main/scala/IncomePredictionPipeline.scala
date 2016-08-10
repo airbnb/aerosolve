@@ -106,8 +106,9 @@ object IncomePredictionPipeline {
     val subsample : Double = testConfig.getDouble("subsample")
     val bins : Int = testConfig.getInt("bins")
     val isTraining : Boolean = testConfig.getBoolean("is_training")
+    val resultsOutputPath : String = testConfig.getString("results_output_path")
 
-    val metrics = evalModelInternal(sc, transformer, modelOpt.get, input, Some(subsample), bins, isTraining)
+    val metrics = evalModelInternal(sc, transformer, modelOpt.get, input, Some(subsample), bins, isTraining, resultsOutputPath)
     metrics.foreach(x => log.info(x.toString))
   }
 
@@ -117,7 +118,8 @@ object IncomePredictionPipeline {
                                 inputPattern: String,
                                 subSample: Option[Double],
                                 bins : Int,
-                                isTraining : Boolean) : Array[(String, Double)] = {
+                                isTraining : Boolean,
+                                resultsOutputPath : String) : Array[(String, Double)] = {
     val examples =
       if (subSample.isDefined) {
         getExamples(sc, inputPattern).sample(false, subSample.get)
@@ -128,7 +130,7 @@ object IncomePredictionPipeline {
     val records = scoreExamplesForEvaluation(sc, transformer, modelOpt, examples, isTraining).cache()
 
     // Find the best F1
-    Evaluation.evaluateBinaryClassification(records, bins, "!HOLD_F1")
+    Evaluation.evaluateBinaryClassificationWithResults(records, bins, "!HOLD_F1", resultsOutputPath)
   }
 
   private def getExamples(sc : SparkContext, inputPattern : String) : RDD[Example] = {
