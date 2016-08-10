@@ -68,7 +68,7 @@ object ResultUtil {
     var allMetrics = mutable.Buffer[String]()
 
     // Add main metrics
-    for (i <- 0 until metrics.length - 1) {
+    for (i <- 0 until metrics.length) {
       var name = metrics(i)._1
       if (name(0) == '!') {
         name = name.substring(1)

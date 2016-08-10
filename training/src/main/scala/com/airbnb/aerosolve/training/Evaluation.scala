@@ -34,7 +34,7 @@ object Evaluation {
                                    evalMetric : String,
                                    resultsOutputPath: String) : Array[(String, Double)] = {
     // Convert RDD to List
-    val recordsList = records.collect().toList;
+    val recordsList = records.collect().toList
     evaluateBinaryClassificationWithResults(recordsList, buckets, evalMetric, resultsOutputPath)
   }
 
