@@ -13,6 +13,7 @@ import org.junit.Assert._
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions
+import scala.util.Random
 
 class DecisionTreeTrainerTest {
   val log = LoggerFactory.getLogger("DecisionTreeModelTest")
@@ -79,7 +80,7 @@ class DecisionTreeTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(splitCriteria))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", new Random(1234))
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
@@ -132,7 +133,7 @@ class DecisionTreeTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(splitType))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", new Random(1234))
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))
@@ -187,7 +188,7 @@ class DecisionTreeTrainerTest {
       val config = ConfigFactory.parseString(makeConfig(splitCriteria))
 
       val input = sc.parallelize(examples)
-      val model = DecisionTreeTrainer.train(sc, input, config, "model_config")
+      val model = DecisionTreeTrainer.train(sc, input, config, "model_config", new Random(1234))
 
       val stumps = model.getStumps.asScala
       stumps.foreach(stump => log.info(stump.toString))

@@ -51,12 +51,14 @@ object SplitCriteria extends Enumeration {
 // The decision tree is meant to be a prior for the spline model / linear model
 object DecisionTreeTrainer {
   private final val log: Logger = LoggerFactory.getLogger("DecisionTreeTrainer")
+  private val defaultRandom: Random = new Random()
 
   def train(
       sc : SparkContext,
       input : RDD[Example],
       config : Config,
-      key : String) : DecisionTreeModel = {
+      key : String,
+      random : Random = defaultRandom) : DecisionTreeModel = {
     val candidateSize : Int = config.getInt(key + ".num_candidates")
     val rankKey : String = config.getString(key + ".rank_key")
     val rankThreshold : Double = config.getDouble(key + ".rank_threshold")
@@ -95,7 +97,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      SplitCriteria.splitCriteriaFromName(splitCriteriaName)
+      SplitCriteria.splitCriteriaFromName(splitCriteriaName),
+      random
     )
     
     val model = new DecisionTreeModel()
@@ -115,7 +118,8 @@ object DecisionTreeTrainer {
       maxFeatures : Int,
       numTries : Int,
       minLeafCount : Int,
-      splitCriteria : SplitCriteria.Value) : Unit = {
+      splitCriteria : SplitCriteria.Value,
+      random : Random = defaultRandom) : Unit = {
     if (currDepth >= maxDepth) {
       stumps(currIdx) = makeLeaf(examples, rankKey, rankThreshold, splitCriteria)
       return
@@ -159,7 +163,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
 
     buildTree(
@@ -173,7 +178,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
   }
 
@@ -263,20 +269,20 @@ object DecisionTreeTrainer {
       maxFeatures : Int,
       numTries : Int,
       minLeafCount : Int,
-      splitCriteria : SplitCriteria.Value) : Option[ModelRecord] = {
+      splitCriteria : SplitCriteria.Value,
+      random : Random = defaultRandom) : Option[ModelRecord] = {
     if (examples.length <= minLeafCount) {
       // If we're at or below the minLeafCount, then there's no point in splitting
       None
     } else {
       var bestRecord: Option[ModelRecord] = None
       var bestValue: Double = -1e10
-      val rnd = new Random()
 
       for (i <- 0 until numTries) {
         // Pick an example index randomly
-        val idx = rnd.nextInt(examples.length)
+        val idx = random.nextInt(examples.length)
         val ex = examples(idx)
-        val candidateOpt = getCandidateSplit(ex, rankKey, maxFeatures, rnd)
+        val candidateOpt = getCandidateSplit(ex, rankKey, maxFeatures, random)
 
         if (candidateOpt.isDefined) {
           val candidateValue = SplitCriteria.getCriteriaType(splitCriteria) match {
@@ -517,7 +523,7 @@ object DecisionTreeTrainer {
       ex : util.Map[java.lang.String, util.Map[java.lang.String, java.lang.Double]],
       rankKey : String,
       maxFeatures : Int,
-      rnd : Random) : Option[ModelRecord] = {
+      random : Random) : Option[ModelRecord] = {
     // Flatten the features and pick one randomly.
     var features = collection.mutable.ArrayBuffer[(String, String, Double)]()
 
@@ -535,7 +541,7 @@ object DecisionTreeTrainer {
       // Use a random subset of features for each split
       features = Random.shuffle(features).slice(0, maxFeatures)
 
-      val idx = rnd.nextInt(features.size)
+      val idx = random.nextInt(features.size)
       val rec = new ModelRecord()
 
       rec.setFeatureFamily(features(idx)._1)
