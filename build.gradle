@@ -60,6 +60,15 @@ allprojects {
             options.addStringOption('Xdoclint:none', '-quiet')
         }
     }
+
+    // Configure Idea plugin
+    idea {
+        module {
+            scopes.PROVIDED.plus += [configurations.provided]
+
+            downloadJavadoc = true
+        }
+    }
 }
 
 subprojects {
