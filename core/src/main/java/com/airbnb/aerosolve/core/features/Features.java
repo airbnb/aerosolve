@@ -54,9 +54,6 @@ public class Features {
   // TODO  make it more generic, for example, taking care of dense feature
   public Example toExample(boolean isMultiClass) {
     assert (names.length == values.length);
-    if (names.length != values.length) {
-      throw new RuntimeException("names.length != values.length");
-    }
     Example example = new Example();
     FeatureVector featureVector = new FeatureVector();
     example.addToExample(featureVector);
@@ -125,7 +122,7 @@ public class Features {
     String family = getStringFamily(featurePair);
     Set<String> feature = Util.getOrCreateStringFeature(family, stringFeatures);
     String featureName = featurePair.getRight();
-    char str = (b.booleanValue()) ? TRUE_FEATURE : FALSE_FEATURE;
+    char str = b ? TRUE_FEATURE : FALSE_FEATURE;
     feature.add(featureName + STRING_FEATURE_SEPARATOR + str);
   }
 
