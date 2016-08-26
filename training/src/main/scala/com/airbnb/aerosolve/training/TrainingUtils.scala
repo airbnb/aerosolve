@@ -4,16 +4,16 @@ import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamW
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.airbnb.aerosolve.core.models.{AbstractModel, ModelFactory}
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.{StringDictionary, Util}
+import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.Config
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.hive.HiveContext
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -226,14 +226,23 @@ object TrainingUtils {
   }
 
   // Returns the statistics of a feature
-  case class FeatureStatistics(count: Double, min: Double, max: Double, mean: Double, variance: Double)
+  case class FeatureStatistics(
+                                count: Double,
+                                min: Double,
+                                max: Double,
+                                mean: Double,
+                                variance: Double,
+                                quantiles: Seq[Double]
+                              )
 
   /**
     * Compute [[FeatureStatistics]] across examples and ignore those with less than minCount features.
     */
-  def getFeatureStatistics(minCount: Int, input: RDD[Example]): Array[((String, String), FeatureStatistics)] = {
-    val sqlContext = SQLContext.getOrCreate(input.sparkContext)
-    import sqlContext.implicits._
+  def getFeatureStatistics(minCount: Int,
+                           input: RDD[Example],
+                           quantiles: Seq[Double] = Nil): Array[((String, String), FeatureStatistics)] = {
+    val hc = new HiveContext(input.sparkContext)
+    import hc.implicits._
     import org.apache.spark.sql.functions._
 
     input
@@ -256,17 +265,32 @@ object TrainingUtils {
       .groupBy($"family", $"feature")
       .agg(
         count(lit(1)) as "count",
-        min($"value"),
-        max($"value"),
-        sum($"value"),
-        // TODO: use built-in stdev function in Spark 1.6
-        sum($"value" * $"value")
+        Seq(
+          min($"value"),
+          max($"value"),
+          sum($"value"),
+          // TODO: use built-in stdev function in Spark 1.6
+          sum($"value" * $"value")
+        ) ++
+          // TODO: use built-in percentileApprox in Spark 2.0
+          quantiles.map(q => callUDF("percentile_approx", $"value", lit(q))): _*
       )
       // ignore features present in less than minCount examples
       .where($"count" >= minCount)
       .map {
-        case Row(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) =>
-          ((family, feature), FeatureStatistics(count, min, max, sum / count, (sqSum - sum * sum / count) / (count - 1)))
+        row =>
+          val Seq(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) = row.toSeq.take(7)
+          val values = row.toSeq.drop(7)
+
+          ((family, feature),
+            FeatureStatistics(
+              count,
+              min,
+              max,
+              sum / count,
+              (sqSum - sum * sum / count) / (count - 1),
+              values.asInstanceOf[Seq[Double]]
+            ))
       }
       .collect
   }
