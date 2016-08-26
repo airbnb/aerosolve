@@ -132,7 +132,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
 
     if (split.isEmpty) {
@@ -539,7 +540,7 @@ object DecisionTreeTrainer {
       None
     } else {
       // Use a random subset of features for each split
-      features = Random.shuffle(features).slice(0, maxFeatures)
+      features = random.shuffle(features).slice(0, maxFeatures)
 
       val idx = random.nextInt(features.size)
       val rec = new ModelRecord()
