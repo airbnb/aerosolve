@@ -97,7 +97,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      SplitCriteria.splitCriteriaFromName(splitCriteriaName)
+      SplitCriteria.splitCriteriaFromName(splitCriteriaName),
+      random
     )
     
     val model = new DecisionTreeModel()
@@ -131,7 +132,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
 
     if (split.isEmpty) {
@@ -162,7 +164,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
 
     buildTree(
@@ -176,7 +179,8 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria
+      splitCriteria,
+      random
     )
   }
 
