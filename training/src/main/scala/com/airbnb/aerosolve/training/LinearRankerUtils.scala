@@ -1,15 +1,14 @@
 package com.airbnb.aerosolve.training
 
 import java.util
-import java.util.stream.StreamSupport
-import java.util.{Spliterator, Spliterators}
 
-import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.airbnb.aerosolve.core.features.SparseLabeledPoint
 import com.airbnb.aerosolve.core.models.AdditiveModel
 import com.airbnb.aerosolve.core.transforms.Transformer
 import com.airbnb.aerosolve.core.util.Util
+import com.airbnb.aerosolve.core.{Example, FeatureVector}
 import com.typesafe.config.Config
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 
 import scala.collection.JavaConversions._
@@ -126,7 +125,7 @@ object LinearRankerUtils {
   def makePointwiseFloatVector(examples: RDD[Example],
                                transformer: Transformer,
                                params: AdditiveModelTrainer.AdditiveTrainerParams,
-                               model: AdditiveModel,
+                               modelBC: Broadcast[AdditiveModel],
                                isTraining: Example => Boolean = _ => true,
                                groupSize: Int = 100): RDD[SparseLabeledPoint] = {
     val assemblerTimer = examples.sparkContext.accumulator(0L, "pointAssembler")
@@ -134,7 +133,7 @@ object LinearRankerUtils {
     makePointwiseFloat(examples, transformer, groupSize)
       .mapPartitions {
         examples =>
-          val featureIndex = model.getFeatureIndexer
+          val featureIndex = modelBC.value.getFeatureIndexer
           val denseFeatureIndexer = featureIndex.get(AdditiveModel.DENSE_FAMILY)
 
           // reuse buffer for each example to avoid GC
