@@ -16,11 +16,6 @@ dependencies {
     provided 'org.apache.spark:spark-core_2.10:1.2.1'
 }
 
-compileScala {
-    scalaCompileOptions.fork = true
-    scalaCompileOptions.forkOptions.jvmArgs = ['-XX:MaxPermSize=512m']
-}
-
 shadowJar {
   zip64 = true
 }

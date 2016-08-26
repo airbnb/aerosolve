@@ -17,11 +17,6 @@ dependencies {
   compile 'org.slf4j:slf4j-simple:1.7.7'
 }
 
-compileScala {
-    scalaCompileOptions.fork = true
-    scalaCompileOptions.forkOptions.jvmArgs = ['-XX:MaxPermSize=512m']
-}
-
 shadowJar {
   zip64 = true
 }
