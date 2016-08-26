@@ -31,7 +31,16 @@ bintray {
 }
 
 dependencies {
+  compile 'org.scala-lang:scala-library:2.10.4'
   compile project(':core')
+
+  compile ('org.apache.avro:avro:1.7.7') {
+    transitive = false
+  }
+  compile ('org.apache.avro:avro-mapred:1.7.7') {
+    transitive = false
+  }
+
   compile 'com.fasterxml.jackson.module:jackson-module-scala_2.10:2.4.2'
   compile 'joda-time:joda-time:2.5'
   compile 'org.apache.hadoop:hadoop-client:2.2.0'
