@@ -4,10 +4,8 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.apache.spark.rdd.RDD
 import com.airbnb.aerosolve.core.EvaluationRecord
 import com.airbnb.aerosolve.training.pipeline.ResultUtil
-import org.apache.spark.SparkContext._
 import scala.collection.{mutable, Map}
-import scala.collection.mutable.{ArrayBuffer, Buffer}
-import scala.collection.JavaConversions._
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 
 /*
@@ -46,8 +44,8 @@ object Evaluation {
     var bestF1 = -1.0
     val scores: List[Double] = records.map(x => x.score)
     val thresholds = getThresholds(scores, buckets)
-    var holdThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
-    var trainThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
+    val holdThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
+    val trainThresholdPrecisionRecall = mutable.Buffer[(Double, Double, Double)]()
 
     // Search all thresholds for the best F1
     // At the same time collect the precision and recall.
@@ -168,10 +166,38 @@ object Evaluation {
 
   private def evaluateBinaryClassificationAtThreshold(records : List[EvaluationRecord],
                                                       threshold: Double) : mutable.Buffer[(String, Double)] = {
-    val metricsMap = records
-      .flatMap(x => evaluateRecordBinaryClassification(x, threshold))
-      .groupBy(_._1)
-      .map{ case (key, value) => (key, value.map(x => x._2).sum)}
+    // This is a temp fix for OOM when records is too big. In the long run,
+    // we should do that in Spark
+    def evaluate(): Map[String, Double] = {
+      val ret = collection.mutable.Map[String, Double]().withDefaultValue(0.0)
+      records.foreach(rec => {
+        val prefix = if (rec.is_training) "TRAIN_" else "HOLD_"
+        if (rec.score > threshold) {
+          if (rec.label > 0.0) {
+            ret(prefix + "TP") += 1.0
+          } else {
+            ret(prefix + "FP") += 1.0
+          }
+        } else {
+          if (rec.label < 0.0) {
+            ret(prefix + "TN") += 1.0
+          } else {
+            ret(prefix + "FN") += 1.0
+          }
+        }
+
+        val error = if (rec.label > 0) {
+          (1.0 - rec.score) * (1.0 - rec.score)
+        } else {
+          rec.score * rec.score
+        }
+        ret(prefix + "SQERR") += error
+        ret(prefix + "COUNT") += 1.0
+      })
+      ret
+    }
+
+    val metricsMap = evaluate()
     val metrics = appendMetrics(metricsMap, threshold)
     metrics
   }
@@ -402,37 +428,6 @@ object Evaluation {
     out.append((prefix + "SQERR", sqErr))
     out.append((prefix + "ABS_LABEL_MINUS_SCORE", absLabelMinusScore))
     out.append((prefix + "LABEL_PLUS_SCORE", labelPlusScore))
-    out.append((prefix + "COUNT", 1.0))
-    out.iterator
-  }
-
-  // Given a record and a threshold compute if it is a true/false positive/negative
-  // and the squared error assuming it is a probability.
-  private def evaluateRecordBinaryClassification(record : EvaluationRecord,
-                                                 threshold : Double) : Iterator[(String, Double)] = {
-    val out = collection.mutable.ArrayBuffer[(String, Double)]()
-
-    val prefix = if (record.is_training) "TRAIN_" else "HOLD_"
-    if (record.score > threshold) {
-      if (record.label > 0) {
-        out.append((prefix + "TP", 1.0))
-      } else {
-        out.append((prefix + "FP", 1.0))
-      }
-    } else {
-      if (record.label <= 0) {
-        out.append((prefix + "TN", 1.0))
-      } else {
-        out.append((prefix + "FN", 1.0))
-      }
-    }
-
-    val error = if (record.label > 0) {
-      (1.0 - record.score) * (1.0 - record.score)
-    } else {
-      record.score * record.score
-    }
-    out.append((prefix + "SQERR", error))
     out.append((prefix + "COUNT", 1.0))
     out.iterator
   }
