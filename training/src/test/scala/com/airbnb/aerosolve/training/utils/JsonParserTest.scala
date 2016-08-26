@@ -1,9 +1,8 @@
-package com.airbnb.aerosolve.training
+package com.airbnb.aerosolve.training.utils
 
-import com.airbnb.aerosolve.training.utils.JsonParser
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.slf4j.LoggerFactory
-import org.junit.Assert.assertTrue
 
 class JsonParserTest {
   val log = LoggerFactory.getLogger("JsonParserTest")
