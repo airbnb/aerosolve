@@ -1,5 +1,6 @@
 package com.airbnb.aerosolve.training
 
+import com.airbnb.aerosolve.training.utils.JsonParser
 import org.junit.Test
 import org.slf4j.LoggerFactory
 import org.junit.Assert.assertTrue
