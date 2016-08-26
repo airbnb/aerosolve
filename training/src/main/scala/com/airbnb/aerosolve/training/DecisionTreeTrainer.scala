@@ -97,8 +97,7 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      SplitCriteria.splitCriteriaFromName(splitCriteriaName),
-      random
+      SplitCriteria.splitCriteriaFromName(splitCriteriaName)
     )
     
     val model = new DecisionTreeModel()
@@ -163,8 +162,7 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria,
-      random
+      splitCriteria
     )
 
     buildTree(
@@ -178,8 +176,7 @@ object DecisionTreeTrainer {
       maxFeatures,
       numTries,
       minLeafCount,
-      splitCriteria,
-      random
+      splitCriteria
     )
   }
 
@@ -539,7 +536,7 @@ object DecisionTreeTrainer {
       None
     } else {
       // Use a random subset of features for each split
-      features = Random.shuffle(features).slice(0, maxFeatures)
+      features = random.shuffle(features).slice(0, maxFeatures)
 
       val idx = random.nextInt(features.size)
       val rec = new ModelRecord()
