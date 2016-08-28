@@ -13,6 +13,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hive.HiveContext
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -241,9 +242,17 @@ object TrainingUtils {
   def getFeatureStatistics(minCount: Int,
                            input: RDD[Example],
                            quantiles: Seq[Double] = Nil): Array[((String, String), FeatureStatistics)] = {
-    val hc = new HiveContext(input.sparkContext)
-    import hc.implicits._
+    // TODO: use unified SparkSession for Spark 2.0+ as we drop deps on Hive UDAF
+    val sqlContext = if (quantiles.isEmpty) {
+      SQLContext.getOrCreate(input.sparkContext)
+    } else {
+      new HiveContext(input.sparkContext)
+    }
+    import sqlContext.implicits._
     import org.apache.spark.sql.functions._
+
+    // number of statistics we always extract regardless if we ask for quantiles
+    val NUM_BASIC_STATS = 7
 
     input
       .flatMap(examples => {
@@ -279,8 +288,8 @@ object TrainingUtils {
       .where($"count" >= minCount)
       .map {
         row =>
-          val Seq(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) = row.toSeq.take(7)
-          val values = row.toSeq.drop(7)
+          val Seq(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) = row.toSeq.take(NUM_BASIC_STATS)
+          val values = row.toSeq.drop(NUM_BASIC_STATS)
 
           ((family, feature),
             FeatureStatistics(

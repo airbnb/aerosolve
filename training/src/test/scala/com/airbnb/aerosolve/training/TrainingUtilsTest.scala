@@ -41,9 +41,6 @@ class TrainingUtilsTest {
       // To avoid Akka rebinding to the same port,
       // since it doesn't unbind immediately on shutdown
       System.clearProperty("spark.master.port")
-      // To avoid HiveContext creation error
-      // https://issues.apache.org/jira/browse/SPARK-10872
-      FileUtils.deleteQuietly(new File("metastore_db/dbex.lck"))
     }
   }
 
@@ -107,9 +104,6 @@ class TrainingUtilsTest {
       // To avoid Akka rebinding to the same port,
       // since it doesn't unbind immediately on shutdown
       System.clearProperty("spark.master.port")
-      // To avoid HiveContext creation error
-      // https://issues.apache.org/jira/browse/SPARK-10872
-      FileUtils.deleteQuietly(new File("metastore_db/dbex.lck"))
     }
   }
 
