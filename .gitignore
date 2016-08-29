@@ -3,12 +3,8 @@ build/
 classes
 
 # Gradle
-gradlew
-gradlew.bat
 .gradle/
 **/.gradle/
-**/gradlew
-**/gradlew.bat
 **/.gradletasknamecache
 
 # VIM
@@ -39,7 +35,6 @@ out/
 .nb-gradle/
 .solano*
 
-gradle/
 metastore_db/
 derby.log
 demo/income_prediction/output
