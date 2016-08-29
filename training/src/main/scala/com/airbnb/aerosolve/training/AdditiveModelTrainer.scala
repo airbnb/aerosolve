@@ -159,7 +159,8 @@ object AdditiveModelTrainer {
                         linearFeatureFamilies: Set[String],
                         priors: Array[String],
                         minCount: Int,
-                        nDTreePipelineParams: NDTreePipelineParams)
+                        nDTreePipelineParams: NDTreePipelineParams,
+                        initQuantiles: Seq[Double])
 
   case class LearningRateParams(initialLearningRate: Double,
                                 learningRateDecay: Double,
@@ -237,9 +238,11 @@ object AdditiveModelTrainer {
     // transform example as-is to initialize model which we can base our vector compression upon
     val transformed = (frac: Double) => LinearRankerUtils.makePointwiseFloat(input(frac), transformer)
     var model = modelInitialization(sc, transformed, params)
+    var modelBC = sc.broadcast(model.generateFeatureIndexer())
     var bestModel = model
 
-    val Array(trainVectorRDD, validationVectorRDD) = transformFeatureVectorAndSplit(sc, input, params, transformer, model)
+    // broadcast a separate copy of model because the modelBC will be destroyed after each iteration
+    val Array(trainVectorRDD, validationVectorRDD) = transformFeatureVectorAndSplit(sc, input, params, transformer, sc.broadcast(model))
 
     var learningRate = params.learningRate.initialLearningRate
     var trainingLosses = List(Double.MaxValue)
@@ -247,11 +250,10 @@ object AdditiveModelTrainer {
     var bestValidationLoss = Double.MaxValue
     var bestIteration = 0
     val sgdParams = SgdParams(params, sc.accumulator(0), sc.accumulator(0))
-    var modelBC = sc.broadcast(model.generateFeatureIndexer())
     var i = 0
     while (i < iterations &&
       (params.loss.earlyStopping == 0 || (i - bestIteration) < params.loss.earlyStopping) &&
-      (trainingLosses.length < 2 || (trainingLosses(1) - trainingLosses(0) > params.loss.convergenceTolerance))
+      (trainingLosses.length < 2 || params.loss.convergenceTolerance <= 0 || (trainingLosses(1) - trainingLosses(0) > params.loss.convergenceTolerance))
     ) {
       i += 1
 
@@ -290,11 +292,14 @@ object AdditiveModelTrainer {
           bestIteration = i
 
           bestModel = model.clone()
-          if (params.io.saveModelEachIteration) {
-            // drop zero functions before saving
-            deleteSmallFunctions(bestModel, params.linfinityThreshold, true)
-            TrainingUtils.saveModel(bestModel, s"${params.io.modelOutput}_$i")
+          // drop zero functions before saving
+          deleteSmallFunctions(bestModel, params.linfinityThreshold, true)
+          val savePath = if (params.io.saveModelEachIteration) {
+            s"${params.io.modelOutput}_$i"
+          } else {
+            params.io.modelOutput
           }
+          TrainingUtils.saveModel(bestModel, savePath)
         }
 
         if (!params.learningRate.decayByValidationLoss ||
@@ -330,7 +335,7 @@ object AdditiveModelTrainer {
                                      input: (Double) => RDD[Example],
                                      params: AdditiveTrainerParams,
                                      transformer: Transformer,
-                                     model: AdditiveModel): Array[(Double) => RDD[SparseLabeledPoint]] = {
+                                     modelBC: Broadcast[AdditiveModel]): Array[(Double) => RDD[SparseLabeledPoint]] = {
     val isTraining = params.loss.isTraining
 
     if (params.io.storageLevel == StorageLevel.NONE) {
@@ -341,23 +346,25 @@ object AdditiveModelTrainer {
         // NB: sub-sampling is stationary across iterations for efficiency
         // if we need validation data, we must split on the full dataset to avoid contamination
         val validationRDD = input(params.validationSubsample).filter(!isTraining.get(_))
-        val validationVectorRDD = LinearRankerUtils.makePointwiseFloatVector(validationRDD, transformer, params, model, _ => false)
+        val validationVectorRDD = LinearRankerUtils.makePointwiseFloatVector(validationRDD, transformer, params, modelBC, _ => false)
+          // reduce number of partition to reduce reporting overhead
+          .coalesce(1000)
           .cache()
 
         Array(
-          (frac: Double) => LinearRankerUtils.makePointwiseFloatVector(input(frac).filter(isTraining.get), transformer, params, model),
+          (frac: Double) => LinearRankerUtils.makePointwiseFloatVector(input(frac).filter(isTraining.get), transformer, params, modelBC),
           (frac: Double) => validationVectorRDD
         )
       } else {
         Array(
-          (frac: Double) => LinearRankerUtils.makePointwiseFloatVector(input(frac), transformer, params, model),
+          (frac: Double) => LinearRankerUtils.makePointwiseFloatVector(input(frac), transformer, params, modelBC),
           (frac: Double) => sc.emptyRDD[SparseLabeledPoint]
         )
       }
     } else {
       // we persist the entire dataset first then run sampling during training
       val transformedVectorRDD =
-      LinearRankerUtils.makePointwiseFloatVector(input(1.0), transformer, params, model, isTraining.getOrElse(_ => true))
+      LinearRankerUtils.makePointwiseFloatVector(input(1.0), transformer, params, modelBC, isTraining.getOrElse(_ => true))
         .persist(params.io.storageLevel)
 
       (if (isTraining.isDefined) {
@@ -571,7 +578,8 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      val initExamples = input(additiveTrainerParams.subsample)
+      // uniformly sample across partition taking account of partition sample rata
+      val initExamples = input(additiveTrainerParams.partitionSubsample * additiveTrainerParams.subsample)
       initWithoutDynamicBucketModel(additiveTrainerParams, initExamples, model, overwrite)
     }
   }
@@ -585,14 +593,19 @@ object AdditiveModelTrainer {
     val params = additiveTrainerParams.init
     val linearFeatureFamilies = params.linearFeatureFamilies
     val minMax = TrainingUtils
-      .getFeatureStatistics(params.minCount, initExamples)
+      .getFeatureStatistics(params.minCount, initExamples, params.initQuantiles)
       .filter(x => x._1._1 != additiveTrainerParams.rankKey)
     log.info("Num features = %d".format(minMax.length))
     val (minMaxLinear, minMaxSpline) = minMax.partition(x => linearFeatureFamilies.contains(x._1._1))
     // add splines
     for (((featureFamily, featureName), stats) <- minMaxSpline) {
-      val spline = new Spline(stats.min.toFloat, stats.max.toFloat, additiveTrainerParams.numBins)
-      model.addFunction(featureFamily, featureName, spline, overwrite)
+      val Seq(min, max) = if (stats.quantiles.isEmpty) Seq(stats.min, stats.max) else stats.quantiles
+      if (min == max) {
+        model.addFunction(featureFamily, featureName, new Point(), overwrite)
+      } else {
+        val spline = new Spline(min.toFloat, max.toFloat, additiveTrainerParams.numBins)
+        model.addFunction(featureFamily, featureName, spline, overwrite)
+      }
     }
     // add linear
     for (((featureFamily, featureName), stats) <- minMaxLinear) {
@@ -615,7 +628,7 @@ object AdditiveModelTrainer {
       totalFunction += family._2.size()
       family._2.asScala.foreach(entry => {
         val func: Function = entry._2
-        if (func.LInfinityNorm() < linfinityThreshold) {
+        if (func.LInfinityNorm() <= linfinityThreshold) {
           toDelete.append((family._1, entry._1))
         }
       })
@@ -699,8 +712,11 @@ object AdditiveModelTrainer {
     val nDTreePipelineParams = Try(config.getConfig("dynamic_buckets"))
       .map(NDTreePipeline.getNDTreePipelineParams)
       .getOrElse(null)
-    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies, priors, minCount, nDTreePipelineParams)
-
+    val initQuantiles: Seq[Double] = Try(
+      config.getDoubleList("init_quantiles").map(_.doubleValue())
+    ).getOrElse(Nil)
+    assert(initQuantiles.isEmpty || initQuantiles.length == 2, "initialization quantiles must be length of 2.")
+    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies, priors, minCount, nDTreePipelineParams, initQuantiles)
 
     val loss: LossFunction = LossFunctions.withName(config.getString("loss").toUpperCase)
     val lossMod: Int = Try(config.getInt("loss_mod")).getOrElse(100)

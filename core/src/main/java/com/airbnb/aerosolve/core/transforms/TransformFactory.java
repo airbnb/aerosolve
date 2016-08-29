@@ -17,17 +17,13 @@ public class TransformFactory {
     }
 
     String name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, transformName);
-    Transform result = null;
+    Transform result;
     try {
       result = (Transform) Class.forName("com.airbnb.aerosolve.core.transforms." + name + "Transform").newInstance();
-      result.configure(config, key);
-    } catch (InstantiationException e) {
-      e.printStackTrace();
-    } catch (IllegalAccessException e) {
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
+    result.configure(config, key);
     return result;
   }
 }

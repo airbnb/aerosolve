@@ -13,7 +13,9 @@ import java.util.List;
 
 /**
  * Moves named fields from one family to another. If keys are not specified, all keys are moved
- * from the float family.
+ * from the float family. Features are capped via a `cap` config, which defaults to 1e10, to avoid
+ * exploding string features. The original float feature is removed but can be overridden using
+ * `keep` boolean config.
  */
 public class MoveFloatToStringTransform implements Transform {
   private String fieldName1;
@@ -21,6 +23,7 @@ public class MoveFloatToStringTransform implements Transform {
   private String outputName;
   private List<String> keys;
   private double cap;
+  private boolean keep;
 
   @Override
   public void configure(Config config, String key) {
@@ -34,6 +37,11 @@ public class MoveFloatToStringTransform implements Transform {
       cap = config.getDouble(key + ".cap");
     } else {
       cap = 1e10;
+    }
+    if (config.hasPath(key + ".keep")) {
+      keep = config.getBoolean(key + ".keep");
+    } else {
+      keep = false;
     }
   }
 
@@ -56,7 +64,9 @@ public class MoveFloatToStringTransform implements Transform {
     if (keys != null) {
       for (String key : keys) {
         moveFloat(feature1, output, key, cap, bucket);
-        feature1.remove(key);
+        if(!keep) {
+          feature1.remove(key);
+        }
       }
     } else {
       for (Iterator<Entry<String, Double>> iterator = feature1.entrySet().iterator();
@@ -65,7 +75,9 @@ public class MoveFloatToStringTransform implements Transform {
         String key = entry.getKey();
 
         moveFloat(feature1, output, key, cap, bucket);
-        iterator.remove();
+        if(!keep) {
+          iterator.remove();
+        }
       }
     }
   }

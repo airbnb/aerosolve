@@ -41,7 +41,7 @@ object ScoreCalibrator {
     var iter = 0
     var old_offset = 0.0
     var old_slope = 1.0
-    val partitionedInput = input.repartition(numBags)
+    val partitionedInput = input.repartition(numBags).cache()
     do {
       old_offset = params(0)
       old_slope = params(1)
@@ -52,6 +52,7 @@ object ScoreCalibrator {
     } while((math.abs(old_offset - params(0)) > tolerance
       || math.abs(old_slope - params(1)) > tolerance)
       && iter <= maxIter)
+    partitionedInput.unpersist()
 
     params
   }
