@@ -13,7 +13,9 @@ import java.util.List;
 
 /**
  * Moves named fields from one family to another. If keys are not specified, all keys are moved
- * from the float family.
+ * from the float family. Features are capped via a `cap` config, which defaults to 1e10, to avoid
+ * exploding string features. The original float feature is removed but can be overridden using
+ * `keep` boolean config.
  */
 public class MoveFloatToStringTransform implements Transform {
   private String fieldName1;
