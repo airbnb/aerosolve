@@ -20,15 +20,14 @@ before_install:
   - cd thrift-0.9.1 && ./configure --without-cpp --without-c_glib --without-python --without-ruby --without-go --without-erlang --without-java && sudo make install && cd ..
 
 script:
-  - gradle assemble
-  - test "${TRAVIS_TAG}" || gradle check # only run check on non-tag build because of flaky tests
+  - test "${TRAVIS_TAG}" || ./gradlew check # only run check on non-tag build because of flaky tests
 
 # publish artifacts to bintray on tag builds
 after_success:
   - >
       test "${TRAVIS_TAG}" &&
       test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' &&
-      gradle --info bintrayUpload &&
+      ./gradlew --info bintrayUpload &&
       ./publish-notify.sh
 
 # environment variables for bintray credentials
