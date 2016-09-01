@@ -31,9 +31,15 @@ public final class ModelFactory {
       case "full_rank_linear" : return new FullRankLinearModel();
       case "low_rank_linear" : return new LowRankLinearModel();
       case "multilayer_perceptron" : return new MlpModel();
+      default:
+        log.info("Attempting to initialize " + name);
+        try {
+          return (AbstractModel) Class.forName(name).newInstance();
+        } catch (Exception e) {
+          log.error("Unable to initialize model by class name of " + name);
+          throw new RuntimeException(e);
+        }
     }
-    log.error("Could not create model of type " + name);
-    return null;
   }
   public static Optional<AbstractModel> createFromReader(BufferedReader reader) throws IOException {
     Optional<AbstractModel> model = Optional.absent();
