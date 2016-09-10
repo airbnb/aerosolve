@@ -160,7 +160,8 @@ object AdditiveModelTrainer {
                         priors: Array[String],
                         minCount: Int,
                         nDTreePipelineParams: NDTreePipelineParams,
-                        initQuantiles: Seq[Double])
+                        initQuantiles: Seq[Double],
+                        initSubsample: Double)
 
   case class LearningRateParams(initialLearningRate: Double,
                                 learningRateDecay: Double,
@@ -535,6 +536,7 @@ object AdditiveModelTrainer {
                                   additiveTrainerParams: AdditiveTrainerParams): AdditiveModel = {
     // sample examples to be used for model initialization
     val params = additiveTrainerParams.init
+    log.info(s"Initializing using $params")
     if (params.initModelPath == "" || !PipelineUtil.hdfsFileExists(params.initModelPath)) {
       val newModel = new AdditiveModel()
       initModel(sc, additiveTrainerParams, input, newModel, true)
@@ -578,8 +580,7 @@ object AdditiveModelTrainer {
         }
       }
     } else {
-      // uniformly sample across partition taking account of partition sample rata
-      val initExamples = input(additiveTrainerParams.partitionSubsample * additiveTrainerParams.subsample)
+      val initExamples = input(additiveTrainerParams.init.initSubsample)
       initWithoutDynamicBucketModel(additiveTrainerParams, initExamples, model, overwrite)
     }
   }
@@ -716,7 +717,8 @@ object AdditiveModelTrainer {
       config.getDoubleList("init_quantiles").map(_.doubleValue())
     ).getOrElse(Nil)
     assert(initQuantiles.isEmpty || initQuantiles.length == 2, "initialization quantiles must be length of 2.")
-    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies, priors, minCount, nDTreePipelineParams, initQuantiles)
+    val initSubsample = Try(config.getDouble("init_subsample")).getOrElse(subsample)
+    val initParams = InitParams(initModelPath, onlyUseInitModelFunctions, linearFeatureFamilies, priors, minCount, nDTreePipelineParams, initQuantiles, initSubsample)
 
     val loss: LossFunction = LossFunctions.withName(config.getString("loss").toUpperCase)
     val lossMod: Int = Try(config.getInt("loss_mod")).getOrElse(100)
