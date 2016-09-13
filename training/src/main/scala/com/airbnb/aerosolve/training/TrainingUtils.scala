@@ -279,17 +279,17 @@ object TrainingUtils {
           max($"value"),
           sum($"value"),
           // TODO: use built-in stdev function in Spark 1.6
-          sum($"value" * $"value")
-        ) ++
+          sum($"value" * $"value"),
           // TODO: use built-in percentileApprox in Spark 2.0
-          quantiles.map(q => callUDF("percentile_approx", $"value", lit(q))): _*
+          if (quantiles.isEmpty) lit(null) else callUDF("percentile_approx", $"value", array(quantiles.map(lit): _*))
+        ): _*
       )
       // ignore features present in less than minCount examples
       .where($"count" >= minCount)
       .map {
         row =>
           val Seq(family: String, feature: String, count: Long, min: Double, max: Double, sum: Double, sqSum: Double) = row.toSeq.take(NUM_BASIC_STATS)
-          val values = row.toSeq.drop(NUM_BASIC_STATS)
+          val values = if (row.isNullAt(NUM_BASIC_STATS)) Nil else row.getAs[Seq[Double]](NUM_BASIC_STATS)
 
           ((family, feature),
             FeatureStatistics(
@@ -298,7 +298,7 @@ object TrainingUtils {
               max,
               sum / count,
               (sqSum - sum * sum / count) / (count - 1),
-              values.asInstanceOf[Seq[Double]]
+              values
             ))
       }
       .collect
