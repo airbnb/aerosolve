@@ -338,17 +338,15 @@ object Evaluation {
 
   private def getClassificationAUCTrainHold(records: RDD[EvaluationRecord]): (Double, Double) = {
     // find minimal and maximal scores
-    var minScore = records.take(1).apply(0).score
-    var maxScore = minScore
-    records.foreach(record => {
-      val score = record.score
-      minScore = Math.min(minScore, score)
-      maxScore = Math.max(maxScore, score)
-    })
+    val scores = records.map(r => (r.score, r.score))
+    val (maxScore, minScore) = scores.reduce( {case (u, v) => (u._1 max v._1, u._2 min v._2) })
 
     if (minScore >= maxScore) {
-      log.warn("max score smaller than or equal to min score (%f, %f).".format(minScore, maxScore))
-      maxScore = minScore + 1.0
+      val count = records.count()
+      log.error("max score smaller than or equal to min score (%f, %f), total: %d".
+        format(minScore, maxScore, count))
+      throw new Exception("%d evaluation records all have same score, something must be wrong".
+        format(count))
     }
 
     // for AUC evaluation
@@ -378,7 +376,8 @@ object Evaluation {
     val minScore = scores.min
     var maxScore = scores.max
     if (minScore >= maxScore) {
-      log.warn("max score smaller than or equal to min score (%f, %f).".format(minScore, maxScore))
+      log.warn("max score smaller than or equal to min score (%f, %f). Number of records: %d".
+        format(minScore, maxScore, scores.size))
       maxScore = minScore + 1.0
     }
 
