@@ -21,7 +21,7 @@ object PhotonMLUtils {
 
   // Avro schema fields
   val AVRO_UID = "uid"
-  val AVRO_LABEL = "label"
+  val AVRO_LABEL = "response"
 
   val AVRO_FEATURES = "features"
   val AVRO_NAME = "name"
