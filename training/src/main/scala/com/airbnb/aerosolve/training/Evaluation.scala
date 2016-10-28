@@ -340,9 +340,10 @@ object Evaluation {
     // find minimal and maximal scores
     val scores = records.map(r => (r.score, r.score))
     val (maxScore, minScore) = scores.reduce( {case (u, v) => (u._1 max v._1, u._2 min v._2) })
-
+    val count = records.count()
+    val bucketSize = count / 10000 // Divide the area under ROC curve by 10000 vertical strips
+    log.info("%d eval record, bucket size = %d".format(count, bucketSize))
     if (minScore >= maxScore) {
-      val count = records.count()
       log.error("max score smaller than or equal to min score (%f, %f), total: %d".
         format(minScore, maxScore, count))
       throw new Exception("%d evaluation records all have same score, something must be wrong".
@@ -352,6 +353,9 @@ object Evaluation {
     // for AUC evaluation
     val buckets = records
       .map(x => evaluateRecordForAUC(x, minScore, maxScore))
+      .sortByKey()
+      .zipWithIndex()
+      .map({case ((score, tuple), idx) => (idx / bucketSize, tuple)})
       .reduceByKey((a, b) => a + b)
       .sortBy(x => x._1)
       .collect
@@ -429,13 +433,13 @@ object Evaluation {
 
   private def evaluateRecordForAUC(record: EvaluationRecord,
                                    minScore: Double,
-                                   maxScore: Double): (Long, (Long, Long, Long, Long)) = {
+                                   maxScore: Double): (Double, (Long, Long, Long, Long)) = {
     var offset = if (record.is_training) 0 else 2
     if (record.label <= 0) {
       offset += 1
     }
 
-    val score: Long = ((record.score - minScore) / (maxScore - minScore) * 100).toLong
+    val score: Double = (record.score - minScore) / (maxScore - minScore) * 100
 
     offset match {
       case 0 => (score, (1, 0, 0, 0))
