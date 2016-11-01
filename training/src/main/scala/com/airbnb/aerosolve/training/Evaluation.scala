@@ -341,7 +341,7 @@ object Evaluation {
     val scores = records.map(r => (r.score, r.score))
     val (maxScore, minScore) = scores.reduce( {case (u, v) => (u._1 max v._1, u._2 min v._2) })
     val count = records.count()
-    val bucketSize = count / 10000 // Divide the area under ROC curve by 10000 vertical strips
+    val bucketSize = Math.max(1, count / 10000) // Divide the area under ROC curve by 10000 vertical strips
     log.info("%d eval record, bucket size = %d".format(count, bucketSize))
     if (minScore >= maxScore) {
       log.error("max score smaller than or equal to min score (%f, %f), total: %d".
