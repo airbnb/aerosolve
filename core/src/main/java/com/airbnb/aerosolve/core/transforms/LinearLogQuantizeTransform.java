@@ -22,7 +22,7 @@ public class LinearLogQuantizeTransform implements Transform {
   private static StringBuilder sb;
   // Upper limit of each bucket to check if feature value falls in the bucket
   private static List<Double> limits;
-  // Step size used for quantization, for the correponding limit
+  // Step size used for quantization, for the corresponding limit
   private static List<Double> stepSizes;
   // Limit beyond which quantized value would be rounded to integer (ignoring decimals)
   private static double integerRoundingLimit;
