@@ -12,7 +12,7 @@ public abstract class ImageFeature implements ImageFeatureInterface {
   /* The following functions compute the Spatial Pyramid Match Kernel
   for the feature. This is a weighted sum of different partitions of an image.
   The weights for levels 0, 1, 2 are [0.25, 0.25, 0.5] respectively
-  so heigher weights are given to finer subdivisions following the
+  so higher weights are given to finer subdivisions following the
   formula given in the paper.
   See http://www-cvr.ai.uiuc.edu/ponce_grp/publication/paper/cvpr06b.pdf
    */

@@ -14,7 +14,7 @@ object CyclicCoordinateDescent {
                     initialStep : Array[Double],
                     bounds : Array[(Double, Double)])
 
-  // Given function f, intial location and bounds on the search
+  // Given function f, initial location and bounds on the search
   // return the location that best minimizes f up to tolerance precision
   def optimize(f : Array[Double] => Double,
                params : Params) : Array[Double]  = {
