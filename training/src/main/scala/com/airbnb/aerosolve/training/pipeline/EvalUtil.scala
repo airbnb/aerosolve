@@ -71,25 +71,4 @@ object EvalUtil {
 
     result
   }
-
-  def scoreExampleForEvaluation(
-      sc: SparkContext,
-      transformer: Transformer,
-      modelOpt: AbstractModel,
-      example: Example,
-      isTraining: Example => Boolean): EvaluationRecord = {
-    val modelBC = sc.broadcast(modelOpt)
-    val transformerBC = sc.broadcast(transformer)
-    val result = new EvaluationRecord
-    result.setIs_training(isTraining(example))
-
-    transformerBC.value.combineContextAndItems(example)
-    val score = modelBC.value.scoreItem(example.example.get(0))
-    val prob = modelBC.value.scoreProbability(score)
-    val rank = example.example.get(0).floatFeatures.get("$rank").get("")
-
-    result.setScore(prob)
-    result.setLabel(rank)
-    result
-  }
 }
