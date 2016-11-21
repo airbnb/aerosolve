@@ -41,17 +41,21 @@ object ScoreCalibrator {
     var iter = 0
     var old_offset = 0.0
     var old_slope = 1.0
+    val partitionedInput = input.repartition(numBags).cache()
 
     do {
       old_offset = params(0)
       old_slope = params(1)
-      params = trainMiniSGD(input, numBags, learningRate, params(0), params(1))
+      params = trainMiniSGD(partitionedInput, numBags, learningRate, params(0), params(1))
       iter += 1
       learningRate = learningRate * rate_decay
       log.info("Calibration Iteration %d: offset = %f, slope = %f".format(iter, params(0), params(1)))
     } while((math.abs(old_offset - params(0)) > tolerance
       || math.abs(old_slope - params(1)) > tolerance)
       && iter <= maxIter)
+
+    partitionedInput.unpersist()
+
     log.info("Calibration stopped at iteration %d".format(iter))
     params
   }
@@ -91,10 +95,8 @@ object ScoreCalibrator {
                    offset : Double,
                    slope : Double) : Array[Double] = {
     // First shuffle the data otherwise SGD won't work.
-    val data = input.map(x => (scala.util.Random.nextInt, x))
-      .sortByKey()
-      .map({case (r, x) => x})
-      .repartition(numBags)
+    val data = input.map(x => (math.random, x))
+      .sortBy(_._1, numPartitions = numBags).values
     val result = data
       .mapPartitions(partition => {
       // run mini-batch training on each partition
