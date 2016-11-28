@@ -39,6 +39,7 @@ metastore_db/
 derby.log
 demo/income_prediction/output
 demo/income_prediction/src/main/resources/adult.*
+demo/housing_price_prediction/
 
 # travis
 thrift-0.9.1.tar.gz
