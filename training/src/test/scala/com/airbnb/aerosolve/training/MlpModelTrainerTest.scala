@@ -208,7 +208,7 @@ class MlpModelTrainerTest {
       log.info("Testing: Average absolute error = %f".format(testError))
 
       assertTrue(trainError < 3.0)
-      assertTrue(testError < 3.5)
+      assertTrue(testError < 4.0)
     } finally {
       sc.stop
       sc = null
