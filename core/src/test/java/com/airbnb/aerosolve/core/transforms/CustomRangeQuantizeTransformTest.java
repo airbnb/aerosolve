@@ -14,7 +14,7 @@ import static org.junit.Assert.assertTrue;
 public class CustomRangeQuantizeTransformTest {
   private static final Logger log = LoggerFactory.getLogger(CustomRangeQuantizeTransformTest.class);
 
-  public FeatureVector makeFeatureVector() {
+  private FeatureVector makeFeatureVector() {
     Map<String, Set<String>> stringFeatures = new HashMap<>();
     Map<String, Map<String, Double>> floatFeatures = new HashMap<>();
 
@@ -27,6 +27,8 @@ public class CustomRangeQuantizeTransformTest {
     map.put("short", 3.0);
     map.put("med", 8.0);
     map.put("long", 30.0);
+    map.put("low_bound", 7.0);
+    map.put("high_bound", 28.0);
     floatFeatures.put("trip", map);
 
     FeatureVector featureVector = new FeatureVector();
@@ -64,11 +66,13 @@ public class CustomRangeQuantizeTransformTest {
     assertTrue(stringFeatures.keySet().contains("trip_quantized"));
     assertTrue(stringFeatures.keySet().contains("strFeature1"));
     Set<String> out = stringFeatures.get("trip_quantized");
-    assertTrue(out.size() == 3);
+    assertTrue(out.size() == 5);
 
     assertTrue(out.contains("short<=7.0"));
+    assertTrue(out.contains("low_bound<=7.0"));
     assertTrue(out.contains("7.0<med<=28.0"));
     assertTrue(out.contains("long>28.0"));
+    assertTrue(out.contains("7.0<high_bound<=28.0"));
   }
 
   @Test

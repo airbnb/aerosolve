@@ -17,6 +17,7 @@ import com.typesafe.config.Config;
  * transformer will bucketize features into three buckets: the first with feature value <= 0.1, the
  * second with features value > 0.1 and <=0.5; and the third with value > 0.5. The quantized
  * features are put under a new feature family specified by "output"
+ * Note that the transformer assumes thresholds are in ascending order
  */
 public class CustomRangeQuantizeTransform implements Transform {
   private String fieldName1;
@@ -29,20 +30,21 @@ public class CustomRangeQuantizeTransform implements Transform {
                                            Double featureValue,
                                            Set<String> output) {
 
-    double t0 = thresholds.get(0);
-    double t1 = thresholds.get(thresholds.size() - 1);
-    if (featureValue <= t0) {
-      output.add(featureName + "<=" + Double.toString(t0));
+    double tMin = thresholds.get(0);
+    double tMax = thresholds.get(thresholds.size() - 1);
+    if (featureValue <= tMin) {
+      output.add(featureName + "<=" + Double.toString(tMin));
       return;
     }
 
-    if (featureValue > t1) {
-      output.add(featureName + ">" + Double.toString(t1));
+    if (featureValue > tMax) {
+      output.add(featureName + ">" + Double.toString(tMax));
+      return;
     }
 
     for (int i = 0; i < thresholds.size() - 1; i++) {
-      t0 = thresholds.get(i);
-      t1 = thresholds.get(i + 1);
+      double t0 = thresholds.get(i);
+      double t1 = thresholds.get(i + 1);
       if (featureValue > t0 && featureValue <= t1) {
         output.add(Double.toString(t0) + "<" + featureName + "<=" + Double.toString(t1));
         return;
@@ -53,7 +55,6 @@ public class CustomRangeQuantizeTransform implements Transform {
   @Override
   public void configure(Config config, String key) {
     fieldName1 = config.getString(key + ".field1");
-    // assuming thresholds are in ascending order
     thresholds = config.getDoubleList(key + ".thresholds");
     outputName = config.getString(key + ".output");
 
