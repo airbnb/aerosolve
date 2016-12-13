@@ -6,6 +6,9 @@ import com.airbnb.aerosolve.core.ModelRecord;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A point function y(x) = w where w is a constant. This usually represents one-hot feature.
+ */
 public class Point implements Function {
   private float weight;
 
@@ -30,27 +33,24 @@ public class Point implements Function {
     return new Point(aggWeight);
   }
 
-  /*
-    for string feature, aerosolve assume x[0] == 1
-   */
   @Override
   public float evaluate(float... x) {
-    return weight * x[0];
+    return weight;
   }
 
   @Override
   public float evaluate(List<Double> values) {
-    return weight * values.get(0).floatValue();
+    return weight;
   }
 
   @Override
   public void update(float delta, float... values) {
-    weight += delta * values[0];
+    weight += delta;
   }
 
   @Override
   public void update(float delta, List<Double> values) {
-    weight += delta * values.get(0);
+    weight += delta;
   }
 
   @Override
