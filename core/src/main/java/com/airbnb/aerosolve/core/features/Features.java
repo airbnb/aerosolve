@@ -33,6 +33,9 @@ public class Features {
   public final String[] names;
   public final Object[] values;
 
+  // names starting with _meta_ will be treated as metadata instead of features
+  private final static String METADATA_PREFIX = "_meta_";
+
   /*
     Util function to get features for FeatureMapping
    */
@@ -73,29 +76,41 @@ public class Features {
     stringFeatures.put("BIAS", bias);
     stringFeatures.put(MISS, missing);
 
+    // metadata map
+    final Map<String, String> metadata = new HashMap<>();
+    example.setMetadata(metadata);
+
     for (int i = 0; i < names.length; i++) {
       String name = names[i];
       Object value = values[i];
-      if (value == null) {
-        missing.add(name);
+      if (isMetadata(name)) {
+        metadata.put(name.substring(METADATA_PREFIX.length()), value == null ? null : value.toString());
       } else {
-        Pair<String, String> feature = getFamily(name);
-        if (value instanceof String) {
-          String str = (String) value;
-          if (isMultiClass && isLabel(feature)) {
-            addMultiClassLabel(str, floatFeatures);
-          } else {
-            addStringFeature(str, feature, stringFeatures);
-          }
-        } else if (value instanceof Boolean) {
-          Boolean b = (Boolean) value;
-          addBoolFeature(b, feature, stringFeatures);
+        if (value == null) {
+          missing.add(name);
         } else {
-          addNumberFeature((Number) value, feature, floatFeatures);
+          Pair<String, String> feature = getFamily(name);
+          if (value instanceof String) {
+            String str = (String) value;
+            if (isMultiClass && isLabel(feature)) {
+              addMultiClassLabel(str, floatFeatures);
+            } else {
+              addStringFeature(str, feature, stringFeatures);
+            }
+          } else if (value instanceof Boolean) {
+            Boolean b = (Boolean) value;
+            addBoolFeature(b, feature, stringFeatures);
+          } else {
+            addNumberFeature((Number) value, feature, floatFeatures);
+          }
         }
       }
     }
     return example;
+  }
+
+  private static boolean isMetadata(String name) {
+    return name.startsWith(METADATA_PREFIX);
   }
 
   @VisibleForTesting
