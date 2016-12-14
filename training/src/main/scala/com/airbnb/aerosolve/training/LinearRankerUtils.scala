@@ -230,7 +230,7 @@ object LinearRankerUtils {
         val newExample = new Example()
         newExample.setContext(example.context)
         newExample.addToExample(x)
-
+        newExample.setMetadata(example.metadata)
         transformer.addContextToItems(newExample)
 
         newExample
@@ -283,6 +283,7 @@ object LinearRankerUtils {
         val newExample = new Example()
         newExample.setContext(example.context)
         newExample.addToExample(x)
+        newExample.setMetadata(example.metadata)
         transformer.combineContextAndItems(newExample)
         // For space reasons remove all float features except rankKey.
         val floatFeatures = newExample.example.get(0).getFloatFeatures

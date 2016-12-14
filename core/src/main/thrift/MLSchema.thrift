@@ -50,6 +50,8 @@ struct Example {
   // The context feature, e.g. query / user features that is in common
   // over the whole session.
   2: optional FeatureVector context;
+  // To store meta data to help training/evaluation but not as a feature
+  3: optional map<string, string> metadata;
 }
 
 struct DictionaryEntry {

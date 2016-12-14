@@ -15,8 +15,8 @@ import static org.junit.Assert.*;
 
 public class FeaturesTest {
   public static Features createFeature() {
-    Object[] values = new Object[6];
-    String[] names = new String[6];
+    Object[] values = new Object[7];
+    String[] names = new String[7];
 
     names[0] = Features.LABEL;
     values[0] = new Double(5.0);
@@ -33,6 +33,8 @@ public class FeaturesTest {
     names[5] = "X_jump";
     values[5] = null;
 
+    names[6] = "_meta_id_listing";
+    values[6] = 12345;
     return Features.builder().names(names).values(values).build();
   }
 
@@ -51,6 +53,7 @@ public class FeaturesTest {
     FeatureVector featureVector = example.getExample().get(0);
     final Map<String, Set<String>> stringFeatures = featureVector.getStringFeatures();
     final Map<String, Map<String, Double>> floatFeatures = featureVector.getFloatFeatures();
+    final Map<String, String> metadata = example.getMetadata();
 
     // we have default BIAS
     assertEquals(4, stringFeatures.size());
@@ -78,6 +81,9 @@ public class FeaturesTest {
     floatFeature = floatFeatures.get(Features.LABEL);
     assertEquals(1, floatFeature.size());
     assertEquals(5.0, floatFeature.get(Features.LABEL_FEATURE_NAME), 0);
+
+    assertEquals(1, metadata.size());
+    assertEquals("12345", metadata.get("id_listing"));
   }
 
   @Test
