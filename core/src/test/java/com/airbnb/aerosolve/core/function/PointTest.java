@@ -17,4 +17,12 @@ public class PointTest {
     assertEquals(-3, point.evaluate(1.0f), 0);
   }
 
+  @Test
+  public void ConstantPoint() {
+    Point point = example();
+    assertEquals(-6, point.evaluate(1.0f), 0);
+    assertEquals(-6, point.evaluate(-1.0f), 0);
+    assertEquals(-6, point.evaluate(0f), 0);
+  }
+
 }
