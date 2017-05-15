@@ -1,4 +1,5 @@
 apply plugin: 'wrapper'
+apply from: "libraries.gradle"
 
 // Needed for shadow.
 buildscript {
@@ -8,8 +9,9 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
         classpath 'gradle.plugin.com.palantir.gradle.gitversion:gradle-git-version:0.5.2'
+        classpath group: 'org.github.ngbinh.scalastyle', name: 'gradle-scalastyle-plugin_2.10', version: '0.8.2'
     }
 }
 
