@@ -3,7 +3,7 @@ package com.airbnb.aerosolve.training.pipeline
 import com.airbnb.aerosolve.core.ModelRecord
 import com.airbnb.aerosolve.core.function.{AbstractFunction, MultiDimensionSpline}
 import com.airbnb.aerosolve.core.util.Util
-import com.airbnb.aerosolve.training.pipeline.HiveUtil
+import com.airbnb.aerosolve.training.utils.HiveUtil
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
