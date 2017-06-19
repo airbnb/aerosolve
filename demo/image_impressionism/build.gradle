@@ -19,7 +19,3 @@ dependencies {
 shadowJar {
   zip64 = true
 }
-
-test {
-    jvmArgs += [ "-XX:MaxPermSize=1024m" ]
-}
