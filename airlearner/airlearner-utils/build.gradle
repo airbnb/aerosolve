@@ -31,8 +31,8 @@ bintray {
   pkg {
     repo = 'aerosolve'
     userOrg = 'airbnb'
-    name = 'airlearner-util'
-    desc = 'airlearner util lib'
+    name = 'airlearner-utils'
+    desc = 'airlearner utils lib'
     websiteUrl = 'https://github.com/airbnb/aerosolve'
     issueTrackerUrl = 'https://github.com/airbnb/aerosolve/issues'
     vcsUrl = 'https://github.com/airbnb/aerosolve.git'
