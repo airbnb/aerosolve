@@ -64,7 +64,3 @@ shadowJar {
     attributes 'Main-Class': 'com.airbnb.aerosolve.training.pipeline.JobRunner'
   }
 }
-
-test {
-  jvmArgs += [ "-XX:MaxPermSize=1024m" ]
-}
