@@ -1,3 +1,7 @@
+plugins {
+  id 'me.champeau.gradle.jmh' version '0.3.1'
+}
+
 apply plugin: 'java'
 apply plugin: 'com.jfrog.bintray'
 
@@ -45,4 +49,9 @@ bintray {
 
 shadowJar {
   zip64 = true
+}
+
+// Note: If you run into issues with JMH, your first response should be to run `gradlew clean`
+jmh {
+  jmhVersion = '1.19'
 }
