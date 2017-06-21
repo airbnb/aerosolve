@@ -2,101 +2,110 @@ apply plugin: 'wrapper'
 
 // Needed for shadow.
 buildscript {
-    repositories {
-        jcenter()
-        maven { url "https://plugins.gradle.org/m2/" }
-    }
-    dependencies {
-        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
-        classpath 'gradle.plugin.com.palantir.gradle.gitversion:gradle-git-version:0.5.2'
-        classpath group: 'org.github.ngbinh.scalastyle', name: 'gradle-scalastyle-plugin_2.10', version: '0.8.2'
-    }
+  repositories {
+    jcenter()
+    maven { url "https://plugins.gradle.org/m2/" }
+  }
+
+  dependencies {
+    classpath group: 'com.github.jengelman.gradle.plugins',
+        name: 'shadow',
+        version: '1.2.3'
+    classpath group: 'com.jfrog.bintray.gradle',
+        name: 'gradle-bintray-plugin',
+        version: '1.7.3'
+    classpath group: 'gradle.plugin.com.palantir.gradle.gitversion',
+        name: 'gradle-git-version',
+        version: '0.7.3'
+    classpath group: 'org.github.ngbinh.scalastyle',
+        name: 'gradle-scalastyle-plugin_2.10',
+        version: '0.8.2'
+  }
 }
 
 allprojects {
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'com.github.johnrengelman.shadow'
-    apply plugin: 'com.palantir.git-version'
+  apply plugin: 'java'
+  apply plugin: 'idea'
+  apply plugin: 'eclipse'
+  apply plugin: 'com.github.johnrengelman.shadow'
+  apply plugin: 'com.palantir.git-version'
 
-    repositories {
-        jcenter()
-        maven { url "http://repo.typesafe.com/typesafe/releases/" }
-        maven { url 'http://projectlombok.org/mavenrepo' }
+  repositories {
+    jcenter()
+    maven { url "http://repo.typesafe.com/typesafe/releases/" }
+    maven { url 'http://projectlombok.org/mavenrepo' }
+  }
+
+  configurations {
+    provided
+  }
+
+  group = 'com.airbnb.aerosolve'
+  version gitVersion()
+
+  ext.publish = true
+  ext.dryRun = false
+
+  sourceSets {
+    main {
+      compileClasspath += configurations.provided
     }
-
-    configurations {
-        provided
+    test {
+      compileClasspath += configurations.provided
+      runtimeClasspath += configurations.provided
     }
+  }
 
-    group = 'com.airbnb.aerosolve'
-    version gitVersion()
+  compileJava {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+    options.setDeprecation true
+    options.encoding = 'UTF-8'
+  }
 
-    ext.publish = true
-    ext.dryRun = false
-
-    sourceSets {
-        main {
-            compileClasspath += configurations.provided
-        }
-        test {
-            compileClasspath += configurations.provided
-            runtimeClasspath += configurations.provided
-        }
+  if (JavaVersion.current().isJava8Compatible()) {
+    tasks.withType(Javadoc) {
+      // disable the crazy super-strict doclint tool in Java 8
+      //noinspection SpellCheckingInspection
+      options.addStringOption('Xdoclint:none', '-quiet')
     }
+  }
 
-    compileJava {
-        sourceCompatibility = '1.8'
-        targetCompatibility = '1.8'
-        options.setDeprecation true
-        options.encoding = 'UTF-8'
+  // Configure Idea plugin
+  idea {
+    module {
+      scopes.PROVIDED.plus += [configurations.provided]
+
+      downloadJavadoc = true
     }
-
-    if (JavaVersion.current().isJava8Compatible()) {
-        tasks.withType(Javadoc) {
-            // disable the crazy super-strict doclint tool in Java 8
-            //noinspection SpellCheckingInspection
-            options.addStringOption('Xdoclint:none', '-quiet')
-        }
-    }
-
-    // Configure Idea plugin
-    idea {
-        module {
-            scopes.PROVIDED.plus += [configurations.provided]
-
-            downloadJavadoc = true
-        }
-    }
+  }
 }
 
 subprojects {
-    apply plugin: 'maven'
+  apply plugin: 'maven'
 
-    if (project.plugins.hasPlugin('java')) {
-        // manifest.mainAttributes(provider: 'gradle')
-        configurations {
-            published
-        }
-        dependencies {
-            testCompile 'junit:junit:4.7'
-        }
-
-        task sourceJar(type: Jar) {
-            from sourceSets.main.allSource
-            classifier = 'sources'
-        }
-        task javadocJar(type: Jar, dependsOn: javadoc) {
-            classifier = 'javadoc'
-            from javadoc.destinationDir
-        }
-
-        // Add the sourceJars to non-extractor modules
-        artifacts {
-            published sourceJar
-            published javadocJar
-        }
+  if (project.plugins.hasPlugin('java')) {
+    // manifest.mainAttributes(provider: 'gradle')
+    configurations {
+      published
     }
+    dependencies {
+      testCompile group: 'junit', name: 'junit', version: '4.12'
+    }
+
+    task sourceJar(type: Jar) {
+      from sourceSets.main.allSource
+      classifier = 'sources'
+    }
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+      classifier = 'javadoc'
+      from javadoc.destinationDir
+    }
+
+    // Add the sourceJars to non-extractor modules
+    artifacts {
+      published sourceJar
+      published javadocJar
+    }
+  }
 }

@@ -6,18 +6,20 @@ dependencies {
 
 def genJavaDir = new File("${->buildDir}/gen-java")
 
-task genThrift << {
-  if (genJavaDir.isDirectory()) {
-    genJavaDir.deleteDir()
-  }
-  mkdir(genJavaDir)
+task genThrift {
+  doLast {
+    if (genJavaDir.isDirectory()) {
+      genJavaDir.deleteDir()
+    }
+    mkdir(genJavaDir)
 
-  def thriftFiles = fileTree(dir: "$projectDir/src/main/thrift/").matching { include '*.thrift' }
+    def thriftFiles = fileTree(dir: "$projectDir/src/main/thrift/").matching { include '*.thrift' }
 
-  thriftFiles.each() { File file ->
-    exec {
-      executable = 'thrift'
-      args = ['--gen', 'java', '-o', "${->buildDir}/", file]
+    thriftFiles.each() { File file ->
+      exec {
+        executable = 'thrift'
+        args = ['--gen', 'java', '-o', "${-> buildDir}/", file]
+      }
     }
   }
 }
