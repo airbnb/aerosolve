@@ -29,19 +29,21 @@ object RandomUtil {
     bounds(index)
   }
 
-  def sample[T](items: Seq[T], ratios: Seq[Double]): Seq[Seq[T]]= {
-    val t = Random.shuffle(items)
-    slice(t, ratios)
+  def sample[T](items: Seq[T], ratios: Seq[Double]): Seq[Seq[T]] = {
+    val shuffledItems: Seq[T] = Random.shuffle(items)
+    slice(shuffledItems, ratios)
   }
 
-  def slice[T](items: Seq[T], ratios: Seq[Double]): Seq[Seq[T]]= {
-    val len = items.length
-    val start = ratios.scanLeft(0.0)(_ + _).take(ratios.length)
+  def slice[T](items: Seq[T], ratios: Seq[Double]): Seq[Seq[T]] = {
+    val itemCount: Int = items.length
+    val startPositions: Seq[Double] = ratios.scanLeft(0.0)(_ + _).take(ratios.length)
 
-    start.zip(ratios).map{
-      case (s:Double, size:Double) => {
-        val startPos: Int = (s * len).toInt
-        val endPos: Int = ((s + size)*len).toInt
+    // The range here is ratio-based, which is converted to index
+    // through multiplication with itemCount.
+    startPositions.zip(ratios).map {
+      case (rangeStart: Double, rangeLength: Double) => {
+        val startPos: Int = (rangeStart * itemCount).toInt
+        val endPos: Int = ((rangeStart + rangeLength) * itemCount).toInt
         items.slice(startPos, endPos)
       }
     }
