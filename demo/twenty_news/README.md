@@ -10,11 +10,69 @@ The data set we use was downloaded from https://archive.ics.uci.edu/ml/machine-l
 
 This demo assumes
 
-  * Spark is installed http://spark.apache.org/downloads.html
+  * Spark 1.6.3 is installed http://spark.apache.org/downloads.html
   * spark-submit is in your path somewhere
   * Gradle is installed https://gradle.org/
+  * Thrift 0.9.1 is installed
   * Roughly 8 GB of free memory
   * python is installed somewhere
+
+#### Switching to the correct version of spark with Homebrew on Mac OSX
+If you have used spark recently, you are probably running a version >= 2. You can check this by running,
+
+```
+brew info apache-spark
+```
+
+To obtain the correct version of spark, run the following,
+
+```
+brew search apache-spark
+brew install apache-spark@1.6
+brew unlink apache-spark
+brew link apache-spark@1.6
+```
+
+#### Adding spark-submit to your path
+To add spark-submit to your path, you can run the flowing line and add to your favorite profile (e.g. .zshrc)
+
+```
+export PATH="/usr/local/opt/apache-spark@1.6/bin:$PATH"
+```
+
+Finally, check that you are currently running the correct version of apache-spark.
+
+```
+spark-submit --version
+```
+
+#### Switching to the correct version of Thrift with Homebrew on Mac OSX
+If you have recently installed Thrift by running,
+
+```
+brew install thrift
+```
+
+chances are that you have version >= 10 installed.  
+
+```
+thrift -version
+```
+
+To obtain and switch to the correct version of thrift, run the following,
+
+```
+brew search thrift
+brew install thrift@0.90
+brew unlink thrift
+brew link thrift@0.90
+```
+
+Finally, check that you are currently running the correct version of thrift.
+
+```
+thrift -version
+```
 
 ## Running the demo
 
@@ -23,7 +81,7 @@ Downloading the dataset from https://archive.ics.uci.edu/ml/machine-learning-dat
 wget https://archive.ics.uci.edu/ml/machine-learning-databases/20newsgroups-mld/20_newsgroups.tar.gz
 gzip -d 20_newsgroups.tar.gz
 tar -xvf 20_newsgroups.tar
-python convert_to_aerosolve.py 
+python convert_to_aerosolve.py
 ```
 
 This will convert the twenty news data set into one giant flat text file.

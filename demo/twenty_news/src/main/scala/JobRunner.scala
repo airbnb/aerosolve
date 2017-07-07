@@ -27,7 +27,7 @@ object JobRunner {
     log.info("Loading config from " + args(0))
     val config = ConfigFactory.load(args(0))
     val jobs : Seq[String] = args(1).split(',')
-    val conf = new SparkConf().setAppName("IncomePrediction")
+    val conf = new SparkConf().setAppName("TwentyNews")
     val sc = new SparkContext(conf)
     for (job <- jobs) {
       log.info("Running " + job)
