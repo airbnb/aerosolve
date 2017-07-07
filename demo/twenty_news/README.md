@@ -24,10 +24,10 @@ If you have used spark recently, you are probably running a version >= 2. You ca
 
 To obtain the correct version of spark, run the following,
 
-   `brew search apache-spark
-   brew install apache-spark@1.6
-   brew unlink apache-spark
-   brew link apache-spark@1.6`
+   `brew search apache-spark`
+   `brew install apache-spark@1.6`
+   `brew unlink apache-spark`
+   `brew link apache-spark@1.6`
 
 #### Adding spark-submit to your path
 To add spark-submit to your path, you can run the flowing line and add to your favorite profile (e.g. .zshrc)
@@ -49,10 +49,10 @@ chances are that you have version >= 10 installed.
 
 To obtain and switch to the correct version of thrift, run the following,
 
-   `brew search thrift
-   brew install thrift@0.90
-   brew unlink thrift
-   brew link thrift@0.90`
+   `brew search thrift`
+   `brew install thrift@0.90`
+   `brew unlink thrift`
+   `brew link thrift@0.90`
 
 Finally, check that you are currently running the correct version of thrift.
 
