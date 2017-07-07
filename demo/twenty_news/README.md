@@ -20,43 +20,43 @@ This demo assumes
 #### Switching to the correct version of spark with Homebrew on Mac OSX
 If you have used spark recently, you are probably running a version >= 2. You can check this by running,
 
-   brew info apache-spark
+  `brew info apache-spark`
 
 To obtain the correct version of spark, run the following,
-   
-   brew search apache-spark
+
+   `brew search apache-spark
    brew install apache-spark@1.6
    brew unlink apache-spark
-   brew link apache-spark@1.6
+   brew link apache-spark@1.6`
 
-#### Adding spark-submit to your path 
-To add spark-submit to your path, you can run the flowing line and add to your favorite profile (e.g. .zshrc) 
+#### Adding spark-submit to your path
+To add spark-submit to your path, you can run the flowing line and add to your favorite profile (e.g. .zshrc)
 
-   export PATH="/usr/local/opt/apache-spark@1.6/bin:$PATH"
+   `export PATH="/usr/local/opt/apache-spark@1.6/bin:$PATH"`
 
 Finally, check that you are currently running the correct version of apache-spark.
 
-   spark-submit --version
+   `spark-submit --version`
 
 #### Switching to the correct version of Thrift with Homebrew on Mac OSX
 If you have recently installed Thrift by running,
 
-   brew install thrift
+   `brew install thrift`
 
 chances are that you have version >= 10 installed.  
 
-   thrift -version
+   `thrift -version`
 
-To obtain and switch to the correct version of thrift, run the following, 
+To obtain and switch to the correct version of thrift, run the following,
 
-   brew search thrift
+   `brew search thrift
    brew install thrift@0.90
    brew unlink thrift
-   brew link thrift@0.90
+   brew link thrift@0.90`
 
-Finally, check that you are currentlly running the correct version of thrift.
+Finally, check that you are currently running the correct version of thrift.
 
-   thrift -version
+   `thrift -version`
 
 ## Running the demo
 
@@ -65,7 +65,7 @@ Downloading the dataset from https://archive.ics.uci.edu/ml/machine-learning-dat
 wget https://archive.ics.uci.edu/ml/machine-learning-databases/20newsgroups-mld/20_newsgroups.tar.gz
 gzip -d 20_newsgroups.tar.gz
 tar -xvf 20_newsgroups.tar
-python convert_to_aerosolve.py 
+python convert_to_aerosolve.py
 ```
 
 This will convert the twenty news data set into one giant flat text file.
