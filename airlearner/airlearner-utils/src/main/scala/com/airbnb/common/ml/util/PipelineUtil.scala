@@ -354,7 +354,7 @@ object PipelineUtil extends ScalaLogging {
   }
 
   def getHDFSInputStreams(path: String): Array[(String, InputStream)] = {
-    val fs = FileSystem.get(new Configuration())
+    val fs = FileSystem.get(new URI(path), hadoopConfiguration)
     val status = fs.listStatus(new Path(path))
     status.map(f => (f.getPath.getName, fs.open(f.getPath)))
   }
