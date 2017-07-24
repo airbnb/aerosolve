@@ -136,14 +136,16 @@ object PipelineUtil extends ScalaLogging {
    * (or the fields in the case class).
    */
   def saveDataframeToManagedPartitionedHiveTable(
-      sc: SparkContext,
       df: DataFrame,
       hiveTableName: String,
       hivePartitionSpecs: Map[String, Any]
   ): Unit = {
-
-    // Create the HiveContext and set it up for RDD->DF conversion
-    val hc: HiveContext = new HiveContext(sc)
+    if (!df.sqlContext.isInstanceOf[HiveContext]) {
+      throw new RuntimeException("saveDataframeToManagedPartitionedHiveTable expects only " +
+        "dataframe created from HiveContext.")
+    }
+    // Retrieve HiveContext from the dataframe
+    val hc = df.sqlContext.asInstanceOf[HiveContext]
 
     // Set up the hive context to support dynamic Hive partitions
     hc.setConf("hive.exec.dynamic.partition", "true")
