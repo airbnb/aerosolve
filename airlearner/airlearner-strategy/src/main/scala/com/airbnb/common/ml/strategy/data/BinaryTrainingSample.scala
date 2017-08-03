@@ -1,6 +1,7 @@
 package com.airbnb.common.ml.strategy.data
 
 import com.airbnb.common.ml.strategy.config.TrainingOptions
+import com.airbnb.common.ml.strategy.eval.BinaryMetrics
 
 
 /*
@@ -115,5 +116,22 @@ trait BinaryTrainingSample extends BinaryScoringSample {
     val bound: Double = 1 + len * x
     // todo test with trueValue
     bound * basePivot
+  }
+
+  def predictionLower(prediction: Double): Boolean = {
+    if (label && trueValue.isDefined) {
+      prediction < trueValue.get
+    } else {
+      prediction < observedValue
+    }
+  }
+
+  def predictionIncrease(prediction: Double): Double = {
+    if (label && trueValue.isDefined) {
+      val value = trueValue.get
+      BinaryMetrics.safeDiv(prediction - value, value)
+    } else {
+      BinaryMetrics.safeDiv(prediction - observedValue, observedValue)
+    }
   }
 }
