@@ -1,7 +1,5 @@
 package com.airbnb.common.ml.strategy.data
 
-import com.airbnb.common.ml.strategy.eval.BinaryMetrics
-
 
 trait BinaryScoringSample
   extends Serializable {
@@ -23,15 +21,6 @@ trait BinaryScoringSample
   // the feature associated with observedValue or pivotValue
   // i.e. probability of the value
   def x: Double
-
-  // TODO maybe need predictionHigher?
-  def predictionLower(prediction: Double): Boolean = {
-    prediction < observedValue
-  }
-
-  def predictionIncrease(prediction: Double): Double = {
-    BinaryMetrics.safeDiv(prediction - observedValue, observedValue)
-  }
 
   // return value between observedValue and basePivot scaled by x
   protected def scaleObservedValueByX: Double = {
