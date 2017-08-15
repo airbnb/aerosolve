@@ -2,6 +2,7 @@ package com.airbnb.common.ml.util
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
+import scala.util.Try
 
 import com.typesafe.config.Config
 
@@ -18,7 +19,22 @@ object ConfigUtils {
     * @return the converted map
     */
   def configToMap(config: Config): Map[String, Any] = {
-    config.entrySet().asScala.map (
+    val conf = Try(Some(config)).getOrElse[Option[Config]](None)
+    val map: Map[String, Any] = conf match {
+      case Some(conf) => ConfigUtils.configToMapHelper(conf)
+      case _ => Map()
+    }
+    map
+  }
+
+  /**
+    * helper function for configToMap, config must be valid
+    *
+    * @param config the Config object
+    * @return the converted map
+    */
+  private def configToMapHelper(config: Config): Map[String, Any] = {
+    config.entrySet().asScala.map(
       entry => {
         val value = entry.getValue.unwrapped()
         val obj = value match {
@@ -40,4 +56,5 @@ object ConfigUtils {
       .map(kv => kv(0) -> kv(1))
       .toMap
   }
+
 }
