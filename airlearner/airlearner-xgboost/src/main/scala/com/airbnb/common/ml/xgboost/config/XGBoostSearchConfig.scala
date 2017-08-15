@@ -1,11 +1,10 @@
 package com.airbnb.common.ml.xgboost.config
 
 import scala.util.Try
-
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
-
 import com.airbnb.common.ml.search.MonteCarloParams
+import com.airbnb.common.ml.util.ConfigUtils
 
 
 case class XGBoostSearchConfig(
@@ -39,9 +38,14 @@ object XGBoostSearchConfig {
     val overwrite = config.getBoolean("overwrite")
     val paramMap = MonteCarloParams.loadFromConfig(config.getConfig("params"))
 
-    // TODO move to config
-    val stableParamMap = List(
-      "objective" -> "binary:logistic")
+    val stableParamMap = ConfigUtils.configToMap(config.getConfig("stable_param_map"))
+    val stableParamList: List[(String, Any)] = if (stableParamMap.isEmpty) {
+      // default binary:logistic
+      List("objective" -> "binary:logistic")
+    } else {
+      stableParamMap.toList
+    }
+
     val useModelPostfix = config.getBoolean("use_model_postfix")
     val partitionSpec = config.getString("output_partition_spec")
     val outputTable = config.getString("output_table")
@@ -59,7 +63,7 @@ object XGBoostSearchConfig {
       outputPath,
       overwrite,
       paramMap,
-      stableParamMap,
+      stableParamList,
       partitionSpec,
       outputTable,
       trainingDataDir,

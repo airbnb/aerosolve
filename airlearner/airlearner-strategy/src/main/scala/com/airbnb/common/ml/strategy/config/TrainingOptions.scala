@@ -1,10 +1,10 @@
 package com.airbnb.common.ml.strategy.config
 
+import com.airbnb.common.ml.util.ConfigUtils
 import com.typesafe.config.Config
+
 import scala.collection.JavaConverters._
 import scala.util.Try
-
-import com.airbnb.common.ml.util.ConfigUtils
 
 
 /**
@@ -257,12 +257,8 @@ object TrainingOptions {
 
     val learningRateType = Try(config.getString("learning_rate_type")).getOrElse("default")
 
-    val additionalConfig = Try(Some(
-      config.getConfig("additional_options"))).getOrElse[Option[Config]](None)
-    val additionalOptions: Map[String, Any] = additionalConfig match {
-      case Some(config) => ConfigUtils.configToMap(config)
-      case _ => Map()
-    }
+    val additionalOptions: Map[String, Any] = ConfigUtils.configToMap(
+      config.getConfig("additional_options"))
 
     TrainingOptions(
       trueLowerBound,
