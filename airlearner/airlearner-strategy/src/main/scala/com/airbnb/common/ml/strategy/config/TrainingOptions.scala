@@ -257,8 +257,7 @@ object TrainingOptions {
 
     val learningRateType = Try(config.getString("learning_rate_type")).getOrElse("default")
 
-    val additionalOptions: Map[String, Any] = ConfigUtils.configToMap(
-      config.getConfig("additional_options"))
+    val additionalOptions: Map[String, Any] = ConfigUtils.configToMap(config, "additional_options")
 
     TrainingOptions(
       trueLowerBound,
