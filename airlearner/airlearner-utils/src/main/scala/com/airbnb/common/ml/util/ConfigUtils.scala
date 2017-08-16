@@ -16,10 +16,11 @@ object ConfigUtils {
     * Given a Config object, convert it to a map of key(string) to objects.
     *
     * @param config the Config object
+    * @param path path of the sub config
     * @return the converted map
     */
-  def configToMap(config: Config): Map[String, Any] = {
-    val conf = Try(Some(config)).getOrElse[Option[Config]](None)
+  def configToMap(config: Config, path: String): Map[String, Any] = {
+    val conf = Try(Some(config.getConfig(path))).getOrElse[Option[Config]](None)
     val map: Map[String, Any] = conf match {
       case Some(conf) => ConfigUtils.configToMapHelper(conf)
       case _ => Map()

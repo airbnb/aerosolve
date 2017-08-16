@@ -38,7 +38,7 @@ object XGBoostSearchConfig {
     val overwrite = config.getBoolean("overwrite")
     val paramMap = MonteCarloParams.loadFromConfig(config.getConfig("params"))
 
-    val stableParamMap = ConfigUtils.configToMap(config.getConfig("stable_param_map"))
+    val stableParamMap = ConfigUtils.configToMap(config, "stable_param_map")
     val stableParamList: List[(String, Any)] = if (stableParamMap.isEmpty) {
       // default binary:logistic
       List("objective" -> "binary:logistic")
