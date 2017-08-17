@@ -72,7 +72,8 @@ object XGBoostModel extends ScalaLogging {
   private def getLossFunction(loss: String): (Double, Double) => Double = {
     val lossFun: (Double, Double) => Double = loss match {
       case "linear" => XGBoostModel.linearLoss
-      case _ => XGBoostModel.logLoss
+      case "logLoss" => XGBoostModel.logLoss
+      case _ => throw new RuntimeException("unknown loss type")
     }
     lossFun
   }
