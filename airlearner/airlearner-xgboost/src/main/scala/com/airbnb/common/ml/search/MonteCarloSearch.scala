@@ -20,6 +20,9 @@ trait MonteCarloSearch {
       x._2
     }).mkString("\001")
   }
+
+  // return loss based on prediction and label
+  def lossFunction: (Double, Double) => Double
 }
 
 object MonteCarloSearch extends ScalaLogging {
