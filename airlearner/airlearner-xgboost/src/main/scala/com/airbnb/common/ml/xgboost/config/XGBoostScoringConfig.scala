@@ -3,6 +3,8 @@ package com.airbnb.common.ml.xgboost.config
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 
+import scala.util.Try
+
 
 case class XGBoostScoringConfig(
     query: String,
@@ -11,6 +13,7 @@ case class XGBoostScoringConfig(
     overwrite: Boolean,
     partitionSpec: String,
     outputTable: String,
+    saveHiveTable: Boolean,
     groupNumber: Int
 )
 
@@ -23,6 +26,7 @@ object XGBoostScoringConfig {
     val overwrite = config.getBoolean("overwrite")
     val partitionSpec = config.getString("scoring_partition_spec")
     val outputTable = config.getString("scoring_table")
+    val saveHiveTable = Try(config.getBoolean("save_hive_table")).getOrElse(true)
     val groupNumber = config.getInt("group_number")
 
     XGBoostScoringConfig(
@@ -32,6 +36,7 @@ object XGBoostScoringConfig {
       overwrite,
       partitionSpec,
       outputTable,
+      saveHiveTable,
       groupNumber)
   }
 }
