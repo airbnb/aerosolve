@@ -247,7 +247,7 @@ object XGBoostPipeline extends ScalaLogging {
       localTrainFata = getDataFromHDFS(cfg.trainingDataDir, id, trainFile, cfg.tmpFolder)
       localEvalFata = getDataFromHDFS(cfg.evalDataDir, id, evalFile, cfg.tmpFolder)
 
-      val model = XGBoostModel.getModelByFile(localTrainFata, localEvalFata)
+      val model = XGBoostModel.getModelByFile(localTrainFata, localEvalFata, cfg.loss)
       val (param, loss) = MonteCarloSearch.run(
         model,
         cfg.paramMap,
@@ -447,7 +447,7 @@ object XGBoostPipeline extends ScalaLogging {
       val currentBest = data.map {
         case (id, (t, e)) => {
           logger.info(s"paramSearch $id")
-          val model = XGBoostModel.getModelByLabeledPoint(t, e)
+          val model = XGBoostModel.getModelByLabeledPoint(t, e, cfg.loss)
           val (param, loss) = MonteCarloSearch.run(
             model,
             cfg.paramMap,

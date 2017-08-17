@@ -1,31 +1,21 @@
 package com.airbnb.common.ml.xgboost.model
 
-import scala.collection.mutable
-
+import com.airbnb.common.ml.search.MonteCarloSearch
+import com.airbnb.common.ml.util.{PipelineUtil, ScalaLogging}
 import ml.dmlc.xgboost4j.LabeledPoint
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 
-import com.airbnb.common.ml.util.{PipelineUtil, ScalaLogging}
-import com.airbnb.common.ml.search.MonteCarloSearch
+import scala.collection.mutable
 
 
-class XGBoostModel(training: DMatrix, eval: DMatrix)
+class XGBoostModel(
+    training: DMatrix,
+    eval: DMatrix,
+    val lossFunction: (Double, Double) => Double)
   extends MonteCarloSearch {
 
   override def eval(params: Map[String, Any]): Double = {
-    val model = XGBoostModel.train(params, training)
-    val prediction = model.predict(eval)
-    val loss = eval.getLabel.zip(prediction).map(
-      a => {
-        math.abs(logLoss(a._2(0), a._1))
-      }
-    ).sum / prediction.length
-    model.dispose
-    loss
-  }
-
-  def logLoss(p: Double, y: Double): Double = {
-    -y * math.log(p) - (1 - y) * math.log(1 - p)
+    XGBoostModel.eval(training, eval, params, lossFunction)
   }
 
   override def dispose(): Unit = {
@@ -36,22 +26,67 @@ class XGBoostModel(training: DMatrix, eval: DMatrix)
 
 object XGBoostModel extends ScalaLogging {
 
+  def logLoss(p: Double, y: Double): Double = {
+    -y * math.log(p) - (1 - y) * math.log(1 - p)
+  }
+
+  def linearLoss(p: Double, y: Double): Double = {
+    math.abs((p - y)/y)
+  }
+
+  def eval(training: DMatrix,
+      eval: DMatrix,
+      params: Map[String, Any],
+      lossFunction: (Double, Double) => Double
+  ): Double = {
+    val model = XGBoostModel.train(params, training)
+    val prediction = model.predict(eval)
+
+    val loss = eval.getLabel.zip(prediction).map(
+      a => {
+        math.abs(lossFunction(a._2(0), a._1))
+      }
+    ).sum / prediction.length
+    model.dispose
+    loss
+  }
+
   def getModelByLabeledPoint(
       training: Seq[LabeledPoint],
-      eval: Seq[LabeledPoint]
+      eval: Seq[LabeledPoint],
+      loss: String
   ): XGBoostModel = {
     val trainingDMatrix = new DMatrix(training.iterator, null)
     val evalDMatrix = new DMatrix(eval.iterator, null)
-    new XGBoostModel(trainingDMatrix, evalDMatrix)
+    new XGBoostModel(trainingDMatrix, evalDMatrix, getLossFunction(loss))
   }
 
   def getModelByFile(
       training: String,
-      eval: String
+      eval: String,
+      loss: String
+  ): XGBoostModel = {
+    getModelByFileWithLoss(training, eval, getLossFunction(loss))
+  }
+
+  private def getLossFunction(loss: String): (Double, Double) => Double = {
+    val lossFun: (Double, Double) => Double = loss match {
+      case "linear" => XGBoostModel.linearLoss
+      case _ => XGBoostModel.logLoss
+    }
+    lossFun
+  }
+
+  private def getModelByFileWithLoss(
+      training: String,
+      eval: String,
+      loss: (Double, Double) => Double = logLoss
   ): XGBoostModel = {
     val trainingDMatrix = new DMatrix(training)
     val evalDMatrix = new DMatrix(eval)
-    new XGBoostModel(trainingDMatrix, evalDMatrix)
+    logger.info(s"trainingDMatrix ${trainingDMatrix.rowNum} ${evalDMatrix.rowNum}")
+
+    new XGBoostModel(trainingDMatrix, evalDMatrix, loss)
   }
 
   def train(params: Map[String, Any], training: DMatrix): ml.dmlc.xgboost4j.scala.Booster = {

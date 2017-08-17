@@ -22,7 +22,8 @@ case class XGBoostSearchConfig(
     evalDataDir: String,
     useModelPostfix: Boolean,
     reverse: Boolean,
-    tmpFolder: String
+    tmpFolder: String,
+    loss: String
 ) {
 }
 
@@ -55,6 +56,8 @@ object XGBoostSearchConfig {
     val reverse = config.getBoolean("reverse_search")
     val temFolder = Try(config.getString("tmp_folder")).getOrElse("/mnt/var/spark/tmp/")
 
+    val loss = Try(config.getString("loss")).getOrElse("logLoss")
+
     XGBoostSearchConfig(
       trainingData,
       evalData,
@@ -70,7 +73,8 @@ object XGBoostSearchConfig {
       evalDataDir,
       useModelPostfix,
       reverse,
-      temFolder)
+      temFolder,
+      loss)
   }
 
   def updateParamMap(
@@ -92,6 +96,7 @@ object XGBoostSearchConfig {
       cfg.evalDataDir,
       cfg.useModelPostfix,
       cfg.reverse,
-      cfg.tmpFolder)
+      cfg.tmpFolder,
+      cfg.loss)
   }
 }
