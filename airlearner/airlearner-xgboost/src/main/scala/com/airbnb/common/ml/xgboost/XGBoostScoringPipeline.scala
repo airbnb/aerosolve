@@ -56,9 +56,13 @@ object XGBoostScoringPipeline extends ScalaLogging {
     val output: RDD[String] = data.mapPartitions(scorePartition(conf.modelBasePath, conf
       .groupNumber))
 
-    val hc = new HiveContext(sc)
-    PipelineUtil.saveToHdfsAndUpdateHive(
-      hc, conf.outputPath, conf.outputTable, conf.partitionSpec, output, conf.overwrite)
+    if (conf.saveHiveTable) {
+      val hc = new HiveContext(sc)
+      PipelineUtil.saveToHdfsAndUpdateHive(
+        hc, conf.outputPath, conf.outputTable, conf.partitionSpec, output, conf.overwrite)
+    } else {
+      PipelineUtil.saveAndCommitAsTextFile(output, conf.outputPath, conf.overwrite)
+    }
   }
 
   def scoreWithPath(
