@@ -4,14 +4,53 @@ import scala.reflect.ClassTag
 import scala.util.Try
 
 import com.typesafe.config.Config
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 
-
 object HiveUtil {
+
+  /*
+   * Drop the specified Hive partition if it exists
+   */
+  def dropHivePartition(
+      hc: HiveContext,
+      hiveTableName: String,
+      hivePartitionSpecs: Map[String, Any]
+  ): Unit = {
+    if (!hiveTableName.contains('.')) {
+      throw new RuntimeException(s"Missing namespace for hive table: $hiveTableName.")
+    }
+
+    // Break the table name into namespace.table_name
+    val Array(namespace, table) = hiveTableName.split('.')
+    // Turn the partition spec map into a Hive-format String
+    val partitionSpec = hivePartitionSpecsMapToString(hivePartitionSpecs)
+
+    // Drop the partition if it exists
+    hc.sql(s"USE $namespace")
+    hc.sql(s"ALTER TABLE $table DROP IF EXISTS PARTITION ($partitionSpec)")
+  }
+
+  /*
+   * Drop the specified Hive partition if it exists
+   */
+  def dropHivePartition(
+      hc: HiveContext,
+      hiveTableName: String,
+      hivePartitionSpecs: String
+  ): Unit = {
+    if (!hiveTableName.contains('.')) {
+      throw new RuntimeException(s"Missing namespace for hive table: $hiveTableName.")
+    }
+
+    // Break the table name into namespace.table_name
+    val Array(namespace, table) = hiveTableName.split('.')
+
+    // Drop the partition if it exists
+    hc.sql(s"USE $namespace")
+    hc.sql(s"ALTER TABLE $table DROP IF EXISTS PARTITION ($hivePartitionSpecs)")
+  }
 
   def updateHivePartition(
       hc: HiveContext,
@@ -126,5 +165,22 @@ object HiveUtil {
       val hfileTable: String = config.getString("output_table_hfile")
       HiveUtil.updateHivePartition(hc, hfileTable, partitionSpec, output)
     }
+  }
+
+  /*
+   * Convert a partition_specs map to a usable Hive string.
+   * ex:
+   *   Map("ds" -> "2016-11-12", "night" -> 3)
+   *   =>
+   *   "ds='2016-11-12', night=3"
+   */
+  private def hivePartitionSpecsMapToString(hivePartitionSpecs: Map[String, Any]): String = {
+    hivePartitionSpecs
+      .map {
+        // If the value is string type, surround it by single-quotes
+        case (column, value: String) => s"$column='$value'"
+        case (column, value) => s"$column=$value"
+      }
+      .mkString(", ")
   }
 }
