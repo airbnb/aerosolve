@@ -340,35 +340,7 @@ object XGBoostPipeline extends ScalaLogging {
     }
   }
 
-  // search all node at the same time
-  def paramSearchWithPreparedData(sc: SparkContext, config: Config): Unit = {
-    val cfg = XGBoostSearchConfig.loadConfig(sc, config)
-    val data = ModelData.getDataFrame(sc, config.getString("node_query")).map(
-      row => {
-        row.getAs[String](0)
-      }
-    ).cache()
-    var lastBest: Option[RDD[(String, (String, Double))]] = None
-    for (a <- 1 to cfg.round) {
-      val currentBest = data.map(
-        id => {
-          (id, searchByID(id, cfg))
-        }
-      )
-      val best = getBestParams(lastBest, currentBest)
-      lastBest = Some(best)
-      // convert to string
-      val output = best.map {
-        case (id, (param, loss)) => {
-          s"$id\t$param\t$loss"
-        }
-      }
-      saveSearchedParam(sc, cfg, output, "")
-    }
-  }
-
-  // this is simlar to paramSearchWithPrepareData, with flatmap
-  // it is possible to use more executors when clusters are free
+  // use flatmap so that to use more executors when clusters are free
   def paramFlatSearchWithPreparedData(sc: SparkContext, config: Config): Unit = {
     val cfg = XGBoostSearchConfig.loadConfig(sc, config)
     val rawData = ModelData.getDataFrame(sc, config.getString("node_query")).map(
