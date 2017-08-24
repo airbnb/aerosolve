@@ -5,36 +5,37 @@ import scala.util.Try
 
 import com.typesafe.config.Config
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.execution.QueryExecutionException
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 
 object HiveUtil {
 
   /*
-   * Drop the specified Hive partition if it exists
-   */
-  def dropHivePartition(
+  * Check if partition exist in a table.
+  * */
+  def partitionExists(
       hc: HiveContext,
-      hiveTableName: String,
-      hivePartitionSpecs: Map[String, Any]
-  ): Unit = {
-    if (!hiveTableName.contains('.')) {
-      throw new RuntimeException(s"Missing namespace for hive table: $hiveTableName.")
+      hiveTable: String,
+      partitionSpec: String): Boolean = {
+
+    if (!hiveTable.contains('.')) {
+      throw new RuntimeException(s"Missing namespace for the hive table $hiveTable.")
+    }
+    val Array(namespace, table) = hiveTable.split('.')
+    hc.sql(s"USE $namespace")
+    try {
+      hc.sql(s"DESC $table PARTITION ($partitionSpec)").collect().map(_.getString(0))
+    } catch {
+      case e: QueryExecutionException => return false
     }
 
-    // Break the table name into namespace.table_name
-    val Array(namespace, table) = hiveTableName.split('.')
-    // Turn the partition spec map into a Hive-format String
-    val partitionSpec = hivePartitionSpecsMapToString(hivePartitionSpecs)
-
-    // Drop the partition if it exists
-    hc.sql(s"USE $namespace")
-    hc.sql(s"ALTER TABLE $table DROP IF EXISTS PARTITION ($partitionSpec)")
+    true
   }
 
   /*
-   * Drop the specified Hive partition if it exists
-   */
+  * Drop the specified Hive partition if it exists
+  */
   def dropHivePartition(
       hc: HiveContext,
       hiveTableName: String,
@@ -52,6 +53,17 @@ object HiveUtil {
     hc.sql(s"ALTER TABLE $table DROP IF EXISTS PARTITION ($hivePartitionSpecs)")
   }
 
+  /*
+   * Drop the specified Hive partition if it exists
+   */
+  def dropHivePartition(
+      hc: HiveContext,
+      hiveTableName: String,
+      hivePartitionSpecs: Map[String, Any]
+  ): Unit = {
+    dropHivePartition(hc, hiveTableName, hivePartitionSpecsMapToString(hivePartitionSpecs))
+  }
+
   def updateHivePartition(
       hc: HiveContext,
       hiveTable: String,
@@ -62,9 +74,26 @@ object HiveUtil {
       throw new RuntimeException(s"Missing namespace for the hive table $hiveTable.")
     }
     val Array(namespace, table) = hiveTable.split('.')
+    val partitionExists = partitionExists(hc, hiveTable, partitionSpec)
+
     hc.sql(s"USE $namespace")
-    hc.sql(s"ALTER TABLE $table DROP IF EXISTS PARTITION ($partitionSpec)")
-    hc.sql(s"ALTER TABLE $table ADD PARTITION ($partitionSpec) location '$hdfsLocation'")
+
+    if (partitionExists) {
+      // Copy committed values into temporary location, then drop partition.
+      val tmpLocation = s"${hdfsLocation}_tmp_${System.currentTimeMillis}"
+
+      try {
+        PipelineUtil.copyFiles(hdfsLocation, tmpLocation, false)
+        hc.sql(s"ALTER TABLE ${table} DROP IF EXISTS PARTITION (${partitionSpec})")
+        PipelineUtil.copyFiles(tmpLocation, hdfsLocation, true)
+      } catch {
+        case _: Throwable =>
+          PipelineUtil.deleteHDFSFiles(tmpLocation)
+          return false
+      }
+    }
+
+    hc.sql(s"ALTER TABLE $table ADD PARTITION (${partitionSpec}) location '${hdfsLocation}'")
     true
   }
 

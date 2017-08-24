@@ -71,11 +71,10 @@ object PipelineUtil extends ScalaLogging {
       result: RDD[U],
       overwrite: Boolean):Unit = {
 
-    if (overwrite) {
-      HiveUtil.dropHivePartition(hc, outputTable, partitionSpec)
-    }
     PipelineUtil.saveAndCommitAsTextFile(result, output, overwrite)
-    HiveUtil.updateHivePartition(hc, outputTable, partitionSpec, output)
+    if (overwrite) {
+      HiveUtil.updateHivePartition(hc, outputTable, partitionSpec, output)
+    }
   }
 
   def saveAndCommitAsTextFile[U](rdd: RDD[U], dest: String): Unit = {
