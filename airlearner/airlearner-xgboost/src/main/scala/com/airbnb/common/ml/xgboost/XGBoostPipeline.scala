@@ -261,7 +261,9 @@ object XGBoostPipeline extends ScalaLogging {
     }
     catch {
       case a: Throwable => {
-        logger.info(a.getLocalizedMessage)
+        logger.error(s"exception in searchByID ${id} ${a.getLocalizedMessage} ")
+        logger.error(s"localTrainFata $localTrainFata $localEvalFata ")
+        a.printStackTrace()
         // give a fake result so that the process continue
         ("1.0", 100)
       }
