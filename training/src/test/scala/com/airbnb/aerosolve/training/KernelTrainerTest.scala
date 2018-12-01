@@ -62,7 +62,7 @@ class KernelTrainerTest {
 
    @Test
    def testRandomHinge() = {
-     testKernelClassificationTrainer("hinge", "random", 0.7)
+     testKernelClassificationTrainer("hinge", "random", 0.65)
    }
 
    @Test

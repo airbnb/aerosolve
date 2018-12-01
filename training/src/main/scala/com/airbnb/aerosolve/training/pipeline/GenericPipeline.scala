@@ -389,6 +389,7 @@ object GenericPipeline {
 
     val examples = hiveTraining
       // ID, example
+      .rdd
       .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, isMulticlass)))
       .coalesce(numShards, true)
 
@@ -430,6 +431,7 @@ object GenericPipeline {
 
     val ex = hiveTraining
       // ID, example
+      .rdd
       .map(x => (x.getString(lastIdx), hiveTrainingToExample(x, origSchema, isMulticlass)))
       .take(count)
 
@@ -541,6 +543,7 @@ object GenericPipeline {
     val schema: Array[StructField] = hiveTraining.schema.fields.toArray
 
     hiveTraining
+      .rdd
       .map(x => hiveTrainingToExample(x, schema, isMulticlass))
   }
 

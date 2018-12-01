@@ -4,8 +4,9 @@ import java.io.File
 
 import com.airbnb.aerosolve.training.photon.ml.data.ConvertExamplesToPhotonMLAvroJob
 import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigResolveOptions}
-import org.apache.spark.{Logging, SparkConf}
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.internal.Logging
 
 import scala.collection.JavaConversions._
 

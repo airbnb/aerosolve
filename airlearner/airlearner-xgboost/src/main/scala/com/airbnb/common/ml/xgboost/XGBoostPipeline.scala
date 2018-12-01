@@ -326,7 +326,7 @@ object XGBoostPipeline extends ScalaLogging {
   def paramSearchWithPreparedDataByNode(sc: SparkContext, config: Config): Unit = {
     val cfg = XGBoostSearchConfig.loadConfig(sc, config)
 
-    val rawData = ModelData.getDataFrame(sc, config.getString("node_query")).map(
+    val rawData = ModelData.getDataFrame(sc, config.getString("node_query")).rdd.map(
       row => {
         row.getAs[String](0)
       }
@@ -345,7 +345,7 @@ object XGBoostPipeline extends ScalaLogging {
   // use flatmap so that to use more executors when clusters are free
   def paramFlatSearchWithPreparedData(sc: SparkContext, config: Config): Unit = {
     val cfg = XGBoostSearchConfig.loadConfig(sc, config)
-    val rawData = ModelData.getDataFrame(sc, config.getString("node_query")).map(
+    val rawData = ModelData.getDataFrame(sc, config.getString("node_query")).rdd.map(
       row => {
         row.getAs[String](0)
       }

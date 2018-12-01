@@ -11,6 +11,8 @@ allprojects {
         slf4j_api: 'org.slf4j:slf4j-api:1.7.9',
         slf4j_simple: 'org.slf4j:slf4j-simple:1.7.9',
         typesafe_config: 'com.typesafe:config:1.3.0',
+        org_typelevel_cats_core_2_11_1_0_1: 'org.typelevel:cats-core_2.11:1.0.1',
+        org_scala_lang_modules_scala_java8_compat_2_11: 'org.scala-lang.modules:scala-java8-compat_2.11:0.8.0',
     ]
   }
 }
