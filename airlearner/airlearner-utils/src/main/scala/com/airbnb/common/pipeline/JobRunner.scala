@@ -1,6 +1,5 @@
 package com.airbnb.common.pipeline
 
-import scala.tools.scalap.scalax.rules.Zero
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.config.Config
@@ -8,7 +7,6 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import com.airbnb.common.config.AirCon
 import com.airbnb.common.ml.util.ScalaLogging
-
 
 trait JobRunner extends ScalaLogging {
   def getRegisterKryoClasses: List[Class[_]] = {
@@ -48,7 +46,6 @@ trait JobRunner extends ScalaLogging {
       classOf[Array[Float]],
       classOf[Array[Int]],
       classOf[Array[Array[Float]]],
-      classOf[Zero],
       classOf[java.util.HashMap[_, _]],
       classOf[(_, _)]
     )

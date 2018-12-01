@@ -1,6 +1,6 @@
 package com.airbnb.common.ml.util
 
-import scala.collection.JavaConverters._
+import collection.JavaConverters._
 import scala.collection.immutable.Map
 import scala.util.Try
 

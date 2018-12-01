@@ -4,7 +4,8 @@ import java.io.File
 
 import com.airbnb.aerosolve.training.photon.ml.data.ConvertExamplesToPhotonMLAvroJob
 import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigResolveOptions}
-import org.apache.spark.{Logging, SparkConf, SparkContext}
+import org.apache.spark.{Logging, SparkConf}
+import org.apache.spark.sql.SparkSession
 
 import scala.collection.JavaConversions._
 
@@ -41,7 +42,12 @@ object JobRunner extends Logging {
     }
 
     val conf = new SparkConf().setAppName(name)
-    val sc = new SparkContext(conf)
+    val spark = SparkSession.builder
+      .config(conf)
+      .enableHiveSupport()
+      .getOrCreate()
+
+    val sc = spark.sparkContext
 
     for (job <- jobs) {
       log.info("Running job: %s".format(job))

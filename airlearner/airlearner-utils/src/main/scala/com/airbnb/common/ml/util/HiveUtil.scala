@@ -4,12 +4,10 @@ import scala.reflect.ClassTag
 import scala.util.Try
 
 import com.typesafe.config.Config
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.{DataFrame, Row}
-
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.Dataset
 
 object HiveUtil {
 
@@ -40,12 +38,12 @@ object HiveUtil {
   }
 
   def loadDataFromDataFrame[T](
-      data: DataFrame,
+      data: Dataset[Row],
       parseKeyFromHiveRow: (Row) => String,
       parseSampleFromHiveRow: (Row) => T
   )
     (implicit c: ClassTag[T]): RDD[(String, T)] = {
-    data.map(row => {
+    data.rdd.map(row => {
       val key = parseKeyFromHiveRow(row)
       val t = parseSampleFromHiveRow(row)
       (key, t)
@@ -53,11 +51,11 @@ object HiveUtil {
   }
 
   def loadDataFromDataFrameGroupByKey[T: ClassTag](
-      data: DataFrame,
+      data: Dataset[Row],
       parseKeyFromHiveRow: (Row) => String,
       parseSampleFromHiveRow: (Row) => T
   ): RDD[(String, Seq[T])] = {
-    data.map(row => {
+    data.rdd.map(row => {
       val key = parseKeyFromHiveRow(row)
       val t = parseSampleFromHiveRow(row)
       (key, t)
