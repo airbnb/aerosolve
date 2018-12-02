@@ -22,9 +22,7 @@ apply plugin: 'scalaStyle'
  */
 dependencies {
     compile libraries.scala_library_211
-
     compile libraries.scala_logging_slf4j_211
-    compile libraries.org_typelevel_cats_core_2_11_1_0_1
     compile libraries.org_scala_lang_modules_scala_java8_compat_2_11
 }
 
