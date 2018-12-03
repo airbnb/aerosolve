@@ -51,7 +51,7 @@ object XGBoostEvalPipeline extends ScalaLogging {
   }
 
   def getScoreFromHive(sc: SparkContext, query:String, modelId: Int, scoreIndex: Int, labelIndex: Int) = {
-    val rawData = ModelData.getDataFrame(sc, query).map(
+    val rawData = ModelData.getDataFrame(sc, query).rdd.map(
       row => {
         //id, label, score
         (row.getAs[String](modelId), row.getDouble(labelIndex), row.getDouble(scoreIndex))

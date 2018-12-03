@@ -1,12 +1,11 @@
 package com.airbnb.common.ml.strategy.trainer
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.hive.HiveContext
-
 import com.airbnb.common.ml.strategy.config.TrainingOptions
 import com.airbnb.common.ml.strategy.data.BaseBinarySample
 import com.airbnb.common.ml.strategy.testutil.CSVUtil
 import com.airbnb.common.ml.util.ScalaLogging
+import org.apache.spark.sql.hive.test.TestHiveContext
 
 
 object TrainerTestUtil extends ScalaLogging {
@@ -69,12 +68,11 @@ object TrainerTestUtil extends ScalaLogging {
       Option(cols(4).toDouble))
   }
 
-  def testSearchAllBestOptions(
-       training: String,
-       eval: String,
-       hc: HiveContext,
-       sc: SparkContext,
-       trainer: BinaryRegressionTrainer[BaseBinarySample]
+  def testSearchAllBestOptions(training: String,
+                               eval: String,
+                               hc: TestHiveContext,
+                               sc: SparkContext,
+                               trainer: BinaryRegressionTrainer[BaseBinarySample]
   ): Unit = {
     val options = TrainerTestUtil.getOptionsTanhv2()
     val trainingExamples = CSVUtil.parseCSVToRDD(

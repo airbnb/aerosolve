@@ -2,7 +2,7 @@ package com.airbnb.common.ml.util.testutil
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
-
+import org.apache.spark.sql.SparkSession
 
 object TestSparkContextProvider {
 
@@ -12,7 +12,12 @@ object TestSparkContextProvider {
     * @return SparkContext
     */
   def createContext(): SparkContext = {
-    new SparkContext(sparkConf())
+    val spark = SparkSession.builder
+      .config(sparkConf())
+      .enableHiveSupport()
+      .getOrCreate()
+
+    spark.sparkContext
   }
 
   /**

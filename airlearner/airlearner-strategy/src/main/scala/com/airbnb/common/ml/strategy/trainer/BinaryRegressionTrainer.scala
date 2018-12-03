@@ -48,6 +48,7 @@ trait BinaryRegressionTrainer[T <: BinaryTrainingSample]
   RDD[(String, StrategyParams[T])] = {
     hiveContext.sql(paramsQuery)
       // params share same key with training data.
+      .rdd
       .map(row => (trainingDataType.parseKeyFromHiveRow(row),
                     strategyParams.parseParamsFromHiveRow(row)))
   }

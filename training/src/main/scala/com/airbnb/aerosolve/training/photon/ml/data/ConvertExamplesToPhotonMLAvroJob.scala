@@ -156,6 +156,7 @@ object ConvertExamplesToPhotonMLAvroJob {
 
     // Read and cast to Examples
     val examples = hiveTraining
+      .rdd
       .map(x => GenericPipeline.hiveTrainingToExample(x, dataFrameSchema, false))
 
     // Pass through transformers
