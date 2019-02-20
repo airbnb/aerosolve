@@ -32,7 +32,7 @@ case class BaseParam (params: Array[Double] = Array()) extends StrategyParams[Ba
     // sech(x) = 1/ cosh(x)
     val cosh = math.cosh(prob)
     val gradC = grad * params(0) / (cosh * cosh)
-    val gradB = gradC * params(1)
+    val gradB = gradC * example.x
     Array(gradA, gradB, gradC)
   }
 }
