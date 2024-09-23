@@ -14,12 +14,12 @@ import com.airbnb.aerosolve.core.util.Util;
 import com.google.common.hash.HashCode;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.http.annotation.NotThreadSafe;
+import org.apache.http.annotation.Contract;
 
 /**
  * A linear model backed by a hash map.
  */
-@NotThreadSafe
+@Contract (threading = org.apache.http.annotation.ThreadingBehavior.UNSAFE)
 public class LinearModel extends AbstractModel {
 
   @Getter @Setter

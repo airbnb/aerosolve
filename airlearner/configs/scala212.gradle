@@ -3,7 +3,7 @@
  */
 
 ext {
-    scala211Version = '2.11.8'
+    scala212Version = '2.12.7'
 }
 
 // Language support
@@ -19,9 +19,9 @@ apply plugin: 'scala'
  * Additionally, don't include domain specific libraries such as Spark.
  */
 dependencies {
-    compile libraries.scala_library_211
-    compile libraries.scala_logging_slf4j_211
-    compile libraries.org_scala_lang_modules_scala_java8_compat_2_11
+    compile libraries.scala_library_212
+    compile libraries.scala_logging_slf4j_212
+    compile libraries.org_scala_lang_modules_scala_java8_compat_2_12
 }
 
 /**
@@ -66,7 +66,7 @@ tasks.withType(ScalaCompile) {
  */
 task repl(type: JavaExec) {
     dependencies {
-        compile group: 'org.scala-lang', name: 'scala-compiler', version: scala211Version
+        compile group: 'org.scala-lang', name: 'scala-compiler', version: scala212Version
     }
     main = 'scala.tools.nsc.MainGenericRunner'
     classpath = sourceSets.main.runtimeClasspath

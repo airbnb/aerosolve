@@ -128,7 +128,8 @@ object LinearRankerUtils {
                                modelBC: Broadcast[AdditiveModel],
                                isTraining: Example => Boolean = _ => true,
                                groupSize: Int = 100): RDD[SparseLabeledPoint] = {
-    val assemblerTimer = examples.sparkContext.accumulator(0L, "pointAssembler")
+    val assemblerTimer = examples.sparkContext.longAccumulator("pointAssembler")
+    assemblerTimer.reset()
 
     makePointwiseFloat(examples, transformer, groupSize)
       .mapPartitions {
@@ -200,7 +201,7 @@ object LinearRankerUtils {
                   TrainingUtils.getLabel(featureVector, params.rankKey, params.threshold)
                 }
 
-              assemblerTimer += (System.nanoTime() - t0)
+              assemblerTimer.add((System.nanoTime() - t0))
 
               new SparseLabeledPoint(
                 isTraining(example),
@@ -221,7 +222,8 @@ object LinearRankerUtils {
                           examples: RDD[Example],
                           transformer: Transformer,
                           groupSize: Int = 100): RDD[Example] = {
-    val transformerTimer = examples.sparkContext.accumulator(0L, "transformer")
+    val transformerTimer = examples.sparkContext.longAccumulator("transformer")
+    transformerTimer.reset()
     examples.flatMap(example => {
       transformer.transformContext(example.context)
       example.example.iterator().map(x => {
@@ -242,7 +244,7 @@ object LinearRankerUtils {
 
           val features = examples.iterator.flatMap(_.example).toIterable.asJava
           transformer.transformCombined(features)
-          transformerTimer += (System.nanoTime() - t0)
+          transformerTimer.add((System.nanoTime() - t0))
 
           examples
       }

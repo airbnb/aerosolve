@@ -11,7 +11,8 @@ import com.typesafe.config.Config
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{Accumulator, SparkContext}
+import org.apache.spark.SparkContext
+import org.apache.spark.util.{DoubleAccumulator, LongAccumulator}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConversions._
@@ -138,8 +139,8 @@ object AdditiveModelTrainer {
   import LossFunctions._
 
   case class SgdParams(params: AdditiveTrainerParams,
-                       exampleCount: Accumulator[Long],
-                       loss: Accumulator[Double])
+                       exampleCount: LongAccumulator,
+                       loss: DoubleAccumulator)
 
   case class LossParams(function: LossFunction,
                         lossMod: Int,
@@ -250,7 +251,7 @@ object AdditiveModelTrainer {
     var validationLosses = List(Double.MaxValue)
     var bestValidationLoss = Double.MaxValue
     var bestIteration = 0
-    val sgdParams = SgdParams(params, sc.accumulator(0), sc.accumulator(0))
+    val sgdParams = SgdParams(params, sc.longAccumulator("exampleCount"), sc.doubleAccumulator("loss"))
     var i = 0
     while (i < iterations &&
       (params.loss.earlyStopping == 0 || (i - bestIteration) < params.loss.earlyStopping) &&
@@ -273,8 +274,8 @@ object AdditiveModelTrainer {
       log.info(s"iterations $i Loss = $loss count = ${sgdParams.exampleCount.value} lr = $learningRate")
 
       // reset loss accumulator
-      sgdParams.loss.setValue(0.0)
-      sgdParams.exampleCount.setValue(0L)
+      sgdParams.loss.reset()
+      sgdParams.exampleCount.reset()
 
       // validate loss on validation dataset
       modelBC = sc.broadcast(model)
@@ -284,8 +285,8 @@ object AdditiveModelTrainer {
         log.info(s"iterations $i Loss = $validationLoss count = ${sgdParams.exampleCount.value} (validation)")
 
         // reset loss accumulator
-        sgdParams.loss.setValue(0.0)
-        sgdParams.exampleCount.setValue(0L)
+        sgdParams.loss.reset()
+        sgdParams.exampleCount.reset()
 
         // update validation loss and save model if we get a better result
         if (validationLoss < bestValidationLoss) {
@@ -515,12 +516,12 @@ object AdditiveModelTrainer {
       lossCount += 1
       if (lossCount % params.loss.lossMod == 0) {
         log.info(s"Loss = ${lossSum / params.loss.lossMod}, samples = $lossCount")
-        sgdParams.loss += lossSum
+        sgdParams.loss.add(lossSum)
         lossSum = 0.0
       }
     })
-    sgdParams.loss += lossSum
-    sgdParams.exampleCount += lossCount
+    sgdParams.loss.add(lossSum)
+    sgdParams.exampleCount.add(lossCount)
 
     if (lossOnly) Iterator.empty
     else

@@ -6,7 +6,7 @@ apply plugin: 'java'
 apply plugin: 'com.jfrog.bintray'
 
 // Includes 'scala' plugin
-apply from: "$rootDir/airlearner/configs/scala211.gradle"
+apply from: "$rootDir/airlearner/configs/scala212.gradle"
 
 repositories {
   mavenLocal()
@@ -20,8 +20,8 @@ dependencies {
   compile libraries.slf4j_simple
   compile libraries.typesafe_config
 
-  provided "org.apache.spark:spark-core_2.11:${sparkVersion}"
-  provided "org.apache.spark:spark-hive_2.11:${sparkVersion}"
+  provided "org.apache.spark:spark-core_2.12:${sparkVersion}"
+  provided "org.apache.spark:spark-hive_2.12:${sparkVersion}"
 }
 
 bintray {
