@@ -144,8 +144,8 @@ public class Debug  {
   // Save example to path
   // If you hit permission error, touch and chmod the file
   public static void saveExample(Example example, String path) {
-    TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
     try {
+      TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
       byte[] buf = serializer.serialize(example);
       FileOutputStream fos = new FileOutputStream(path);
       fos.write(buf);

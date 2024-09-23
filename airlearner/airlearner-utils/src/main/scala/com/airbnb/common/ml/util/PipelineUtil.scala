@@ -15,7 +15,7 @@ import org.apache.hadoop.io.compress.{CompressionCodec, GzipCodec}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.{Accumulator, SparkContext}
+import org.apache.spark.SparkContext
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.joda.time.{DateTime, Days}
 
@@ -297,52 +297,6 @@ object PipelineUtil extends ScalaLogging {
       if (row.isNullAt(i)) return false
     }
     true
-  }
-
-  // Create a pair of spark accumulators that track (success, failure) counts.
-  def addStatusAccumulators(sc: SparkContext,
-      accName: String,
-      accumulators: mutable.Map[String, Accumulator[Int]]): Unit = {
-    accumulators.put(accName + ".success", sc.accumulator(0, accName + ".success"))
-    accumulators.put(accName + ".failure", sc.accumulator(0, accName + ".failure"))
-  }
-
-
-  def countAllFailureCounters(accumulators: mutable.Map[String, Accumulator[Int]]): Long = {
-    var failureCount = 0
-    for ( (name, accumulator) <- accumulators) {
-      logger.info("- Accumulator {} : {}", name, accumulator.value.toString )
-      if (name.endsWith(".failure")) {
-        failureCount += accumulator.value
-      }
-    }
-    failureCount
-  }
-
-  def validateSuccessCounters(accumulators: mutable.Map[String, Accumulator[Int]],
-      minSuccess: Int): Boolean = {
-    for ( (name, accumulator) <- accumulators) {
-      if (name.endsWith(".success") && accumulator.value < minSuccess) {
-        logger.error("Failed counter: {} = {} < {}", name, accumulator.value.toString, minSuccess.toString)
-        return false
-      }
-    }
-    true
-  }
-
-  // TODO(kim): cleanup, write to hdfs directly instead of via SparkContext.
-  def saveCountersAsTextFile(accumulators: mutable.Map[String, Accumulator[Int]],
-      sc: SparkContext,
-      hdfsFilePath: String): Unit = {
-    var summary = Array("Summarizing counters:")
-
-    for ( (name, accumulator) <- accumulators) {
-      val logLine = "- %s = %d".format(name, accumulator.value )
-      summary :+= logLine
-      logger.info(logLine)
-    }
-
-    saveAndCommitAsTextFile(sc.parallelize(summary), hdfsFilePath, 1, true)
   }
 
   def getHDFSBufferedOutputStream(output: String): BufferedOutputStream = {

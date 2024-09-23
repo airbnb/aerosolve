@@ -9,8 +9,6 @@ ext {
 // Language support
 apply plugin: 'java'
 apply plugin: 'scala'
-// Tooling support
-apply plugin: 'scalaStyle'
 
 
 /**
@@ -58,18 +56,6 @@ tasks.withType(ScalaCompile) {
     debugLevel = 'vars'
     additionalParameters = getScalaCompileAdditionalParameters()
   }
-}
-
-
-/**
- * Automated Scala style checking as part of the build check task
- */
-check.dependsOn << ['scalaStyle']
-scalaStyle {
-  configLocation = "$rootDir/airlearner/configs/scalastyle_config.xml"
-  source = 'src/main/scala'
-  testSource = 'src/test/scala'
-  includeTestSourceDirectory = true
 }
 
 

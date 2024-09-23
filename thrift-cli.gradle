@@ -1,7 +1,7 @@
 apply plugin: "java"
 
 dependencies {
-  compile 'org.apache.thrift:libthrift:0.9.1'
+  compile 'org.apache.thrift:libthrift:0.20.0'
 }
 
 def genJavaDir = new File("${->buildDir}/gen-java")

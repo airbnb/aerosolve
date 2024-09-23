@@ -49,8 +49,8 @@ public class Util implements Serializable {
   // manipulate in spark. e.g. if we  wanted to see the 50 weights in a model
   // val top50 = sc.textFile("model.bz2").map(Util.decodeModel).sortBy(x => -x.weight).take(50);
   public static String encode(TBase obj) {
-    TSerializer serializer = new TSerializer();
     try {
+      TSerializer serializer = new TSerializer();
       byte[] bytes = serializer.serialize(obj);
       return new String(Base64.encodeBase64(bytes));
     } catch (Exception e) {
