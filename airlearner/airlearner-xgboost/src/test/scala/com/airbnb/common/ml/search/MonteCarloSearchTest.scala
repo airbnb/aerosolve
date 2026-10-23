@@ -9,6 +9,15 @@ import com.airbnb.common.ml.util.ScalaLogging
 class MonteCarloSearchTest extends ScalaLogging {
 
   @Test
+  def testIntegerBoundsIncludeUpperEndpoint(): Unit = {
+    val lastOffset = new scala.util.Random(0) {
+      override def nextInt(n: Int): Int = n - 1
+    }
+    val sampled = MonteCarloSearch.getParams(List("max_depth" -> List(3, 5)), lastOffset)
+    assertEquals(5, sampled.head._2.asInstanceOf[Int])
+  }
+
+  @Test
   def testParams(): Unit = {
     val randomizer = scala.util.Random
     val paramMap = List(
