@@ -13,7 +13,7 @@ object RandomUtil {
   def randomInt(bounds: Seq[Any], randomizer: Random): Int = {
     val min = bounds.head.asInstanceOf[Int]
     val max = bounds.tail.head.asInstanceOf[Int]
-    randomizer.nextInt(max - min) + min
+    randomizer.nextInt(max - min + 1) + min
   }
 
   def randomNumber(bounds: Seq[Any], randomizer: Random): Any = {
